@@ -1,0 +1,53 @@
+[project]
+name = "luregen"
+version = "0.1.0"
+description = "Config-driven pipeline: profile image + TOML spec → balanced fishing-lure CAD → 3D-print or CNC G-code"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+# All runtime dependencies for F1–F7 are pinned here up front so parallel
+# feature branches never need to touch uv.lock (see CLAUDE.md, "Parallel work").
+dependencies = [
+    "build123d==0.13.0",
+    "cadquery-ocp-novtk==8.0.1.1.0",
+    "numpy>=2.3,<3",
+    "scipy>=1.15,<2",
+    "opencv-python-headless>=4.11,<6",
+    "scikit-image==0.26.0",
+    "pyefd==1.8.0",
+    "trimesh==5.2.1",
+    "manifold3d==3.5.5",
+    "shapely>=2.2,<3",
+    "matplotlib>=3.9,<4",
+    "pydantic>=2.9,<3",
+    "typer>=0.15,<1",
+    "tomli-w>=1.1,<2",
+]
+
+[project.scripts]
+lure = "luregen.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.8"]
+viewer = ["ocp-vscode==4.2.0"]
+
+[build-system]
+requires = ["uv_build>=0.10,<0.11"]
+build-backend = "uv_build"
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: needs external binaries or network; skipped in CI"]
+addopts = "-m 'not integration'"
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option"]

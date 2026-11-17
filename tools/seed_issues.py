@@ -24,9 +24,7 @@ import yaml
 
 
 def gh_api(*args: str, stdin: str | None = None) -> dict | list:
-    out = subprocess.run(
-        ["gh", "api", *args], input=stdin, capture_output=True, text=True
-    )
+    out = subprocess.run(["gh", "api", *args], input=stdin, capture_output=True, text=True)
     if out.returncode != 0:
         sys.exit(f"gh api {' '.join(args)} failed:\n{out.stderr}")
     return json.loads(out.stdout) if out.stdout.strip() else {}
@@ -66,7 +64,8 @@ def main() -> None:
         if parent and not a.dry_run and not state[key]["linked"]:
             gh_api(
                 f"repos/{a.repo}/issues/{state[parent]['number']}/sub_issues",
-                "-F", f"sub_issue_id={state[key]['id']}",
+                "-F",
+                f"sub_issue_id={state[key]['id']}",
             )
             state[key]["linked"] = True
             state_path.write_text(json.dumps(state, indent=2))
