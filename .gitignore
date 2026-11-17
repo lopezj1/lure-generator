@@ -1,0 +1,26 @@
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+*.egg-info/
+
+# Pipeline outputs
+builds/
+
+# Slicer binaries
+*.AppImage
+squashfs-root/
+
+# Local-only notes and settings
+CLAUDE.local.md
+.claude/settings.local.json
+PLAN.md
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

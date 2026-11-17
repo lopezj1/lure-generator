@@ -1,0 +1,31 @@
+name: Feature
+description: A shippable slice of the pipeline; built on its own branch + worktree and merged by one PR.
+title: "[Feature] "
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What this feature delivers and why.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and design notes
+      description: Decisions, constraints, references. Keep this current; it is the source of truth.
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Acceptance checklist.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: input
+    id: parent
+    attributes:
+      label: Parent epic
+      value: "#1"

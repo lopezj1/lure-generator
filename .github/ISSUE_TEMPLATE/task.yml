@@ -1,0 +1,28 @@
+name: Task
+description: One unit of work inside a feature (sub-issue of the feature).
+title: "[Task] "
+labels: ["type:task"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: touches
+    attributes:
+      label: Files / modules touched
+  - type: input
+    id: deps
+    attributes:
+      label: Depends on
+      placeholder: "#12, #13"
