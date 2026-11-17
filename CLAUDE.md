@@ -39,17 +39,20 @@ Python 3.13 via uv. System libs needed by the OCP wheel: `libgl1 libx11-6`. Slic
   gh api graphql -f query='mutation($p:ID!,$c:ID!){addSubIssue(input:{issueId:$p,subIssueId:$c}){issue{number}}}' -f p="$P" -f c="$C"
   ```
 - **The issue body is the current truth. Comments are history.** When a decision changes scope or design, edit the body (and the epic's decisions list if it's cross-cutting), then mention the change in a comment.
+- `gh` 2.23's `gh pr edit` fails (it queries the deprecated classic Projects API). Edit PR bodies with `gh api -X PATCH repos/lopezj1/lure-generator/pulls/<n> --input -` and a `{"body": …}` JSON payload. `gh pr create`, `gh issue …` and `gh api` work.
 
 ## Branch / worktree / PR workflow
 
-- Never commit to `main`. One branch + worktree per **feature**:
+- Never commit to `main`. One branch + worktree per **feature**, inside the project (gitignored, excluded from ruff) so it stays within Claude Code's working directory:
   ```
   git fetch origin
-  git worktree add ../lure-generator.wt/<feature#>-<slug> -b feat/<feature#>-<slug> origin/main
+  git worktree add .claude/worktrees/<feature#>-<slug> -b feat/<feature#>-<slug> origin/main
+  cd .claude/worktrees/<feature#>-<slug> && uv sync
   ```
+  Create worktrees by hand with this naming, not with the agent tool's auto-named worktree isolation; branch names tie work to issues.
 - Commits reference the task: `profile: fit EFD contour (#14)`.
-- When the feature is done, open one PR (template in `.github/`). It has `Closes #<feature>` and a `Closes #<task>` line per completed task, and gets squash-merged.
-- After merge: `git worktree remove ../lure-generator.wt/<feature#>-<slug>` and delete the branch.
+- When the feature is done, open one PR (template in `.github/`). It has `Closes #<feature>` and a `Closes #<task>` line per completed task, and gets squash-merged by the owner on GitHub.
+- **Cleanup after merge:** GitHub deletes the remote branch automatically (`delete_branch_on_merge` is on). Local worktrees and branches are removed by `tools/cleanup_worktrees.sh`, which runs at the start of every session (see Session protocol). It removes a worktree only when its PR is merged, the merged head equals the local branch tip, and there are no uncommitted changes; everything else is kept and reported. Use `--dry-run` to preview.
 
 ## Parallel work (subagents + worktrees)
 
@@ -70,7 +73,9 @@ Python 3.13 via uv. System libs needed by the OCP wheel: `libgl1 libx11-6`. Slic
 
 ## Session protocol
 
-1. **Start:** identify the active feature/task (ask if unclear), then `gh issue view <n> --comments` for it and its parent feature.
+1. **Start:**
+   - From the main checkout, run `git pull --ff-only` on `main` and then `tools/cleanup_worktrees.sh` to clear merged feature worktrees. Mention anything it kept that looks stale.
+   - Identify the active feature/task (ask if unclear), then `gh issue view <n> --comments` for it and its parent feature.
 2. **During:** keep work inside that feature's worktree. If something affects another feature, comment on that issue.
 3. **End:** post a session log comment on each issue worked on:
    ```
