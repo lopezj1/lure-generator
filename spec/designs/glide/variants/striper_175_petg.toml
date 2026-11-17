@@ -1,0 +1,78 @@
+# First buildable glide: 175 mm PETG print, slow sink in salt water.
+extends = "../family.toml"
+name = "striper_175_petg"
+
+[size]
+length_mm = 175
+# target_weight_oz = 2.0   # alternative: solve length from weight (set one, not both)
+
+[process]
+method = "print"
+body_style = "loft3d"
+material = "PETG"
+rigging = "screw_eye"
+
+# Positions are placeholders until F3 places the bosses; masses come from spec/hardware.
+[[hardware]]
+id = "screw_eye_210"
+name = "Line tie"
+section = "head"
+x_mm = 2
+z_mm = -4
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Belly hanger eye"
+section = "head"
+x_mm = 55
+z_mm = -22
+
+[[hardware]]
+id = "treble_2"
+name = "Belly treble"
+section = "head"
+x_mm = 55
+z_mm = -30
+
+[[hardware]]
+id = "split_ring_4"
+name = "Belly split ring"
+section = "head"
+x_mm = 55
+z_mm = -25
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Hinge eyes (head)"
+section = "head"
+x_mm = 86
+z_mm = -3
+qty = 2
+
+[[hardware]]
+id = "hinge_pin_1p6x30"
+name = "Hinge pin"
+section = "tail"
+x_mm = 90
+z_mm = -3
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Tail hanger eye"
+section = "tail"
+x_mm = 160
+z_mm = -8
+
+[[hardware]]
+id = "treble_2"
+name = "Tail treble"
+section = "tail"
+x_mm = 165
+z_mm = -14
+
+[[hardware]]
+id = "split_ring_4"
+name = "Tail split ring"
+section = "tail"
+x_mm = 162
+z_mm = -10

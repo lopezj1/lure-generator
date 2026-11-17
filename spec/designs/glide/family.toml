@@ -1,0 +1,29 @@
+# Glide bait family defaults: two sections joined by a V-joint, tuned for a level hang.
+extends = "../_common.toml"
+family = "glide"
+
+[profile]
+source = "preset"
+preset = "profiles/presets/placeholder_175.csv"
+n_stations = 23
+section_shape = "ellipse"
+width_rule = { mode = "ratio_of_depth", value = 0.34 }
+
+[joint]
+joint_frac = 0.50
+gap_mm = 2.3
+angle_deg = 37
+hinge_eye_z = [-12, 6]
+line_tie_z = -4
+
+[buoyancy]
+head_density = [1.00, 1.05]
+tail_density = [0.70, 0.80]
+head_tail_mass_ratio = 2.4
+level_tolerance_mm = 1.0
+cb_above_cg_frac = 0.08
+trim_pocket = true
+
+[ballast]
+x_from_joint_mm = 22
+z_above_belly_mm = 6

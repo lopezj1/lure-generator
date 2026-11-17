@@ -1,0 +1,5 @@
+[split_ring_4]
+name = "Split ring #4"
+mass_g = [0.25, 0.35]
+material = "stainless"
+measured = false

@@ -1,0 +1,6 @@
+# Stock ballast pieces, for reference and for pinning `ballast.mass_g`.
+[sinker_quarter_oz]
+name = "1/4 oz sinker"
+mass_g = [7.0, 7.2]
+material = "lead"
+measured = false

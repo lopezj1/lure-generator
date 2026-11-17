@@ -1,0 +1,5 @@
+[screw_eye_210]
+name = "Stainless screw eye #210"
+mass_g = [0.25, 0.35]
+material = "stainless"
+measured = false
