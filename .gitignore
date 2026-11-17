@@ -18,7 +18,6 @@ squashfs-root/
 # Local-only notes and settings
 CLAUDE.local.md
 .claude/settings.local.json
-PLAN.md
 
 # OS / editor
 .DS_Store

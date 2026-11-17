@@ -1,0 +1,611 @@
+# Issue manifest for lopezj1/lure-generator.
+# `key` is a local id; `parent` refers to a key. The seed script creates issues in file order,
+# links each one under its parent with addSubIssue, and records key → number in issues.state.json
+# so that re-running it never creates duplicates.
+
+- key: epic
+  title: "[Epic] Lure generator v1: glide bait, image → balanced CAD → U1 print / Shapeoko CNC"
+  labels: [type:epic]
+  body: |
+    ## Goal
+    A code-first, config-driven pipeline that turns a **profile image + TOML spec** into a **balanced lure CAD model** and then into **G-code** for either:
+    - a **Snapmaker U1** printer (OrcaSlicer CLI), or
+    - a **Shapeoko 3 XXL** router (Carbide Motion, GRBL 1.1 fork).
+
+    The first family is a two-section jointed **glide bait** for striped bass.
+
+    ## Requirements (glide bait)
+    | ID | Requirement | Target |
+    |---|---|---|
+    | F1 | Level static hang | Fore/aft CG − CB ≤ 1 mm, whole lure with hardware |
+    | F2 | Self-righting | CB above CG by ~8% of max body depth |
+    | F3 | Sink behavior | float / suspend / slow sink. Default slow sink in salt water (~1.03–1.06 g/cm³ with hardware). |
+    | F4 | Section balance | Mass, displacement, CG and CB solved **per section** |
+    | F5 | Heavy head, buoyant tail | Head ~1.00–1.05 g/cm³, tail ~0.70–0.80. Head:tail mass ~2.4:1. |
+    | F6 | Hardware as point masses | Measured mass and position for each part |
+    | F7 | Strength | Through-wire option for wood/CNC. Screw eyes only into solid printed bosses. |
+    | F8 | Profile flexibility | Any station table (perch, menhaden, mullet) |
+    | F9 | Size scaling | 100–250 mm with ratios held and ballast re-solved |
+    | F10 | Water-tight | One sealed void per printed section, none for wood |
+
+    Starting values come from measuring one reference glide bait. Tank tests (F8 feature) recalibrate them.
+
+    ## Feasibility (researched 2026-11-17)
+    | Piece | Verdict |
+    |---|---|
+    | Image → spline profile | Easy. OpenCV contour, EFD or spline smoothing, ArUco or known-length scale. |
+    | Pointed station loft + sealed cavity + mass properties | Proven in a build123d 0.13 test on this machine. `offset_3d` segfaults, so cavities are explicit inset lofts. |
+    | 2.5D CNC body (flat sides + roundover) | Works if the outline is two splines (dorsal + ventral), not one closed spline |
+    | Headless slicing for the U1 | Upstream OrcaSlicer 2.5.1 CLI with the stock `0.20 Standard @Snapmaker U1` profile |
+    | CAM for Shapeoko | No maintained pip CAM library, so a small custom one: shapely for 2.5D, a heightmap drop-cutter for 3D, and a template-driven Carbide Motion post |
+
+    ## Key decisions
+    1. One uv project with one `lure` CLI (`profile`, `build`, `check`, `fab`, `sync-profiles`, `analyze-gcode`). Python 3.13, build123d 0.13.
+    2. `spec/` holds data and `src/luregen/` holds behavior. Config layers as `_common` ← family ← variant ← `--set`.
+    3. A profile always becomes a **station table** (x, center_z, v_radius, half_width). Images and presets share that path.
+    4. **The weight target drives scale.** Set `length_mm` *or* `target_weight_oz`, and L scales with m^(1/3).
+    5. One outer shape and one set of balance targets. Internals and DFM rules depend on `process` (print/cnc) and `body_style` (loft3d/profile25d).
+    6. Hardware masses are **[min, max] ranges**. The build fails if either end breaks the sink mode or level hang, and a trim pocket absorbs the band.
+    7. Every build is reproducible: `builds/<family>/<variant>/<ts>-<sha>/` with `resolved.toml` and `report.json`.
+
+    ## Roadmap
+    The features below are sub-issues, in order. F6 and F7 can run in parallel once F5 is done.
+
+    ## Risks
+    - Slicer CLI regressions: pin the binary version and keep the Snapmaker Orca fork as a fallback.
+    - OCCT boolean or fillet failures: assert validity after every op, keep ≥1 mm between features, and run risky ops in a subprocess.
+    - Density bands are guesses until tank tests.
+    - Wood density varies from blank to blank: weigh each blank and re-solve before machining.
+
+    ## Workflow
+    See `CLAUDE.md`. In short: one branch and worktree per feature, one PR per feature, and session logs posted as issue comments.
+
+- key: f0
+  parent: epic
+  title: "[Feature] F0 Repo scaffold, config system and tooling"
+  labels: [type:feature, area:infra]
+  body: |
+    ## Goal
+    A runnable skeleton: uv project, `lure` CLI, a layered config system, the `spec/` data layout, the build output convention, and CI.
+
+    ## Design notes
+    **Repo layout:**
+    ```
+    spec/
+      materials.toml                  # densities: plastics, woods, resins, ballast, steel, water, finishes
+      hardware/{hooks,split_rings,screw_eyes,pins,wire,ballast}.toml   # measured [min,max] g, by id
+      designs/_common.toml
+      designs/glide/{family.toml, profiles/, variants/}
+      printers/snapmaker_u1/{machine.toml, profiles/, reference/}
+      routers/shapeoko3_xxl/{machine.toml, post.toml, tools.toml, feeds.toml, reference/}
+    src/luregen/{config,profile,families,geometry,physics,dfm,fab/{printer,router},report}/ cli.py
+    tools/  tests/{unit,golden,fixtures}/  builds/ (gitignored)  field/
+    ```
+    **Config layering:** `_common.toml` ← `family.toml` ← variant (`extends = …`) ← `--set a.b=c`. Validated with pydantic. The resolved result is written to the build folder.
+
+    **Weights are fully parameterized:**
+    | What | Where | Change later by |
+    |---|---|---|
+    | Hardware masses | `spec/hardware/*.toml` [min,max] | Edit the catalog, or override per variant |
+    | Material densities | `spec/materials.toml` | Edit, or `--set process.material_density=0.43` |
+    | Target weight | variant `[size] target_weight_oz` | Edit or `--set` (length re-solves) |
+    | Sink mode, density bands | `_common` → family → variant | Edit or `--set`, recalibrated from `field/` |
+    | Ballast mass | solver output | Pin it with `ballast.mass_g` |
+
+    **Core dependencies:** build123d==0.13.0, cadquery-ocp-novtk==8.0.1.1.0, numpy, scipy, opencv-python-headless, scikit-image, pyefd, trimesh, manifold3d, shapely, pydantic>=2, typer. Dev: pytest, ruff, ocp-vscode.
+
+    ## Done when
+    - [ ] `uv run lure --help` lists every subcommand (stubs are fine)
+    - [ ] A sample glide variant resolves through all layers, and `--set` overrides work
+    - [ ] Running `lure build` on the sample creates a build folder with `resolved.toml`
+    - [ ] CI runs ruff and pytest green on PRs
+
+- key: f0t1
+  parent: f0
+  title: "[Task] uv project, dependency pins and `lure` CLI skeleton"
+  labels: [type:task, area:infra]
+  body: |
+    ## Goal
+    Set up `pyproject.toml` (Python >=3.12,<3.14, src layout, package `luregen`, script `lure = luregen.cli:app`) and pin the dependencies listed in F0. Add a Typer app with stub subcommands: `profile`, `build`, `check`, `fab`, `sync-profiles`, `analyze-gcode`. Add ruff config.
+    ## Acceptance
+    - [ ] `uv sync && uv run lure --help` works on a clean checkout
+    - [ ] `import build123d` works (document `apt install libgl1 libx11-6` in the README)
+    - [ ] ruff config committed and passing
+    ## Files / modules touched
+    `pyproject.toml`, `uv.lock`, `src/luregen/__init__.py`, `src/luregen/cli.py`, `README.md`
+
+- key: f0t2
+  parent: f0
+  title: "[Task] Config loader: extends layering, --set overrides, pydantic models"
+  labels: [type:task, area:infra]
+  body: |
+    ## Goal
+    Load a variant TOML, follow its `extends` chain (variant → family → `_common`), deep-merge, apply dotted `--set key=value` overrides with type coercion, and validate into pydantic models (size, profile, joint, buoyancy, hardware refs, process, dfm). Resolve hardware ids against `spec/hardware/*.toml` and materials against `spec/materials.toml`.
+    ## Acceptance
+    - [ ] Unit tests: merge precedence, list replacement semantics, `--set` coercion, unknown-key errors
+    - [ ] Exactly one of `size.length_mm` and `size.target_weight_oz` is required
+    - [ ] `resolved.toml` round-trips, so loading it gives an identical model
+    ## Files / modules touched
+    `src/luregen/config/`
+    ## Depends on
+    {{f0t1}}
+
+- key: f0t3
+  parent: f0
+  title: "[Task] spec/ skeleton: materials, hardware catalog, glide family + first variant"
+  labels: [type:task, area:infra]
+  body: |
+    ## Goal
+    Create the data skeleton:
+    - `materials.toml`: PETG, ASA, PLA, resin, basswood, cedar, PVC board, tungsten, lead, steel; salt water 1.025, fresh 1.000
+    - `hardware/*.toml` with placeholder entries flagged `measured = false`
+    - `designs/_common.toml`
+    - `designs/glide/family.toml` with the defaults and ranges from the epic requirements and the joint, buoyancy and envelope parameter tables
+    - `designs/glide/variants/striper_175_petg.toml`
+    - empty `printers/snapmaker_u1/` and `routers/shapeoko3_xxl/` folders with READMEs
+    ## Acceptance
+    - [ ] The sample variant validates with the F0 config loader
+    - [ ] Placeholder hardware is reported as unmeasured, which raises a warning in builds
+    ## Files / modules touched
+    `spec/**`
+    ## Depends on
+    {{f0t2}}
+
+- key: f0t4
+  parent: f0
+  title: "[Task] Build folder convention and report skeleton"
+  labels: [type:task, area:infra]
+  body: |
+    ## Goal
+    `lure build` creates `builds/<family>/<variant>/<YYYYMMDD-HHMM>-<gitsha>/` (adding `-dirty` when the tree has uncommitted changes) and updates a `latest` symlink. It writes `resolved.toml` and an empty `report.json`/`report.md` scaffold that later features fill in.
+    ## Acceptance
+    - [ ] Two consecutive builds create two folders, and `latest` points to the newer one
+    - [ ] `lure check <build>` loads a build folder
+    ## Files / modules touched
+    `src/luregen/report/`, `src/luregen/cli.py`
+    ## Depends on
+    {{f0t2}}
+
+- key: f0t5
+  parent: f0
+  title: "[Task] CI: GitHub Actions for ruff + pytest"
+  labels: [type:task, area:infra]
+  body: |
+    ## Goal
+    A workflow on push and PR: install uv, `apt-get install libgl1 libx11-6`, `uv sync`, `uv run ruff check`, `uv run pytest`. Cache the uv cache.
+    ## Acceptance
+    - [ ] Green on the F0 PR
+    ## Files / modules touched
+    `.github/workflows/ci.yml`
+    ## Depends on
+    {{f0t1}}
+
+- key: f1
+  parent: epic
+  title: "[Feature] F1 Profile extraction: image → station table"
+  labels: [type:feature, area:profile]
+  body: |
+    ## Goal
+    Turn a side-profile photo (plus an optional top view) into a clean, scaled **station table** (`x, center_z, v_radius, half_width`), with a debug overlay for visual approval.
+
+    ## Design notes
+    - **Segmentation:** grayscale, Otsu threshold, morphological open/close, largest external contour (`CHAIN_APPROX_NONE`). rembg is optional for messy backgrounds.
+    - **Scale:** an ArUco marker (OpenCV `ArucoDetector`) gives a homography that corrects tilt and gives mm/px. The fallback is `total_length_mm` from config.
+    - **Smoothing:** elliptic Fourier descriptors (pyefd, ~15–25 harmonics) or `splprep(per=1)`, then an arc-length resample.
+    - **Rails:** split at the nose and tail (x extremes) into dorsal z_top(x) and ventral z_bot(x). Then center_z = (top+bot)/2 and v_radius = (top−bot)/2.
+    - **Width:** from a top-view image processed the same way, or a config rule (`half_width = k(x)·v_radius`, default ratio 0.34 of depth).
+    - **Stations:** ~23, clustered toward the nose and tail. Tips are closed by vertices, not by near-zero sections.
+    - Presets (menhaden, mullet) are just station CSVs under `spec/designs/<family>/profiles/presets/`.
+
+    ## Done when
+    - [ ] `lure profile <image> -o stations.csv` produces a table and `profile_debug.png`
+    - [ ] On a synthetic ellipse image, recovered dimensions are within 1%
+    - [ ] The owner approves the overlay for the first real photo
+
+- key: f1t0
+  parent: f1
+  title: "[Task] Provide side-profile photo (and optional top view) of the glide bait"
+  labels: [type:task, area:profile, needs-input]
+  body: |
+    ## Goal
+    The owner supplies the first input images.
+    ## Acceptance
+    - [ ] A side view on a plain, high-contrast background (backlit is ideal), with the camera square to the bait
+    - [ ] An ArUco marker (4x4_50, printed at a known size) or a ruler in the same plane
+    - [ ] Optional: a top view the same way
+    - [ ] Files committed to `spec/designs/glide/profiles/`
+
+- key: f1t1
+  parent: f1
+  title: "[Task] Silhouette segmentation"
+  labels: [type:task, area:profile]
+  body: |
+    ## Goal
+    Image → binary mask → largest external contour. Optional rembg path behind a flag.
+    ## Acceptance
+    - [ ] Works on synthetic shapes and the owner's photo; the mask is saved for debugging
+    ## Files / modules touched
+    `src/luregen/profile/extract.py`
+    ## Depends on
+    {{f0}}
+
+- key: f1t2
+  parent: f1
+  title: "[Task] Scale and perspective: ArUco homography or length scale"
+  labels: [type:task, area:profile]
+  body: |
+    ## Goal
+    Detect the marker, rectify the image, and compute mm/px. Fall back to `total_length_mm` when no marker is present.
+    ## Acceptance
+    - [ ] Synthetic test: a known marker plus a shape at a tilt is recovered within 1%
+    ## Files / modules touched
+    `src/luregen/profile/scale.py`
+
+- key: f1t3
+  parent: f1
+  title: "[Task] Contour smoothing and dorsal/ventral rail split"
+  labels: [type:task, area:profile]
+  body: |
+    ## Goal
+    EFD or spline smoothing with configurable strength, an arc-length resample, and a split at the x extremes into monotone-in-x dorsal and ventral rails.
+    ## Acceptance
+    - [ ] Rails are single-valued in x; spikes and jaggies are removed without shrinking the length by more than 0.5%
+    ## Files / modules touched
+    `src/luregen/profile/extract.py`
+
+- key: f1t4
+  parent: f1
+  title: "[Task] Station table generation (spacing, width rule / top view)"
+  labels: [type:task, area:profile]
+  body: |
+    ## Goal
+    Rails plus a width source give an N-station table with cosine or clustered spacing toward the tips. It's written as `stations.csv` with units and source metadata.
+    ## Acceptance
+    - [ ] The table loads through the config `profile.source = "preset"` path as well
+    ## Files / modules touched
+    `src/luregen/profile/stations.py`
+
+- key: f1t5
+  parent: f1
+  title: "[Task] `lure profile` command, debug overlay and tests"
+  labels: [type:task, area:profile]
+  body: |
+    ## Goal
+    The CLI command plus `profile_debug.png`: contour, rails, station lines and scale annotation over the photo. Synthetic-image tests.
+    ## Acceptance
+    - [ ] Ellipse fixture within 1%; the overlay is generated in CI as an artifact
+    ## Files / modules touched
+    `src/luregen/cli.py`, `src/luregen/profile/`, `tests/unit/test_profile.py`
+
+- key: f2
+  parent: epic
+  title: "[Feature] F2 Envelope geometry and export (loft3d + profile25d)"
+  labels: [type:feature, area:geometry]
+  body: |
+    ## Goal
+    Build the outer body from a station table in two styles and export clean files.
+
+    ## Design notes
+    - **loft3d:** `Solid.make_loft([Vertex(nose)] + wires + [Vertex(tail)])`. Every wire needs the same edge count and the same start point and direction, or the loft twists. Section shapes are ellipse, egg or teardrop (egg/teardrop for a keeled belly). Tested valid with 23 sections.
+    - **profile25d** (the CNC DFM default): the outline is **two splines (dorsal + ventral) joined at nose and tail vertices**, because a single periodic closed spline fails to fillet at any radius. Then `extrude(both=True)` to the max width, then fillet both outer edge loops. Clamp the radius with `max_fillet()` and with the outline's minimum curvature radius.
+    - **Export:** STEP; STL at `tolerance≈0.02, angular_tolerance=0.1` (the default 0.001 is huge); 3MF via `Mesher`. Check watertightness with trimesh/manifold3d.
+    - **Never call `offset_3d`/Shell on the pointed loft.** It segfaults the process.
+
+    ## Done when
+    - [ ] Both styles build for the sample variant; STEP opens cleanly; STL is watertight
+    - [ ] Volume and centroid of an ellipsoid-station loft are within 2% of the analytic values
+
+- key: f2t1
+  parent: f2
+  title: "[Task] loft3d envelope from station table"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    Section wire builders (ellipse, egg, teardrop) with consistent seams, plus the vertex-tipped loft and a smooth/ruled option.
+    ## Acceptance
+    - [ ] 8–30 stations build valid solids; a twist check passes
+    ## Files / modules touched
+    `src/luregen/geometry/envelope.py`
+    ## Depends on
+    {{f1}} (station table format)
+
+- key: f2t2
+  parent: f2
+  title: "[Task] profile25d envelope with clamped roundover"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    A two-spline outline, a symmetric extrude, and a roundover on the outer edge loops. Clamp the radius to `max_fillet()` and to the minimum outline curvature radius, and report the clamp.
+    ## Acceptance
+    - [ ] Valid solids from r = 0.5 mm up to 0.95 × half-thickness on the sample profile
+    ## Files / modules touched
+    `src/luregen/geometry/envelope.py`
+
+- key: f2t3
+  parent: f2
+  title: "[Task] Geometry validity helpers and subprocess guard"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    `assert_valid(shape, solids=, shells=)` plus a helper that runs a risky OCCT op in a subprocess and turns a segfault into a clean error.
+    ## Acceptance
+    - [ ] Unit tests cover the pass/fail cases; the subprocess guard catches a deliberate crash
+    ## Files / modules touched
+    `src/luregen/geometry/validate.py`
+
+- key: f2t4
+  parent: f2
+  title: "[Task] Export STEP/STL/3MF with watertight checks"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    Export per section into the build folder with configurable tessellation, and check STLs with trimesh/manifold3d.
+    ## Acceptance
+    - [ ] Files are written and pass the checks; sizes are reasonable (< ~5 MB per STL)
+    ## Files / modules touched
+    `src/luregen/export.py`
+
+- key: f2t5
+  parent: f2
+  title: "[Task] Analytic geometry tests"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    An ellipsoid built as a station loft, compared against the analytic volume and centroid; a box-like profile25d compared against a hand calculation.
+    ## Acceptance
+    - [ ] Within 2% for both styles
+    ## Files / modules touched
+    `tests/unit/test_envelope.py`
+
+- key: f3
+  parent: epic
+  title: "[Feature] F3 Glide joint, print internals, mass properties and report"
+  labels: [type:feature, area:geometry, area:physics]
+  body: |
+    ## Goal
+    Turn the envelope into a two-section glide bait with print internals, and measure it.
+
+    ## Design notes
+    - **Joint:** V-joint at `joint_frac` (0.50), gap 2.3 mm, arms 35–40°, vertical pin just behind the joint, hinge eyes at Z −12/+6, line tie at Z −4. Booleans run on the full body before the split.
+    - **Print internals:**
+      - The cavity is an **explicit inset loft** through the mid stations only.
+      - Gable or teardrop roof, so the ceiling is self-supporting when printed on its side.
+      - Solid keel below `keel_top_z`.
+      - Main ballast pocket ~22 mm ahead of the joint, ~6 mm above the belly.
+      - Aft tail trim pocket.
+      - Solid bosses for screw eyes.
+    - **Validity:** each section is 1 solid with 2 shells (one sealed void), asserted after every boolean.
+    - **Mass properties:**
+      - Per section: Σ ρᵢVᵢ over the body solid and ballast, plus hardware point masses.
+      - CB is the centroid of the displaced envelope volume.
+      - Hardware volume counts as displacement.
+    - **Report:** per-section and whole-lure mass (g and oz), densities, fore/aft CG−CB, vertical CB−CG, head:tail ratio, verdict, and a CG/CB diagram PNG.
+
+    ## Tasks (to be created as sub-issues when this feature starts)
+    - [ ] V-joint split, pin bore, hinge eye and line tie geometry
+    - [ ] Inset-loft cavity with gable roof plus solid keel
+    - [ ] Ballast and trim pockets plus screw bosses
+    - [ ] Mass properties module (per solid, per section, point masses)
+    - [ ] report.json/md with a CG/CB diagram
+
+    ## Done when
+    - [ ] The sample variant builds two sections, each with exactly one sealed void
+    - [ ] The report shows all derived values
+
+- key: f4
+  parent: epic
+  title: "[Feature] F4 Buoyancy model and balance solver"
+  labels: [type:feature, area:physics]
+  body: |
+    ## Goal
+    Solve the internals so each section, and the whole lure, meets the balance targets across the hardware tolerance band.
+
+    ## Design notes
+    - **Target overall density** in salt water (1.025): float 0.90–0.98, suspend 1.020–1.030, slow sink 1.03–1.06. These are starting values; F8 calibrates them.
+    - **Totals:** m_total = Σρᵢvᵢ + Σm_hw and V_total = V_env + Σ m_hw/ρ_hw (submerged hooks displace too).
+    - **Hardware band:** solve at the midpoint and evaluate both ends. Fail if either end leaves the sink mode or breaks level hang. Size the trim pocket for the band, and report "add/remove X g of tungsten putty".
+    - **Solver:** finite-difference Jacobian plus a clamped least-squares step. Stop at ≤5 passes or convergence, and report residuals.
+      - Print knobs: `wall_thk`, `keel_top_z`, ballast g and x, width trims, `section_drop_rise`.
+      - CNC knobs: pocket depths, ballast g and x, width trim.
+    - **Weight → length:** if `target_weight_oz` is set, L = L₀·(m/ρ_t·V₀)^(1/3), rebuild once, then solve the internals.
+    - The ballast mass can be pinned with `ballast.mass_g`.
+
+    ## Tasks (to be created when this feature starts)
+    - [ ] Buoyancy targets and hardware band evaluation
+    - [ ] Jacobian solver with knob registry per process
+    - [ ] Weight→length scaling
+    - [ ] Solver convergence tests on the reference targets
+
+    ## Done when
+    - [ ] The sample converges in ≤5 passes with |CG−CB| ≤ 1 mm at both band ends
+    - [ ] Reproduces the reference-bait numbers within tolerance
+
+- key: f4t0
+  parent: f4
+  title: "[Task] Weigh standard hardware and fill spec/hardware"
+  labels: [type:task, area:physics, needs-input]
+  body: |
+    ## Goal
+    The owner weighs the parts they actually use (0.01 g scale), giving a min/max for each size they'd swap between.
+    ## Acceptance
+    - [ ] Screw eyes, split rings, treble hooks (each size), hinge pin, line tie and through-wire per mm
+    - [ ] Entries in `spec/hardware/*.toml` marked `measured = true`
+
+- key: f5
+  parent: epic
+  title: "[Feature] F5 DFM rule engine"
+  labels: [type:feature, area:dfm]
+  body: |
+    ## Goal
+    A rule registry: `rule(model, cfg) -> list[Violation]`, tagged by process, body_style and family. Errors fail the build; warnings go in the report.
+
+    ## Rules
+    | Rule | print | cnc |
+    |---|---|---|
+    | Exactly one sealed void per section | error | — |
+    | No internal voids | — | error |
+    | Min wall / skin-to-cavity | ≥1.6 / 1.2 mm | ≥3.5 mm |
+    | Cavity ceiling ≤45° overhang (printed on its side) | error | — |
+    | Inside corner radius ≥ tool radius + 0.1 (incl. the V-joint apex) | — | error |
+    | Pocket depth ≤ 3 × tool diameter | — | error |
+    | No undercuts from each machining side | — | error |
+    | No axial holes (use a half-groove) | — | error |
+    | Roundover ≤ `max_fillet()` and ≤ min outline curvature radius | — | error |
+    | Screw eyes only into solid bosses | error | — |
+    | Through-wire recommended for wood | — | warn |
+
+    ## Tasks (to be created when this feature starts)
+    - [ ] Registry, Violation model, report integration
+    - [ ] Print rules
+    - [ ] CNC rules
+    - [ ] One failing-case fixture per rule
+
+    ## Done when
+    - [ ] Every rule has a failing-case test; the sample variant passes for both processes
+
+- key: f6
+  parent: epic
+  title: "[Feature] F6 Print fab: Snapmaker U1 via OrcaSlicer CLI"
+  labels: [type:feature, area:print]
+  body: |
+    ## Goal
+    `lure fab <build> --format print` produces sliced G-code for the U1, with a ballast-insert pause, verified against a reference print.
+
+    ## Design notes
+    - **Primary slicer: upstream OrcaSlicer 2.5.1** (`orca-slicer` AppImage). Its CLI resolves `inherits` itself. **Fallback: Snapmaker Orca 2.4.1**, whose CLI doesn't resolve `inherits` and crashes on `wipe_tower_filament` (#689).
+    - **Profiles (upstream):**
+      - `0.20 Standard @Snapmaker U1 (0.4 nozzle).json`
+      - `Snapmaker U1 (0.4 nozzle).json`
+      - `Generic PETG @U1 0.4 nozzle.json`
+
+      The Snapmaker fork names them `0.20mm Standard @…` and `Generic PETG.json`.
+    - **Never mix one app's profiles with the other's binary.** The fork's start G-code uses a fork-only variable.
+    - **`lure sync-profiles snapmaker_u1`** fetches the chain for the pinned version and flattens it (same vendor first, then OrcaFilamentLibrary, merged root-first, clean `name`/`*_settings_id`, UTF-8-sig). The flattened files are committed under `spec/printers/snapmaker_u1/profiles/`.
+    - **Slice** with STL input (3MF segfaults in the fork, #935):
+      ```
+      xvfb-run -a orca-slicer --slice 0 --load-settings "machine.json;process.json" --load-filaments filament.json \
+        --enable-prime-tower=0 --sparse-infill-density=100% --wall-loops=4 --top-shell-layers=6 \
+        --bottom-shell-layers=4 --seam-position=back --ironing-type=no --outputdir fab/print/ head.stl tail.stl
+      ```
+      The U1 stock process enables the prime tower because it's a 4-tool changer; turn it off. Booleans use the `--key=0` form.
+    - **Orientation:** on the side, split plane on the bed. The cavity is an inner shell of the same mesh.
+    - **Pause:** insert `M600` (or the reference file's pause) at the first layer at or above the cavity-ceiling Z from `report.json`.
+    - **Verify:** parse time, grams and layers. Diff the CONFIG block, start/end macros (`PRINT_START`, …) and thumbnails (48×48 and 300×300 PNG) against the owner's reference file.
+
+    ## Tasks (to be created when this feature starts)
+    - [ ] `sync-profiles` fetch and flatten
+    - [ ] Orient and export print STLs
+    - [ ] Slicer runner (AppImage extract, xvfb, overrides from machine.toml)
+    - [ ] Pause insertion post-processor
+    - [ ] Output parser and reference diff
+
+    ## Done when
+    - [ ] G-code is produced headless for both sections, the pause sits at the right layer, and the config diff against the reference is clean or explained
+
+- key: f6t0
+  parent: f6
+  title: "[Task] Provide a reference U1 PETG print G-code"
+  labels: [type:task, area:print, needs-input]
+  body: |
+    ## Goal
+    The owner slices any small part in their usual Snapmaker Orca or OrcaSlicer setup (U1, 0.4 nozzle, PETG, 0.20 Standard) and shares the `.gcode`.
+    ## Acceptance
+    - [ ] File in `spec/printers/snapmaker_u1/reference/`, with any local paths or usernames removed from its comments
+    - [ ] Note which app and version produced it
+
+- key: f7
+  parent: epic
+  title: "[Feature] F7 CNC fab: Shapeoko 3 XXL (CAM + Carbide Motion post)"
+  labels: [type:feature, area:cnc]
+  body: |
+    ## Goal
+    `lure fab <build> --format cnc` produces a two-setup (glue face, flip, outer face) G-code set, a setup sheet and a cut simulation for the Shapeoko 3 XXL on Carbide Motion.
+
+    ## Design notes
+    - **CNC internals:**
+      - Halves split on the centerplane.
+      - Glue-face ballast and air pockets (flat bottom, corner radius ≥ tool radius).
+      - Ball-nose half-groove for a through-wire.
+      - Dowel and registration-pin holes in the waste area.
+    - **CAM (custom; no pip CAM library is maintained):**
+      - 2.5D: shapely `buffer` offsets for facing, pockets, profile with 4–6 tabs, and peck drilling.
+      - 3D (loft3d only): a trimesh heightmap (~0.15 mm) with a ball-kernel `grey_dilation` to get the tool-tip surface. Rough with z-level contours, leaving 0.5 mm; finish with a raster along the body.
+      - Stepover s = √(8Rh). A 1/8" ball at 0.05 mm scallop gives ~0.8 mm.
+    - **Flip workflow:** setup 1 cuts the glue face. Then flip about X on pins, mirror Y, and keep the same XY zero. Setup 2 cuts the outer face.
+    - **Carbide Motion rules:**
+      - Supported: G0–G4, G17–19, G20/21, G28, G90/91, M0–M2, M30, M3, M5, **M6**.
+      - **Rejected:** G80–G83 and G43 Hn. Expand drilling into pecks.
+      - **Ignored:** G54–59. Never emit G10 or G92.
+      - `M6 Tn` triggers the tool-change prompt and a BitSetter measurement.
+      - Post in mm.
+    - **Post ideas** (reimplemented from public references; no code copied):
+      - Template schema modeled on PureCutCNC's `grbl.json`.
+      - Shapeoko XXL defaults from Kiri:Moto's device profile.
+      - **Arc endpoint snapping:** round the start and center to output precision, then recompute the end so it lies on the circle (avoids GRBL error 33).
+      - Arc limits: linearize when the chord is < 0.25 mm or the radius < 0.1 mm, max 180° per arc.
+      - Comments sanitized and ≤ 80 characters.
+      - Retract and park with `G53 G0 Z`, and a spin-up dwell.
+    - **Draft `post.toml`:**
+      ```toml
+      units = "mm"; decimals = { xyz = 3, feed = 0, rpm = 0, dwell = 2 }; word_separator = ""
+      header = ["(Design: {variant} {setup})", "(stockMin:{stock_min})", "(stockMax:{stock_max})", "G90", "G21", "G17", "G94"]
+      safe_retract = "G53 G0 Z-5"; footer = ["M5", "G53 G0 Z-5", "G53 G0 X-5 Y-5", "M30"]
+      forbid = ["G10","G92","G41","G42","G43","G80","G81","G82","G83","M4","M8"]
+      tool_change = ["M5", "G53 G0 Z-5", "(TOOL/MILL,{dia},{corner_r},0,0)", "M6 T{carbide_no}"]
+      spindle = { type = "router_dial", on = "M3 S{rpm}", dwell_s = 3 }
+      arcs = { enabled = true, format = "ij", max_sweep_deg = 180, min_radius = 0.1, min_chord = 0.25, snap_endpoint = true }
+      drill = "expand"
+      ```
+    - **Verify:** bounds vs stock and travel, no G0 below safe Z, spindle on before cutting, no forbidden codes, lines < 80 characters, and a heightmap cut simulation diffed against the target (gouge and leftover PNG).
+
+    ## Tasks (to be created when this feature starts)
+    - [ ] CNC internals: halves, pockets, wire groove, dowels
+    - [ ] Setup planner and flip transform
+    - [ ] 2.5D ops (face, pocket, profile and tabs, peck drill, groove)
+    - [ ] 3D heightmap roughing and finishing
+    - [ ] Post-processor plus golden tests
+    - [ ] `analyze-gcode` reference analyzer that proposes post.toml values
+    - [ ] Verifier and cut simulation
+    - [ ] Setup sheet (stock, zero, tools per setup, flip, ballast/wire before glue-up)
+
+    ## Done when
+    - [ ] Golden tests match the reference style; an air-cut runs clean on the machine; the halves register after the flip
+
+- key: f7t0
+  parent: f7
+  title: "[Task] Provide a Carbide Create sample .nc and Shapeoko details"
+  labels: [type:task, area:cnc, needs-input]
+  body: |
+    ## Goal
+    The owner supplies a reference program and the machine facts the post needs.
+    ## Acceptance
+    - [ ] A Carbide Create `.nc` that uses **two tools** (so the M6 sequence appears), in `spec/routers/shapeoko3_xxl/reference/` with the design-file path sanitized
+    - [ ] BitSetter / BitZero: yes or no
+    - [ ] Router model (Carbide Compact Router or Makita) and its dial → RPM mapping
+    - [ ] Z travel (stock or modified), spoilboard and workholding notes
+    - [ ] Available end mills (flat and ball, with diameters)
+
+- key: f8
+  parent: epic
+  title: "[Feature] F8 Field calibration: tank tests → targets"
+  labels: [type:feature, area:field]
+  body: |
+    ## Goal
+    Close the loop: log physical test results and use them to recalibrate the density bands and balance targets.
+
+    ## Design notes
+    - `field/tank_tests.csv`: build id, water type and temperature, measured mass, hang angle, sink rate (s per 30 cm), roll recovery, glide width and cadence notes, hardware used.
+    - `lure field add` appends a row. `lure field fit` updates the suggested `target_sink` bands and reports the model-vs-measured error.
+    - Open questions to answer here:
+      - Do the reference ratios hold on a second known-good bait?
+      - Which overall density gives the preferred salt-water sink rate?
+      - How do joint gap, swing limit and side area map to glide width?
+      - Does a menhaden profile stay roll-stable?
+
+    ## Tasks (to be created when this feature starts)
+    - [ ] Tank-test protocol doc and CSV schema
+    - [ ] `lure field` commands
+    - [ ] Calibration report
+
+    ## Done when
+    - [ ] Three or more printed builds logged; the density bands are updated from data
