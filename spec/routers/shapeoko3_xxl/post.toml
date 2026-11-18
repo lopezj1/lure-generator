@@ -68,3 +68,8 @@ clearance = 0.5
 max_length = 80
 allowed = " .,:_/+=#*%-"
 replacement = "_"
+
+[output]
+# Owner decision (#27, 2026-11-18): one .nc per tool, <setup>_<nn>_<tool>.nc, each with the
+# full header and its own M6T<n> block. false: one program per setup, M6T<n> per tool change.
+split_by_tool = true
