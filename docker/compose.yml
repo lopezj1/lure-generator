@@ -1,0 +1,24 @@
+# luregen on the home server (#69): one service, LAN only, no auth. See docs/deploy.md.
+#   GIT_SHA=$(git rev-parse --short HEAD) docker compose -f docker/compose.yml up -d --build
+# Paths are relative to this file: the repo checkout's spec/, builds/ and uploads/ are the data.
+name: luregen
+services:
+  luregen:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+        GIT_DIRTY: ${GIT_DIRTY:-0}
+        WITH_SNAPMAKER: ${WITH_SNAPMAKER:-0}
+    image: luregen:latest
+    user: "1000:1000"
+    # LAN only: the app has no auth. Never forward this port to the internet. To listen on one
+    # interface only, use "<lan-ip>:8000:8000".
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../spec:/data/spec
+      - ../builds:/data/builds
+      - ../uploads:/data/uploads
+    restart: unless-stopped
