@@ -29,6 +29,8 @@ CLAUDE.local.md
 
 # Web app (#54)
 uploads/
+# Backups the variant editor writes next to a saved TOML
+spec/**/*.bak
 web/node_modules/
 web/dist/
 
