@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from './lib/client';
+  import ModelTab from './lib/model/ModelTab.svelte';
 
   type Tab = 'Model' | 'Print' | 'CNC';
   const tabs: Tab[] = ['Model', 'Print', 'CNC'];
@@ -45,7 +46,11 @@
       </ul>
     </nav>
     <section class="viewport">
-      <p>{tab} viewport</p>
+      {#if tab === 'Model'}
+        <ModelTab />
+      {:else}
+        <p>{tab} viewport</p>
+      {/if}
     </section>
   </main>
 
