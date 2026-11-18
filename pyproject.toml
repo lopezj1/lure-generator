@@ -29,6 +29,14 @@ lure = "luregen.cli:main"
 [dependency-groups]
 dev = ["pytest>=8.3", "ruff>=0.8"]
 viewer = ["ocp-vscode==4.2.0"]
+# Web app (#54): `lure serve`. Pinned once in W0, like the runtime deps above.
+web = [
+    "fastapi==0.163.2",
+    "uvicorn[standard]==0.54.0",
+    "python-multipart==0.0.34",
+    "tomlkit==0.15.2",
+    "httpx2==2.16.2",  # FastAPI TestClient
+]
 
 [build-system]
 requires = ["uv_build>=0.10,<0.11"]
