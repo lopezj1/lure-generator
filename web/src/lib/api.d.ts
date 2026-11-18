@@ -384,6 +384,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/builds/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Builds
+         * @description Two builds side by side: mass, density, CG/CB deltas and changed config keys.
+         */
+        get: operations["compare_builds_api_builds_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builds/{family}/{variant}/{stamp}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Archive
+         * @description A zip of the build's files (`group`: all, model/, fab/print/ or fab/cnc/).
+         */
+        get: operations["get_archive_api_builds__family___variant___stamp__archive_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builds/{family}/{variant}/{stamp}/glb/{part}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Glb
+         * @description `model/<part>.stl` as GLB (glTF: metres, y up), cached as `model/.<part>.glb`.
+         */
+        get: operations["get_glb_api_builds__family___variant___stamp__glb__part__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/builds/{family}/{variant}/{stamp}/files/{name}": {
         parameters: {
             query?: never;
@@ -530,6 +590,23 @@ export interface components {
              */
             variant: string;
         };
+        /** BuildComparison */
+        BuildComparison: {
+            a: components["schemas"]["BuildSummary"];
+            b: components["schemas"]["BuildSummary"];
+            /** Deltas */
+            deltas: components["schemas"]["Delta"][];
+            /**
+             * Config Changes
+             * @description resolved.toml keys that differ (name excluded), at most 200
+             */
+            config_changes: components["schemas"]["ConfigChange"][];
+            /**
+             * Config Changes Truncated
+             * @default false
+             */
+            config_changes_truncated: boolean;
+        };
         /** BuildFile */
         BuildFile: {
             /**
@@ -579,8 +656,46 @@ export interface components {
              * @default []
              */
             warnings: string[];
+            /** @description None without a report.json */
+            report?: components["schemas"]["ReportSummary"] | null;
             /** Files */
             files: components["schemas"]["BuildFile"][];
+            /**
+             * Downloads
+             * @description Exports: model and fab files, converted GLBs and zip archives
+             * @default []
+             */
+            downloads: components["schemas"]["Download"][];
+        };
+        /** ConfigChange */
+        ConfigChange: {
+            /**
+             * Key
+             * @description Dotted key in resolved.toml (list items by index)
+             */
+            key: string;
+            /** A */
+            a?: unknown;
+            /** B */
+            b?: unknown;
+        };
+        /** Delta */
+        Delta: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit: string;
+            /** A */
+            a: number | null;
+            /** B */
+            b: number | null;
+            /**
+             * Delta
+             * @description b − a (None if either is missing)
+             */
+            delta: number | null;
         };
         /** DesignSummary */
         DesignSummary: {
@@ -593,6 +708,29 @@ export interface components {
             path: string;
             /** Variants */
             variants: string[];
+        };
+        /** Download */
+        Download: {
+            /**
+             * Label
+             * @description e.g. 'model/head.step', 'head.glb', 'all files (zip)'
+             */
+            label: string;
+            /**
+             * Format
+             * @description STEP, STL, 3MF, GLB, G-code, NC, ZIP, …
+             */
+            format: string;
+            /**
+             * Href
+             * @description API URL (same origin) that downloads it
+             */
+            href: string;
+            /**
+             * Size
+             * @description Bytes, when known before the download
+             */
+            size?: number | null;
         };
         /**
          * FabArgs
@@ -886,6 +1024,55 @@ export interface components {
             event: "progress";
             data: components["schemas"]["JobProgress"];
         };
+        /**
+         * ReportSummary
+         * @description Key numbers of report.json (hardware band mid). Absent fields are None.
+         */
+        ReportSummary: {
+            /** Mass G */
+            mass_g?: number | null;
+            /** Mass Oz */
+            mass_oz?: number | null;
+            /** Density G Cm3 */
+            density_g_cm3?: number | null;
+            /**
+             * Cg Mm
+             * @description Centre of gravity (x, y, z)
+             */
+            cg_mm?: number[] | null;
+            /**
+             * Cb Mm
+             * @description Centre of buoyancy (x, y, z)
+             */
+            cb_mm?: number[] | null;
+            /**
+             * Cg Minus Cb Mm
+             * @description CG − CB (x, y, z)
+             */
+            cg_minus_cb_mm?: number[] | null;
+            /**
+             * Cb Above Cg Mm
+             * @description CB z − CG z (> 0: self-righting)
+             */
+            cb_above_cg_mm?: number | null;
+            /** Cb Above Cg Target Mm */
+            cb_above_cg_target_mm?: number | null;
+            /** Envelope Volume Cm3 */
+            envelope_volume_cm3?: number | null;
+            verdict?: components["schemas"]["Verdict"] | null;
+            /**
+             * Sections
+             * @default {}
+             */
+            sections: {
+                [key: string]: components["schemas"]["SectionSummary"];
+            };
+            /**
+             * Error
+             * @description The build's error, when status is error
+             */
+            error?: string | null;
+        };
         /** ResultEvent */
         ResultEvent: {
             /** Id */
@@ -1004,6 +1191,13 @@ export interface components {
                 number,
                 number
             ][];
+        };
+        /** SectionSummary */
+        SectionSummary: {
+            /** Mass G */
+            mass_g?: number | null;
+            /** Density G Cm3 */
+            density_g_cm3?: number | null;
         };
         /** SpecChange */
         SpecChange: {
@@ -1158,6 +1352,24 @@ export interface components {
             method?: string | null;
             /** Material */
             material?: string | null;
+        };
+        /** Verdict */
+        Verdict: {
+            /**
+             * Status
+             * @description "pass" or "fail"
+             */
+            status: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Failed
+             * @default []
+             */
+            failed: string[];
         };
     };
     responses: never;
@@ -1861,6 +2073,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuildSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_builds_api_builds_compare_get: {
+        parameters: {
+            query: {
+                /** @description family/variant/stamp (stamp may be latest) */
+                a: string;
+                /** @description family/variant/stamp; deltas are b − a */
+                b: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildComparison"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_archive_api_builds__family___variant___stamp__archive_get: {
+        parameters: {
+            query?: {
+                group?: "all" | "model" | "print" | "cnc";
+            };
+            header?: never;
+            path: {
+                family: string;
+                variant: string;
+                stamp: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zip archive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_glb_api_builds__family___variant___stamp__glb__part__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family: string;
+                variant: string;
+                stamp: string;
+                part: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description glTF binary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "model/gltf-binary": unknown;
                 };
             };
             /** @description Validation Error */

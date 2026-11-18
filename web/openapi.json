@@ -1169,6 +1169,215 @@
         }
       }
     },
+    "/api/builds/compare": {
+      "get": {
+        "tags": [
+          "builds"
+        ],
+        "summary": "Compare Builds",
+        "description": "Two builds side by side: mass, density, CG/CB deltas and changed config keys.",
+        "operationId": "compare_builds_api_builds_compare_get",
+        "parameters": [
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "family/variant/stamp (stamp may be latest)",
+              "title": "A"
+            },
+            "description": "family/variant/stamp (stamp may be latest)"
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "family/variant/stamp; deltas are b \u2212 a",
+              "title": "B"
+            },
+            "description": "family/variant/stamp; deltas are b \u2212 a"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildComparison"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds/{family}/{variant}/{stamp}/archive": {
+      "get": {
+        "tags": [
+          "builds"
+        ],
+        "summary": "Get Archive",
+        "description": "A zip of the build's files (`group`: all, model/, fab/print/ or fab/cnc/).",
+        "operationId": "get_archive_api_builds__family___variant___stamp__archive_get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Stamp"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "model",
+                "print",
+                "cnc"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Group"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Zip archive",
+            "content": {
+              "application/zip": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds/{family}/{variant}/{stamp}/glb/{part}": {
+      "get": {
+        "tags": [
+          "builds"
+        ],
+        "summary": "Get Glb",
+        "description": "`model/<part>.stl` as GLB (glTF: metres, y up), cached as `model/.<part>.glb`.",
+        "operationId": "get_glb_api_builds__family___variant___stamp__glb__part__get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Stamp"
+            }
+          },
+          {
+            "name": "part",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Part"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "glTF binary",
+            "content": {
+              "model/gltf-binary": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/builds/{family}/{variant}/{stamp}/files/{name}": {
       "get": {
         "tags": [
@@ -1758,6 +1967,44 @@
         "title": "BuildArgs",
         "description": "`lure build VARIANT [--set k=v \u2026]`."
       },
+      "BuildComparison": {
+        "properties": {
+          "a": {
+            "$ref": "#/components/schemas/BuildSummary"
+          },
+          "b": {
+            "$ref": "#/components/schemas/BuildSummary"
+          },
+          "deltas": {
+            "items": {
+              "$ref": "#/components/schemas/Delta"
+            },
+            "type": "array",
+            "title": "Deltas"
+          },
+          "config_changes": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigChange"
+            },
+            "type": "array",
+            "title": "Config Changes",
+            "description": "resolved.toml keys that differ (name excluded), at most 200"
+          },
+          "config_changes_truncated": {
+            "type": "boolean",
+            "title": "Config Changes Truncated",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "a",
+          "b",
+          "deltas",
+          "config_changes"
+        ],
+        "title": "BuildComparison"
+      },
       "BuildFile": {
         "properties": {
           "name": {
@@ -1879,12 +2126,32 @@
             "title": "Warnings",
             "default": []
           },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None without a report.json"
+          },
           "files": {
             "items": {
               "$ref": "#/components/schemas/BuildFile"
             },
             "type": "array",
             "title": "Files"
+          },
+          "downloads": {
+            "items": {
+              "$ref": "#/components/schemas/Download"
+            },
+            "type": "array",
+            "title": "Downloads",
+            "description": "Exports: model and fab files, converted GLBs and zip archives",
+            "default": []
           }
         },
         "type": "object",
@@ -1897,6 +2164,86 @@
           "files"
         ],
         "title": "BuildSummary"
+      },
+      "ConfigChange": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Dotted key in resolved.toml (list items by index)"
+          },
+          "a": {
+            "title": "A"
+          },
+          "b": {
+            "title": "B"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "ConfigChange"
+      },
+      "Delta": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "a": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "A"
+          },
+          "b": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "B"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta",
+            "description": "b \u2212 a (None if either is missing)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "a",
+          "b",
+          "delta"
+        ],
+        "title": "Delta"
       },
       "DesignSummary": {
         "properties": {
@@ -1924,6 +2271,44 @@
           "variants"
         ],
         "title": "DesignSummary"
+      },
+      "Download": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "e.g. 'model/head.step', 'head.glb', 'all files (zip)'"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format",
+            "description": "STEP, STL, 3MF, GLB, G-code, NC, ZIP, \u2026"
+          },
+          "href": {
+            "type": "string",
+            "title": "Href",
+            "description": "API URL (same origin) that downloads it"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size",
+            "description": "Bytes, when known before the download"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "format",
+          "href"
+        ],
+        "title": "Download"
       },
       "FabArgs": {
         "properties": {
@@ -2722,6 +3107,155 @@
         ],
         "title": "ProgressEvent"
       },
+      "ReportSummary": {
+        "properties": {
+          "mass_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mass G"
+          },
+          "mass_oz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mass Oz"
+          },
+          "density_g_cm3": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Density G Cm3"
+          },
+          "cg_mm": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cg Mm",
+            "description": "Centre of gravity (x, y, z)"
+          },
+          "cb_mm": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cb Mm",
+            "description": "Centre of buoyancy (x, y, z)"
+          },
+          "cg_minus_cb_mm": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cg Minus Cb Mm",
+            "description": "CG \u2212 CB (x, y, z)"
+          },
+          "cb_above_cg_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cb Above Cg Mm",
+            "description": "CB z \u2212 CG z (> 0: self-righting)"
+          },
+          "cb_above_cg_target_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cb Above Cg Target Mm"
+          },
+          "envelope_volume_cm3": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Envelope Volume Cm3"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Verdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sections": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SectionSummary"
+            },
+            "type": "object",
+            "title": "Sections",
+            "default": {}
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "The build's error, when status is error"
+          }
+        },
+        "type": "object",
+        "title": "ReportSummary",
+        "description": "Key numbers of report.json (hardware band mid). Absent fields are None."
+      },
       "ResultEvent": {
         "properties": {
           "id": {
@@ -2958,6 +3492,34 @@
           "points"
         ],
         "title": "SectionLoop"
+      },
+      "SectionSummary": {
+        "properties": {
+          "mass_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mass G"
+          },
+          "density_g_cm3": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Density G Cm3"
+          }
+        },
+        "type": "object",
+        "title": "SectionSummary"
       },
       "SpecChange": {
         "properties": {
@@ -3269,6 +3831,33 @@
           "path"
         ],
         "title": "VariantSummary"
+      },
+      "Verdict": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "\"pass\" or \"fail\""
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "failed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Failed",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Verdict"
       }
     }
   }
