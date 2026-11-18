@@ -1262,3 +1262,31 @@
     - "spec has uncommitted changes" badge
     ## Depends on
     {{w1}}, {{w2}}
+
+# --- 2026-11-18: W2 follow-ups ---
+
+- key: w2t1
+  parent: w2
+  title: "[Task] W2 follow-up: emit @@progress stages from `lure build` and @@result from `lure profile`"
+  labels: [type:task, area:api]
+  body: |
+    ## Goal
+    The job runner (#73) streams `progress` and `result` events, but:
+    - `lure build` emits only `@@result` (no stages), so the UI shows no progress bar for builds.
+    - `lure profile` emits no `@@result` (e.g. `{csv, debug_png}`), so the UI can't link to its outputs.
+
+    Add `progress.emit(stage, frac, msg)` calls at the natural build stages:
+    - load config
+    - station table
+    - envelope
+    - (later: internals, mass props, solver, DFM)
+    - export
+    - report
+
+    Add `progress.result(csv=…, debug_png=…, mask_png=…)` to `lure profile`.
+    ## Acceptance
+    - [ ] A build job streams ≥ 4 progress events with a monotonically increasing `frac`
+    - [ ] A profile job's `result` lists its output paths (relative to the data root)
+    - [ ] Tests in `test_progress.py` / `test_jobs.py`
+    ## Files / modules touched
+    `src/luregen/commands/build.py`, `src/luregen/commands/profile.py`
