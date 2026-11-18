@@ -360,6 +360,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/builds/{family}/{variant}/{stamp}/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Model
+         * @description Model parts of a build (`model/*.step`), with STL bounds.
+         */
+        get: operations["get_model_api_builds__family___variant___stamp__model_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builds/{family}/{variant}/{stamp}/model/tessellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tessellation
+         * @description three-cad-viewer shapes for all parts, tessellated on first request and cached
+         *     in `model/.viewer/` (keyed by tolerances and the STEP files' mtimes).
+         */
+        get: operations["get_tessellation_api_builds__family___variant___stamp__model_tessellation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builds/{family}/{variant}/{stamp}/section": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Section
+         * @description Cross-section at `axis = offset` (world mm): loops, material and void areas.
+         *
+         *     Default: trimesh on `model/<part>.stl` (ms). `exact=true`: build123d `section()` of
+         *     the STEP in a guarded child (seconds), compared with the mesh result.
+         */
+        get: operations["get_section_api_builds__family___variant___stamp__section_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -632,6 +696,54 @@ export interface components {
             /** Range */
             range?: number[] | null;
         };
+        /** ModelInfo */
+        ModelInfo: {
+            /** Family */
+            family: string;
+            /** Variant */
+            variant: string;
+            /** Stamp */
+            stamp: string;
+            /** Parts */
+            parts: components["schemas"]["ModelPart"][];
+            /**
+             * Bbox Min
+             * @description All parts (from the STLs), mm
+             */
+            bbox_min?: number[] | null;
+            /** Bbox Max */
+            bbox_max?: number[] | null;
+        };
+        /** ModelPart */
+        ModelPart: {
+            /**
+             * Name
+             * @description Part name = file stem (body, head, tail, …)
+             */
+            name: string;
+            /**
+             * Step
+             * @description STEP file, relative to the build folder
+             */
+            step: string;
+            /**
+             * Stl
+             * @description Export mesh, relative to the build folder
+             */
+            stl: string | null;
+            /**
+             * Size
+             * @description STEP size in bytes
+             */
+            size: number;
+            /**
+             * Bbox Min
+             * @description From the STL, mm
+             */
+            bbox_min?: number[] | null;
+            /** Bbox Max */
+            bbox_max?: number[] | null;
+        };
         /**
          * ProfileArgs
          * @description `lure profile IMAGE --out OUT …`; paths are relative to the data root.
@@ -727,6 +839,85 @@ export interface components {
              */
             backup?: string | null;
             variant: components["schemas"]["VariantDetail"];
+        };
+        /** Section */
+        Section: {
+            /**
+             * Axis
+             * @enum {string}
+             */
+            axis: "x" | "y" | "z";
+            /**
+             * Offset
+             * @description Plane position along `axis`, mm (world)
+             */
+            offset: number;
+            /** Part */
+            part: string;
+            /**
+             * Plane Axes
+             * @description World axes of the loop (u, v) coords
+             */
+            plane_axes: [
+                string,
+                string
+            ];
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "mesh" | "exact";
+            /** Loops */
+            loops: components["schemas"]["SectionLoop"][];
+            /**
+             * Area Mm2
+             * @description Material area (outlines minus voids)
+             */
+            area_mm2: number;
+            /** Void Area Mm2 */
+            void_area_mm2: number;
+            /**
+             * Perimeter Mm
+             * @description All loops, outer and void
+             */
+            perimeter_mm: number;
+            /**
+             * Mesh Area Mm2
+             * @description exact only: the mesh result
+             */
+            mesh_area_mm2?: number | null;
+            /**
+             * Delta Pct
+             * @description exact only: exact vs mesh area, %
+             */
+            delta_pct?: number | null;
+            /**
+             * Differs
+             * @description exact differs from mesh by > 1.0%
+             * @default false
+             */
+            differs: boolean;
+            /** Elapsed Ms */
+            elapsed_ms: number;
+        };
+        /** SectionLoop */
+        SectionLoop: {
+            /** Part */
+            part: string;
+            /**
+             * Kind
+             * @description Material outline or internal void
+             * @enum {string}
+             */
+            kind: "outer" | "void";
+            /**
+             * Points
+             * @description Closed polyline in (u, v), mm
+             */
+            points: [
+                number,
+                number
+            ][];
         };
         /** SpecChange */
         SpecChange: {
@@ -1527,6 +1718,115 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_model_api_builds__family___variant___stamp__model_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family: string;
+                variant: string;
+                stamp: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tessellation_api_builds__family___variant___stamp__model_tessellation_get: {
+        parameters: {
+            query?: {
+                deviation?: number;
+                angular?: number;
+            };
+            header?: {
+                "accept-encoding"?: string;
+            };
+            path: {
+                family: string;
+                variant: string;
+                stamp: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ocp-tessellate instanced format `{instances, shapes}` (three-cad-viewer protocol v3 with base64 buffers; decode with `decodeInstancedFormat`) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_section_api_builds__family___variant___stamp__section_get: {
+        parameters: {
+            query: {
+                axis: "x" | "y" | "z";
+                offset: number;
+                part?: string;
+                exact?: boolean;
+            };
+            header?: never;
+            path: {
+                family: string;
+                variant: string;
+                stamp: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Section"];
                 };
             };
             /** @description Validation Error */
