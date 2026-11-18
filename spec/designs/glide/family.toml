@@ -12,9 +12,13 @@ width_rule = { mode = "ratio_of_depth", value = 0.34 }
 [joint]
 joint_frac = 0.50
 gap_mm = 2.3
-angle_deg = 37
+angle_deg = 37              # V arms from the lateral (y) axis
 hinge_eye_z = [-12, 6]
 line_tie_z = -4
+pin_offset_mm = 3.0         # hinge pin axis behind the tail's V apex
+pin_bore_mm = 1.8
+eye_slot_w_mm = 2.5         # tail slots that take the head's hinge eyes
+eye_slot_h_mm = 6.0
 
 [buoyancy]
 head_density = [1.00, 1.05]
@@ -27,3 +31,13 @@ trim_pocket = true
 [ballast]
 x_from_joint_mm = 22
 z_above_belly_mm = 6
+
+[internals]
+# Print internals (process.method = "print"). head/tail wall and keel are the F4 solver knobs.
+feature_clearance_mm = 1.0
+boss_r_mm = 6.0
+ballast_seed_g = 8.0        # used while ballast.mass_g is unset; F4 solves the ballast
+trim_x_from_tail_mm = 35
+trim_material = "tungsten_putty"
+head = { wall_thk_mm = 2.0, keel_top_z_mm = -8.0 }
+tail = { wall_thk_mm = 2.0, keel_top_z_mm = -12.0 }

@@ -49,6 +49,9 @@ def resolve(cfg: LureConfig, spec_root: Path) -> LureConfig:
         cfg.buoyancy.water_density = _density(materials, f"water_{cfg.buoyancy.water}", "water")
     if cfg.ballast.density is None:
         cfg.ballast.density = _density(materials, cfg.ballast.material, "ballast")
+    if cfg.internals.trim_density is None and cfg.internals.trim_material in materials:
+        # optional: a catalog without the trim material still resolves (trim falls back)
+        cfg.internals.trim_density = _density(materials, cfg.internals.trim_material, "trim")
     if cfg.process.material_density is None:
         cfg.process.material_density = _density(materials, cfg.process.material, "body")
 
