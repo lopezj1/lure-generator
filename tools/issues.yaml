@@ -609,3 +609,797 @@
 
     ## Done when
     - [ ] Three or more printed builds logged; the density bands are updated from data
+
+# --- 2026-11-17: parallel-work prep (contracts in F0; F6/F7 split into a = plumbing, b = integration) ---
+
+- key: f0t6
+  parent: f0
+  title: "[Task] Shared contracts: StationTable format and self-registering CLI subcommands"
+  labels: [type:task, area:infra]
+  body: |
+    ## Goal
+    Fix the interfaces that parallel features build against, so their branches don't conflict:
+    - **`StationTable`**: a frozen dataclass plus CSV schema (`x, center_z, v_radius, half_width` in mm, with header metadata for units, source and length). It includes validation (x strictly increasing, radii ≥ 0) and `load_csv`/`to_csv`. F1 produces it and F2 consumes it.
+    - **CLI registration:** each feature adds `src/luregen/commands/<name>.py` exposing `register(app)`. `cli.py` discovers the modules automatically, so features never edit a shared file.
+    - **Dependencies:** all known dependencies for F1–F7 are pinned in F0, so feature branches don't need to touch `uv.lock`.
+    ## Acceptance
+    - [ ] Round-trip and validation tests for `StationTable`
+    - [ ] A dummy command module is discovered without editing `cli.py`
+    ## Files / modules touched
+    `src/luregen/profile/table.py`, `src/luregen/commands/`, `src/luregen/cli.py`
+    ## Depends on
+    {{f0t1}}
+
+- key: f6t1
+  parent: f6
+  title: "[Task] F6a: `lure sync-profiles` fetch and flatten U1 Orca profiles"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    For a pinned slicer and version (upstream OrcaSlicer 2.5.1 primary, Snapmaker Orca 2.4.1 fallback), download the U1 machine, process (0.20 Standard) and PETG filament profile chains from the tagged GitHub source.
+    - Resolve `inherits`: same vendor first, then OrcaFilamentLibrary, merged root-first.
+    - Set a clean `name` and `*_settings_id`. Read files as UTF-8-sig.
+    - Write `spec/printers/snapmaker_u1/profiles/<app>/{machine,process,filament}.json` and record the source tag in `machine.toml`.
+    ## Acceptance
+    - [ ] Flattened files contain no `inherits`; key values match the research (0.2 layer, Klipper flavor, M600 pause, prime tower on in stock)
+    - [ ] Tests run against fixture JSON (no network in CI)
+    ## Files / modules touched
+    `src/luregen/fab/printer/profiles.py`, `src/luregen/commands/sync_profiles.py`, `spec/printers/snapmaker_u1/`
+
+- key: f6t2
+  parent: f6
+  title: "[Task] F6a: slicer runner (AppImage, xvfb, overrides from machine.toml)"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    Locate or download and extract the pinned AppImage under a cache dir. Build the CLI call (`--slice 0 --load-settings … --load-filaments … --outputdir …`) with overrides from `machine.toml`: prime tower off, 100% infill, 4 walls, 6 top / 4 bottom layers, seam back, no ironing. Booleans use the `--key=0` form. Wrap in `xvfb-run -a` when it's available. STL input only.
+    ## Acceptance
+    - [ ] Slices a generated test cube to G-code locally
+    - [ ] Gives a clear error when the binary is missing; CI skips the integration test
+    ## Files / modules touched
+    `src/luregen/fab/printer/orca.py`, `spec/printers/snapmaker_u1/machine.toml`
+
+- key: f6t3
+  parent: f6
+  title: "[Task] F6a: pause insertion post-processor"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    Insert the machine's pause command (`M600` by default, from `machine.toml`) at the first layer change at or above a given Z, with a comment.
+    ## Acceptance
+    - [ ] Unit tests on fixture G-code: correct layer, idempotent, multiple pauses supported
+    ## Files / modules touched
+    `src/luregen/fab/printer/gcode_post.py`, `src/luregen/fab/gcode.py`
+
+- key: f6t4
+  parent: f6
+  title: "[Task] F6a: print G-code parser and reference diff"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    Parse Orca output: estimated time, filament g/mm, layer count, thumbnails, the CONFIG block and the start/end G-code. Diff it against `spec/printers/snapmaker_u1/reference/*.gcode` and report differing keys.
+    ## Acceptance
+    - [ ] Works on fixture output; the real reference diff waits on {{f6t0}}
+    ## Files / modules touched
+    `src/luregen/fab/printer/verify.py`
+
+- key: f6t5
+  parent: f6
+  title: "[Task] F6b: orient and export print STLs from a build; `lure fab --format print` end-to-end"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    From a build folder: orient each section on its side, export STLs (the cavity as an inner shell of the same mesh), slice, insert the pause at the cavity-ceiling Z from `report.json`, verify, and write `fab/print/`.
+    ## Acceptance
+    - [ ] End-to-end on the sample variant
+    ## Depends on
+    {{f3}}, {{f6t2}}, {{f6t3}}
+
+- key: f7t1
+  parent: f7
+  title: "[Task] F7a: toolpath IR and post.toml schema"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    A machine-neutral toolpath intermediate representation:
+    - Operations made of moves: rapid, feed, arc (plane, center, direction), dwell, comment.
+    - Tool changes and spindle on/off.
+    - Setup metadata: stock and zero.
+
+    Plus a pydantic schema for `spec/routers/<m>/post.toml`, with the draft Shapeoko values from the F7 issue body.
+    ## Acceptance
+    - [ ] The IR serializes to/from JSON; `post.toml` validates
+    ## Files / modules touched
+    `src/luregen/fab/router/ir.py`, `src/luregen/fab/router/post_config.py`, `spec/routers/shapeoko3_xxl/post.toml`
+
+- key: f7t2
+  parent: f7
+  title: "[Task] F7a: Carbide Motion / GRBL post writer + golden tests"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    IR + `post.toml` → `.nc`:
+    - Header and footer.
+    - Precision and word separator.
+    - Modal suppression.
+    - Arc endpoint snapping: round the start and center, recompute the end on the circle.
+    - Arc limits: chord, radius, max sweep, otherwise linearize.
+    - Drilling expanded into pecks.
+    - Sanitized comments ≤ 80 characters.
+    - Tool change: `M5`, `G53` retract, `M6 T`.
+    - The forbidden-code guard.
+
+    Reimplement the logic yourself; copy no third-party code.
+    ## Acceptance
+    - [ ] Golden-file tests for: profile with arcs, peck drill, two-tool job
+    - [ ] Output never contains forbidden codes
+    ## Files / modules touched
+    `src/luregen/fab/router/post.py`, `tests/golden/`
+    ## Depends on
+    {{f7t1}}
+
+- key: f7t3
+  parent: f7
+  title: "[Task] F7a: `lure analyze-gcode` reference analyzer"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    Read a sample `.nc` and infer: units, word separator, decimals per word, header and footer, arc format, spindle form, tool-change style, retract style, comment style. Print a proposed `post.toml` and a diff against the current one.
+    ## Acceptance
+    - [ ] Correct on a Carbide-Create-style fixture; the real file waits on {{f7t0}}
+    ## Files / modules touched
+    `src/luregen/fab/gcode.py`, `src/luregen/commands/analyze_gcode.py`
+
+- key: f7t4
+  parent: f7
+  title: "[Task] F7a: G-code verifier and heightmap cut simulation"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    - **Static checks:** bounds vs stock and travel, no G0 below safe Z (except pure Z approaches), spindle on before cutting, feed set before G1, forbidden codes, line length, runtime estimate.
+    - **Simulation:** a numpy stock heightmap stamped by flat and ball tools along each segment. Diff against a target heightmap and output a gouge/leftover PNG.
+    ## Acceptance
+    - [ ] Detects seeded faults in fixtures; the simulation of a simple pocket matches the analytic depth
+    ## Files / modules touched
+    `src/luregen/fab/router/verify.py`, `src/luregen/fab/router/sim.py`
+
+- key: f7t5
+  parent: f7
+  title: "[Task] F7b: CNC internals (halves, glue-face pockets, wire groove, dowels)"
+  labels: [type:task, area:cnc, area:geometry]
+  body: |
+    ## Goal
+    Split the envelope on the centerplane into halves. Glue-face ballast and air pockets (flat bottom, corner radius ≥ tool radius), a ball-nose half-groove for the through-wire, and dowel and registration holes in the waste area.
+    ## Depends on
+    {{f2}}
+
+- key: f7t6
+  parent: f7
+  title: "[Task] F7b: setup planner, flip transform and 2.5D ops"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    - **Setups:** setup 1 is the glue face; setup 2 is the outer face after flipping about X with mirrored Y.
+    - **Shapely ops:** face, pocket (offset rings), profile with 4–6 tabs, peck drill, groove.
+    - **Feeds** from `feeds.toml`.
+    ## Depends on
+    {{f7t1}}, {{f7t5}}
+
+- key: f7t7
+  parent: f7
+  title: "[Task] F7b: 3D heightmap roughing and ball-nose finishing"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    - A trimesh ray-cast heightmap (~0.15 mm), then a ball-kernel `grey_dilation` to get the tool-tip surface.
+    - Roughing: z-level contours leaving 0.5 mm.
+    - Finishing: a raster along the body with scallop-based stepover (s = √(8Rh)).
+    ## Depends on
+    {{f7t6}}
+
+- key: f7t8
+  parent: f7
+  title: "[Task] F7b: setup sheet and `lure fab --format cnc` end-to-end"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    Produce per-setup `.nc` files plus `setup.md` (stock, zero, tools per setup, flip, ballast and wire before glue-up), verified and simulated.
+    ## Depends on
+    {{f7t2}}, {{f7t4}}, {{f7t6}}, {{f7t7}}
+
+# --- 2026-11-18: feeds & speeds from the sister calculator repo ---
+
+- key: f7t9
+  parent: f7
+  title: "[Task] F7: port Shapeoko feeds & speeds from cnc-feeds-speeds-calculator into feeds.toml + feeds.py"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    Use the owner's sister repo [lopezj1/cnc-feeds-speeds-calculator](https://github.com/lopezj1/cnc-feeds-speeds-calculator) as the **source of truth** for Shapeoko 3 feeds, speeds, depth of cut and stepover. Its data comes from the community Shapeoko "A to Z" feeds & speeds guide. Port its tables to data (`spec/routers/shapeoko3_xxl/feeds.toml`) and its formulas to `src/luregen/fab/router/feeds.py`, so the CAM ops (#41, #42) pull their numbers from it.
+
+    ## Source data (inches, as in the calculator)
+    **Chipload per tooth, [conservative, aggressive]:**
+    | Endmill | soft-plastic | soft-wood | hard-wood |
+    |---|---|---|---|
+    | 1/16" | 0.002–0.003 | 0.001–0.0015 | 0.0005–0.001 |
+    | 1/8" | 0.002–0.005 | 0.001–0.0025 | 0.0005–0.001 |
+    | 1/4" | 0.004–0.010 | 0.001–0.005 | 0.001–0.002 |
+
+    **Formulas:**
+    - feed = chipload × flutes × RPM
+    - DOC = fraction × D: 10% conservative / 50% aggressive (hard-wood 5% / 25%)
+    - stepover = 40% / 70% × D
+    - plunge = feed × 45% (soft-plastic) / 35% (soft-wood) / 20% (hard-wood)
+
+    **Special tools:**
+    - V-bit: feed 30–60 IPM, DOC 0.10–0.20", plunge 10–20 IPM, by material
+    - Surfacing: 80–100 IPM, DOC 0.01–0.05"
+
+    **RPM:** range 10,000–30,000; calculator default 18,000.
+
+    ## Design notes
+    - Store the table in inches exactly as the source does, with a `source` field; convert to mm and mm/min in code. Output stays in mm.
+    - **Material mapping** (in `feeds.toml`):
+      - basswood, cedar → soft-wood
+      - pvc_board → soft-plastic
+      - hardwoods → hard-wood
+    - **Mode per operation** (`conservative` | `aggressive`), set per op in the CAM config.
+      - Default: roughing = aggressive DOC within the pocket-depth DFM limit; finishing = conservative.
+      - The scallop-based stepover for ball-nose finishing (#42) overrides the calculator's stepover.
+    - **Ball-nose:** the calculator has no ball-nose rows. Use the flat-endmill chipload for the same diameter and flag it as an assumption. 3D finishing needs a 1/8" ball, so confirm the owner has one (#28).
+    - **Sanity check from the owner's samples:** real jobs ran a 1/8" flat at 60–80 IPM (1524–2032 mm/min), plunge 20 IPM, DOC ≈ 1.27 mm. Report how that compares with the calculator's modes (material unknown).
+    - **Chipload status** (below/within/above range), as in the calculator, goes in the setup sheet.
+    - The RPM ↔ router-dial mapping is still owner input (#28). Keep the RPM a config value.
+
+    ## Acceptance
+    - [ ] Unit tests reproduce calculator outputs, e.g. 1/8" 2-flute soft-wood conservative @ 18,000 RPM → feed 36 IPM (914.4 mm/min), DOC 0.0125" (0.3175 mm), stepover 0.05" (1.27 mm), plunge 12.6 IPM (320.04 mm/min)
+    - [ ] V-bit and surfacing ranges
+    - [ ] Material-mapping errors for unknown materials
+    - [ ] `feeds.toml` cites the sister repo and the A-to-Z guide as sources
+
+    ## Files / modules touched
+    `spec/routers/shapeoko3_xxl/feeds.toml`, `src/luregen/fab/router/feeds.py`, `tests/unit/test_feeds.py`
+
+    ## Depends on
+    Nothing. Can start any time; needed by {{f7t6}} and {{f7t7}}.
+
+# --- 2026-11-18: lure-side additions from the multi-material reference slice ---
+
+- key: f6t6
+  parent: f6
+  title: "[Task] F6c: multi-material support interface for loft3d prints"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    Lure sections printed on their side with a fully rounded body (loft3d) have a curved lower flank that needs supports. Use a **dissimilar-material support interface** (PLA↔PETG don't bond) so the underside comes off clean and the clear coat has no support scarring. This follows the owner's reference slice (#26, findings in the #25 comments).
+    ## Design notes
+    - **Default for `process.method = "print"`, `body_style = "loft3d"`:**
+      - body PETG, interface PLA (or the reverse for a PLA body)
+      - tree(auto) supports, `support_top_z_distance = 0`, 3 interface layers
+      - prime tower on
+    - **Filament slots** (`T0`–`T3`: material, color, profile) live in `spec/printers/snapmaker_u1/machine.toml`; the variant selects the body and interface slots.
+    - The prime tower override becomes conditional: off for single-filament jobs, on for multi-filament jobs.
+    - These are global CLI overrides, so STL input still works: `--enable-support=1 --support-type=tree(auto) --support-interface-filament=<n> --support-top-z-distance=0`.
+    - The profile25d body (flat sides) needs no supports.
+    - **DFM rule:** loft3d on its side needs supports. Warn when the interface filament is missing or the same material as the body.
+    ## Acceptance
+    - [ ] The sample loft3d variant slices with a PETG body and PLA interface (container runtime OK)
+    - [ ] The G-code shows the expected tool changes and the prime tower
+    - [ ] Single-filament jobs still slice without the prime tower
+    - [ ] Report: interface grams, number of tool changes, time
+    ## Depends on
+    {{f3}}, {{f6t2}}
+
+- key: f10
+  parent: epic
+  title: "[Feature] F10 Multi-color lure zones (toolchanger printing)"
+  labels: [type:feature, area:print, area:geometry]
+  body: |
+    ## Goal
+    Print color patterns straight from the U1's four toolheads: dark back, white belly, red gills or eyes. Zones are defined in config and assigned to filament slots.
+    ## Design notes
+    - **Zones:**
+      - dorsal/ventral split by a z-curve along the stations (e.g. a lateral-line height ratio)
+      - gill-plate and eye regions as small inlay solids at stations/positions
+      - each zone maps to a filament slot (see F6c's slot list)
+    - **Geometry:** split the section solid into zone solids that share faces exactly (no gaps or overlaps). The union must equal the body. Mass properties are unchanged except for filament density differences.
+    - **Slicer input:** per-part filament assignment needs either a **3MF project** with per-part extruder metadata, or an Orca CLI object→filament mapping (if one exists). The Snapmaker fork segfaults on 3MF input (#935), so test upstream OrcaSlicer 2.5.1 first.
+    - Mass and balance (F4) account for zone densities (PLA 1.24 vs PETG 1.27).
+    ## Tasks
+    - [ ] Spike: per-part filament assignment via the CLI (3MF project on upstream 2.5.1; any filament-id mapping flag)
+    - [ ] Zone config schema plus zone solid splitting
+    - [ ] Multi-part 3MF export with per-part filament metadata
+    - [ ] Slice, preview and verify: tool-change count, purge volume, time
+    ## Done when
+    - [ ] A two-zone (back/belly) sample variant slices to multi-material G-code with the correct filament per zone
+
+- key: f10t1
+  parent: f10
+  title: "[Task] F10 spike: per-part filament assignment through the Orca CLI"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    Find a headless way to slice one object made of several parts with different filaments on the U1.
+    ## Acceptance
+    - [ ] Try a 3MF project input on upstream OrcaSlicer 2.5.1, with per-part extruder in `Metadata/model_settings.config`, built from a GUI-saved template plus Python XML edits
+    - [ ] Check whether any CLI flag maps objects or parts to filament ids
+    - [ ] Record the result for the Snapmaker 2.4.1 fallback too (#935)
+    - [ ] Write up the working command, with a two-part test cube that slices to G-code containing both tools
+    ## Depends on
+    {{f6t2}}
+
+# --- 2026-11-18: Web app v1 epic ---
+
+- key: wepic
+  title: "[Epic] Web app v1: config editor, 3D/section viewer, print & CNC previews"
+  labels: [type:epic]
+  body: |
+    ## Goal
+    A local single-user web front end for the pipeline in #1:
+    - edit configs and specs
+    - upload photos, CSVs and reference G-code
+    - view the 3D model with cross-sections on a selectable plane
+    - preview print G-code (OrcaSlicer/Fluidd/Mainsail-style) and CNC toolpaths (gSender-style)
+    - run jobs and export STL/STEP/3MF/G-code/NC
+
+    It runs on the home server as one container.
+
+    ## Architecture
+    ```
+    Browser: Svelte 5 SPA (static) ── JSON + binary, same origin ── FastAPI (`lure serve`, in luregen)
+      config editor (schema-driven)          reads: spec, schema, validate, sections, G-code→binary
+      model viewer (three-cad-viewer)        writes: variant TOML via tomlkit diff (comments kept)
+      print / CNC previews (own three.js)    jobs: queue → `python -m luregen <cmd> --progress json` subprocesses
+      jobs, builds, exports                  → existing CLI (profile / build / fab) → builds/
+    ```
+
+    ## Stack
+    | Layer | Choice |
+    |---|---|
+    | Frontend | Vite 8 + Svelte 5 + TypeScript, plain SPA (no SvelteKit), Pico CSS |
+    | Forms | @sjsf/form (Svelte 5 JSON-Schema forms) + custom widgets (range slider, [min,max] pair, material select) |
+    | 3D model | three-cad-viewer 5.x + server-side ocp-tessellate; `three` pinned to the viewer's version (0.184) and deduped |
+    | Sections | trimesh section by default; exact build123d `section()` on demand (guarded subprocess) |
+    | G-code viewers | our own three.js renderers fed compact binary from the existing Python G-code interpreter |
+    | API | FastAPI with built-in SSE, uvicorn, tomlkit, python-multipart (`web` dependency group) |
+    | Types | OpenAPI → openapi-typescript; `openapi.json` committed |
+    | Jobs | in-process asyncio queue running `lure` subprocesses (crash-isolated); `@@progress` / `@@result` lines → SSE |
+    | Deploy | single Ubuntu 24.04 image (Python + OCP + extracted OrcaSlicer + xvfb + API + built SPA); one compose service; **dev stays native** |
+
+    ## Decisions
+    1. **The backend owns all logic.** The browser only edits and displays: no TOML or G-code parsing in JS, and one parser (Python) feeds both viewers.
+    2. **Every UI action maps to a CLI command**, so it's reproducible from the terminal.
+    3. **UI edits write directly to the git-tracked `spec/`**: diff-only, comments preserved, mtime conflict check, `.bak`. The UI shows a "spec has uncommitted changes" badge; commits stay manual.
+    4. **LAN only, no auth.** Uploads are content-checked and size-capped. Every path is checked to stay inside the data root.
+    5. **Develop natively; deploy one image** (no Docker socket, no multi-service split). In the image the slicer runs directly, so the glibc 2.38 need is met.
+    6. Viewers are built against existing fixtures (Orca test-cube slice, multi-material reference #26, golden `.nc`, Fusion excerpt), so they don't wait on F6b/F7b.
+    7. Design ideas come from OrcaSlicer, Fluidd, Mainsail, OctoPrint and gSender. **Reimplemented, no code copied.**
+
+    ## Roadmap
+    - W0 first, solo (pins all new Python and npm deps)
+    - Wave A in parallel: W1, W2, W3, W8
+    - Wave B in parallel: W4, W5, W6, W7, W9
+
+    ## Risks / spikes
+    - sjsf rendering of pydantic Optionals and tuples. Fix: a server-side schema post-pass (spike in W0).
+    - ocp-tessellate ↔ build123d 0.13 / OCCT 8 ↔ three-cad-viewer compatibility (spike in W0). Fallback: GLB + own three.js clipping.
+    - Stencil caps need watertight solids (F2 already checks).
+    - Large print files (e.g. 617k lines / 160 tool changes): binary arrays, draw ranges, render on demand.
+
+    Related: pipeline epic #1.
+
+- key: w0
+  parent: wepic
+  title: "[Feature] W0 Web infra, dependency pins and spikes"
+  labels: [type:feature, area:web, area:api, area:infra]
+  body: |
+    ## Goal
+    The groundwork every web feature builds on, done solo before any parallel work, like F0:
+    - all new dependencies pinned once
+    - the scaffold
+    - the two risk spikes
+    - CI
+    - repo rules
+    ## Done when
+    - [ ] Both spikes are written up with a go/fallback decision
+    - [ ] `uv run lure serve` serves a placeholder SPA from `web/dist` plus `/api/health`
+    - [ ] The CI web job is green
+    - [ ] CLAUDE.md has web rules
+
+- key: w0t3
+  parent: w0
+  title: "[Task] W0: pin web deps (Python `web` group + npm), scaffold web/ (Vite + Svelte 5 + TS + Pico)"
+  labels: [type:task, area:web, area:infra]
+  body: |
+    ## Goal
+    Pin everything the web features will need, once:
+    - **Python `web` group:** fastapi, uvicorn[standard], python-multipart, tomlkit, ocp-tessellate
+    - **npm:** vite, svelte, @sveltejs/vite-plugin-svelte, typescript, svelte-check, three (same version as three-cad-viewer), three-cad-viewer, three-mesh-bvh, @sjsf/form plus theme and validator, @picocss/pico, openapi-typescript, openapi-fetch, eslint/prettier
+
+    Scaffold `web/` with Vite `resolve.dedupe: ['three']`, a `dist/` output and a dev proxy to `/api`.
+    ## Acceptance
+    - [ ] `npm ci && npm run build` works; `uv sync --group web` works
+    - [ ] Feature branches never need to touch `package.json`, `package-lock.json`, `pyproject.toml` or `uv.lock`
+
+- key: w0t1
+  parent: w0
+  title: "[Task] W0 spike: @sjsf/form rendering of the LureConfig JSON Schema"
+  labels: [type:task, area:web]
+  body: |
+    ## Goal
+    Check that @sjsf/form (Svelte 5) renders `LureConfig.model_json_schema()` usefully. Prototype the server-side schema post-pass:
+    - collapse `anyOf[T, null]` to `T` plus a nullable flag
+    - turn `prefixItems` tuples into a "range pair" marker
+    - optionally inline `$defs`
+
+    Prototype the three custom widgets: range slider from min/max, `[min, max]` pair, material select.
+    ## Acceptance
+    - [ ] Prototype renders size, profile, joint, buoyancy and the hardware list editably
+    - [ ] Written decision: go, or fall back to a hand-built form
+    ## Depends on
+    {{w0t3}}
+
+- key: w0t2
+  parent: w0
+  title: "[Task] W0 spike: ocp-tessellate + three-cad-viewer with build123d 0.13 (clip planes, caps)"
+  labels: [type:task, area:web]
+  body: |
+    ## Goal
+    Tessellate an F2 envelope (loft3d and profile25d), plus a solid with an internal void, using ocp-tessellate. Render it in three-cad-viewer inside a minimal Svelte page. Check the X/Y/Z clip planes with filled caps, that internal voids are visible, the part tree and measurement.
+    ## Acceptance
+    - [ ] Version pairing recorded (ocp-tessellate ↔ three-cad-viewer ↔ three)
+    - [ ] Screenshots of clip planes and caps
+    - [ ] Written decision: go, or fall back to GLB + own three.js clipping and stencil caps
+    ## Depends on
+    {{w0t3}}, {{f2}}
+
+- key: w0t4
+  parent: w0
+  title: "[Task] W0: `lure serve` skeleton, `python -m luregen`, progress protocol"
+  labels: [type:task, area:api]
+  body: |
+    ## Goal
+    - `src/luregen/__main__.py`
+    - `src/luregen/api/app.py` (FastAPI, mounts `web/dist` with `StaticFiles(html=True)`, `/api/health`)
+    - `commands/serve.py` (`lure serve --host --port --root`, imports uvicorn lazily)
+    - `luregen/progress.py` plus a global `--progress json` option that emits `@@progress {json}` and `@@result {json}` lines on stderr
+    - a `LUREGEN_GIT_SHA` fallback for build stamps when `.git` is absent
+    ## Acceptance
+    - [ ] Unit tests: health endpoint, progress line format, stamp fallback
+    ## Depends on
+    {{w0t3}}
+
+- key: w0t5
+  parent: w0
+  title: "[Task] W0: CI web job + OpenAPI → TypeScript types pipeline"
+  labels: [type:task, area:web, area:infra]
+  body: |
+    ## Goal
+    - `lure serve --dump-openapi > web/openapi.json` (committed)
+    - `npm run gen:api` uses openapi-typescript
+    - A CI `web` job: `npm ci`, lint, `svelte-check`, build, and gen:api with a git-diff check that fails if the types are stale
+    - The Python job syncs `--group web`
+    ## Acceptance
+    - [ ] Green on the W0 PR
+    ## Depends on
+    {{w0t3}}, {{w0t4}}
+
+- key: w0t6
+  parent: w0
+  title: "[Task] W0: repo rules for the web app (CLAUDE.md, .gitignore, multiple epics)"
+  labels: [type:task, area:infra]
+  body: |
+    ## Goal
+    Update CLAUDE.md:
+    - multiple epics (`type:epic` for #1 and the web epic)
+    - web architecture rules: the backend owns the logic, all three.js pinned to one version, viewers ideas-only from OrcaSlicer/Fluidd/Mainsail/OctoPrint/gSender with no code copied
+    - npm deps pinned in W0 only
+    - `web/` layout
+
+    Add `uploads/` and `web/node_modules`, `web/dist` to `.gitignore`.
+    ## Acceptance
+    - [ ] Docs merged with W0
+
+- key: w1
+  parent: wepic
+  title: "[Feature] W1 API core: spec, variants, schema, validate, save, uploads, builds"
+  labels: [type:feature, area:api]
+  body: |
+    ## Endpoints (under `/api`)
+    | Method | Path | Notes |
+    |---|---|---|
+    | GET | `/designs`, `/designs/{family}/variants`, `/machines`, `/materials` | scan `spec/` |
+    | GET | `/variants/{family}/{name}` | `{layered, resolved, own, parents}`, with inherited vs overridden per key |
+    | GET | `/schema/lure-config` | post-processed JSON Schema (from the W0 spike) |
+    | POST | `/variants/{family}/{name}/validate` | dry-run `load_config` → errors |
+    | PUT | `/variants/{family}/{name}` | validate, then a **tomlkit diff writer**; 409 on mtime change |
+    | POST | `/uploads?kind=photo\|csv\|gcode` | 25 MB cap, content-checked, stored at `uploads/<sha256>.<ext>` |
+    | GET | `/builds`, `/builds/{path}/files/{file}` | report summaries; paths confined to `builds/` |
+    | GET | `/spec/status` | git dirty state for the UI badge |
+
+    ## Diff writer rules
+    1. Merge the parent chain with `load_layered`.
+    2. Recursively diff the edited config against the parents. Lists (incl. `[[hardware]]`) compare whole.
+    3. In the variant's tomlkit document, set changed keys in place, add new keys at the end of their table, and delete keys now equal to the inherited value.
+    4. Never touch `extends` or `name`. Keep path keys relative.
+    5. Re-validate, then write atomically with a `.bak`.
+
+    ## Done when
+    - [ ] Endpoint tests, including the diff writer keeping comments on the sample variant and path-containment tests
+    ## Depends on
+    {{w0}}
+
+- key: w2
+  parent: wepic
+  title: "[Feature] W2 Job runner with live progress (SSE)"
+  labels: [type:feature, area:api]
+  body: |
+    ## Design
+    - `POST /jobs {op: profile|build|fab_print|fab_cnc, args, overrides[]}` → 202 `{id}`
+    - One asyncio worker runs `python -m luregen <cmd> --progress json` with `start_new_session=True`, so crashes are isolated.
+    - The log goes to `builds/.jobs/<id>.log` and state to `<id>.json`; jobs still running at startup are marked `interrupted`.
+    - `GET /jobs/{id}/events` streams SSE `log`, `progress` and `status` events with ids, so the client can resume.
+    - `DELETE /jobs/{id}` sends SIGTERM to the process group.
+    - `@@result {"build_dir": …}` links the job to its build.
+    ## Done when
+    - [ ] Tests: success, failure, simulated segfault, cancel, restart recovery, and SSE resume
+    ## Depends on
+    {{w0}}
+
+- key: w3
+  parent: wepic
+  title: "[Feature] W3 G-code → compact binary for the viewers (print + CNC)"
+  labels: [type:feature, area:api]
+  body: |
+    ## Design
+    Reuse the Python G-code tokenizer/interpreter (F7a `luregen/fab/gcode.py`).
+    - **Print** (Orca): adds an extrusion-state pass (extrude vs travel). Layer comes from `;LAYER_CHANGE` / `;Z:`, feature from `;TYPE:`, tool from `T<n>`, plus width/height/feed, with flags for the pause (M600) and tool-change points.
+    - **CNC:** arcs tessellated in their own plane (G17/G18/G19) at chord tolerance ~0.02 mm. Move kind is rapid/feed/plunge; tool comes from `M6T`/`T`.
+    - **Output format:**
+      - a small JSON header: bounds, per-layer offsets, tool table, feature table, markers
+      - typed arrays: Float32 xyz endpoints, Uint8 kind/feature/tool, Uint16 layer, Float32 feed/width
+      - served brotli/gzip as `GET /builds/{path}/toolpath/{file}.bin` and cached as `<file>.bin` by mtime
+    ## Done when
+    - [ ] Fixtures encode correctly: Orca cube, the multi-material reference excerpt (#26), golden `.nc` files, the Fusion excerpt with G18/G19 arcs
+    - [ ] The 617k-line reference encodes in reasonable time and size (target < 10 s, < 10 MB compressed)
+    ## Depends on
+    {{w0}}; the F6a/F7a modules (#49, #48)
+
+- key: w4
+  parent: wepic
+  title: "[Feature] W4 Config editor UI"
+  labels: [type:feature, area:web]
+  body: |
+    ## Scope
+    - Design/variant picker
+    - Schema-driven form (@sjsf) with custom widgets (range slider, `[min,max]` pair, material select)
+    - Inherited vs overridden badges plus a "reset to inherited" action
+    - Hardware list editor (catalog id picker, position, qty, override mass)
+    - Validate inline; Save with conflict handling; a "run with temporary overrides" (`--set`) panel
+    - Upload a photo → run a profile job → show the overlay for approval
+    - Filament slots panel (once F6c/F10 land)
+    ## Depends on
+    {{w1}}, {{w2}}, spike {{w0t1}}
+
+- key: w5
+  parent: wepic
+  title: "[Feature] W5 Model viewer with cross-section analysis"
+  labels: [type:feature, area:web, area:api]
+  body: |
+    ## Scope
+    - **Backend:** `lure build` also writes ocp-tessellate viewer data (and `body.glb`) per section. `GET /builds/{path}/section?axis=x|y|z&offset=…[&exact=1]` returns `{loops, area_mm2, void_area_mm2, perimeter_mm}`.
+    - **Frontend:**
+      - three-cad-viewer embed with the parts tree
+      - X/Y/Z clip planes with offset sliders and filled caps, so cavities and keel are visible
+      - a 2D section side panel showing the exact outline and area
+      - measurement and view presets
+      - report overlay: mass g/oz, CG/CB, verdict
+    ## Depends on
+    {{w1}}, spike {{w0t2}}
+
+- key: w6
+  parent: wepic
+  title: "[Feature] W6 Print G-code preview (OrcaSlicer/Fluidd/Mainsail-inspired)"
+  labels: [type:feature, area:web]
+  body: |
+    ## MVP
+    - Layer range dual slider (Up/Down keys) and move slider within the layer (Left/Right keys)
+    - Color by **feature type** (own palette) or **tool/filament**; legend with click-to-hide
+    - Travel toggle; prime tower toggle
+    - **Markers:** ballast pause (M600) as a plane plus a slider tick, and tool changes as slider ticks
+    - Nozzle marker, fit view, render on demand
+    - Draw ranges per layer; a feature-mask uniform
+    ## Later
+    Color by speed/height/width/fan/temperature; tubes for the top N layers; a per-layer stats and G-code line panel.
+    ## Done when
+    - [ ] Smooth on the 617k-line multi-material reference (#26)
+    ## Depends on
+    {{w3}}
+
+- key: w7
+  parent: wepic
+  title: "[Feature] W7 CNC toolpath preview (gSender-inspired)"
+  labels: [type:feature, area:web]
+  body: |
+    ## MVP
+    - Rapids thin/dashed and feeds solid, colored by tool
+    - Job-progress scrubber that recolors done vs remaining
+    - Tool marker, stock outline and bbox with dimensions, work zero, view presets
+    - Stats per tool: path length, rapid length, estimated time
+    - Handles both **one file per tool (default)** and single-program output
+    ## Later
+    Stock-removal view from the Python heightmap simulation; lightweight 2D top-down mode.
+    ## Depends on
+    {{w3}}
+
+- key: w8
+  parent: wepic
+  title: "[Feature] W8 Docker deploy image + compose"
+  labels: [type:feature, area:deploy]
+  body: |
+    ## Design
+    - **`docker/Dockerfile`**, multi-stage: node build of `web/` → uv venv (`--no-dev --group web`) → extracted OrcaSlicer 2.5.1 AppImage (checksum-pinned; Snapmaker fallback behind a build-arg) → Ubuntu 24.04 runtime
+      - runtime libs from `tools/orca-runtime`
+      - `orca-slicer` symlinked on PATH, `LUREGEN_SLICER_RUNTIME=host`
+      - non-root UID 1000, tini
+    - **`docker/compose.yml`:** a single `luregen` service with volumes `spec/`, `builds/` and `uploads/` under `/data`, LAN port 8000, `restart: unless-stopped`
+    - **`.dockerignore`**
+    - **Image CI workflow** (manual or on tag): build the image and run `pytest -m integration` inside it
+    ## Done when
+    - [ ] The image runs on the home server, slices the cube natively inside the container, and serves the UI
+    ## Depends on
+    {{w0}}
+
+- key: w9
+  parent: wepic
+  title: "[Feature] W9 Builds browser, exports and jobs panel"
+  labels: [type:feature, area:web]
+  body: |
+    ## Scope
+    - Build history per variant with report summaries and compare-two-builds (mass/CG deltas)
+    - Downloads: STEP, STL, 3MF, GLB, `.gcode`, `.nc` (per-tool files or a zip)
+    - Jobs drawer with live log, progress and cancel
+    - "spec has uncommitted changes" badge
+    ## Depends on
+    {{w1}}, {{w2}}
+
+# --- 2026-11-18: W2 follow-ups ---
+
+- key: w2t1
+  parent: w2
+  title: "[Task] W2 follow-up: emit @@progress stages from `lure build` and @@result from `lure profile`"
+  labels: [type:task, area:api]
+  body: |
+    ## Goal
+    The job runner (#73) streams `progress` and `result` events, but:
+    - `lure build` emits only `@@result` (no stages), so the UI shows no progress bar for builds.
+    - `lure profile` emits no `@@result` (e.g. `{csv, debug_png}`), so the UI can't link to its outputs.
+
+    Add `progress.emit(stage, frac, msg)` calls at the natural build stages:
+    - load config
+    - station table
+    - envelope
+    - (later: internals, mass props, solver, DFM)
+    - export
+    - report
+
+    Add `progress.result(csv=…, debug_png=…, mask_png=…)` to `lure profile`.
+    ## Acceptance
+    - [ ] A build job streams ≥ 4 progress events with a monotonically increasing `frac`
+    - [ ] A profile job's `result` lists its output paths (relative to the data root)
+    - [ ] Tests in `test_progress.py` / `test_jobs.py`
+    ## Files / modules touched
+    `src/luregen/commands/build.py`, `src/luregen/commands/profile.py`
+
+# --- 2026-11-18: F3 tasks (feature starting) and wave-A follow-ups ---
+
+- key: f3t1
+  parent: f3
+  title: "[Task] F3: V-joint split, pin bore, hinge eyes and line tie"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    Split the envelope at `joint.joint_frac` into **head** and **tail** solids with the V-joint:
+    - gap `joint.gap_mm`
+    - arms at `joint.angle_deg`
+    - apex radius ≥ the CNC tool radius when `process.method = "cnc"`
+
+    Add the vertical pin bore just behind the joint, the hinge-eye locations at `joint.hinge_eye_z`, and the line tie at `joint.line_tie_z`. Do the booleans on the full body before splitting where possible, and assert validity after every boolean.
+    ## Acceptance
+    - [ ] Two valid solids; volumes sum to the envelope minus the gap wedge (analytic check)
+    - [ ] Exported as `model/head.*` and `model/tail.*`
+    ## Files / modules touched
+    `src/luregen/geometry/joint.py`, `src/luregen/families/glide.py` (new family module)
+
+- key: f3t2
+  parent: f3
+  title: "[Task] F3: inset-loft cavities with a self-supporting roof and a solid keel"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    Per section, build one sealed air cavity as an **explicit inset loft** through the mid stations only. Never use `offset_3d` or Shell.
+    - **Walls:** v_radius/half_width reduced by `wall_thk`, keeping the min-skin rule.
+    - **Roof:** a gable (45°) or teardrop cross-section roof, self-supporting when printed on its side.
+    - **Keel:** solid below `keel_top_z`; keep cavities ≥ 1 mm from joint, hinge and ballast features.
+
+    Use identical spline parameters across sections (F2 pitfall).
+    ## Acceptance
+    - [ ] Each print section is 1 solid with 2 shells
+    - [ ] The cavity volume responds monotonically to `wall_thk` and `keel_top_z`; these are the solver knobs for F4
+    ## Files / modules touched
+    `src/luregen/geometry/cavity.py`
+
+- key: f3t3
+  parent: f3
+  title: "[Task] F3: ballast pocket, tail trim pocket and screw-eye bosses"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    - **Main ballast pocket:** at `ballast.x_from_joint_mm` ahead of the joint and `ballast.z_above_belly_mm`, sized from ballast mass/density (cylinder or slot).
+    - **Aft tail trim pocket:** when `buoyancy.trim_pocket` is set.
+    - **Solid bosses** around each `[[hardware]]` screw-eye position (print), so eyes go into solid material (spec F7).
+    ## Acceptance
+    - [ ] Pockets and bosses keep validity and the 1-void rule
+    - [ ] Pocket volume is reported
+    ## Files / modules touched
+    `src/luregen/geometry/pockets.py`
+
+- key: f3t4
+  parent: f3
+  title: "[Task] F3: mass properties per section (solids + ballast + hardware point masses)"
+  labels: [type:task, area:physics]
+  body: |
+    ## Goal
+    `src/luregen/physics/massprops.py`:
+    - **Per section:** Σ ρᵢVᵢ and centroids for the body solid (cavity excluded) and the ballast; hardware point masses at their x/z, with their volume counted as displacement; **CB = centroid of the displaced envelope volume**.
+    - **Whole lure:** mass (g, oz), volume, overall density, fore/aft CG−CB, vertical CB−CG, head:tail mass ratio, section densities.
+    - Evaluate at both ends of the hardware mass band.
+    ## Acceptance
+    - [ ] Analytic tests (an ellipsoid with a known void and point masses)
+    - [ ] The sample variant's numbers appear in the report
+    ## Files / modules touched
+    `src/luregen/physics/massprops.py`
+
+- key: f3t5
+  parent: f3
+  title: "[Task] F3: build pipeline wiring + report (report.json/md, CG/CB diagram)"
+  labels: [type:task, area:geometry, area:physics]
+  body: |
+    ## Goal
+    - Wire joint, internals and mass props into `lure build` through the glide family module.
+    - Export per section.
+    - `report.json` gains a `sections` block and a `lure` block, a `verdict` against the targets (no solving yet, that's F4), and `progress.emit` stages (coordinate with #74).
+    - `report.md` plus a side-view **CG/CB diagram PNG**.
+    ## Acceptance
+    - [ ] `lure build` on the sample produces head/tail models and a full report
+    ## Files / modules touched
+    `src/luregen/commands/build.py`, `src/luregen/report/`
+
+- key: w8t1
+  parent: w8
+  title: "[Task] W8 follow-up (post-v1): shrink the deploy image"
+  labels: [type:task, area:deploy]
+  body: |
+    ## Goal
+    The deploy image is 2.65 GB (0.99 GB compressed) against a 1.5–2 GB target. The main costs:
+    - Python venv 1.24 GB: OCP 380 MB, opencv 170 MB, scipy 130 MB, threejs_materials 87 MB, plus transitive sympy/sklearn/jedi
+    - OrcaSlicer 624 MB
+    - GTK/WebKit/mesa ~520 MB
+
+    Investigate:
+    - why sympy/sklearn/jedi/threejs_materials are pulled into the `web` sync, and drop them
+    - stripping tests/docs from site-packages
+    - pruning unused AppImage resources (other printer vendors' profiles)
+    - whether `.pyc` precompile is worth it (it is needed for non-root jobs)
+    ## Acceptance
+    - [ ] Image ≤ 2 GB with all integration tests still passing in the image
+
+- key: wt_paths
+  parent: wepic
+  title: "[Task] Make config path helpers public (used by the API diff writer)"
+  labels: [type:task, area:api]
+  body: |
+    ## Goal
+    `luregen.api` imports `luregen.config.loader._PATH_KEYS` and `_absolutize_paths` (private). Expose public helpers, e.g. `PATH_KEYS`, `absolutize_paths()` and a matching `relativize_paths(data, base)`, and use them in the API.
+    ## Acceptance
+    - [ ] No private imports across packages; tests unchanged
