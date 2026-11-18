@@ -54,6 +54,9 @@ def create_app(root: Path) -> FastAPI:
 
     for router in (spec.spec_router, uploads.uploads_router, builds.builds_router):
         app.include_router(router(root), prefix="/api")
+    from luregen.api.viewer import viewer_router  # W5 (#66): model parts, tessellation, sections
+
+    app.include_router(viewer_router(root), prefix="/api")
     # Mounted last: the catch-all static mount must not shadow /api routes.
     dist = root / "web" / "dist"
     if dist.is_dir():

@@ -1174,6 +1174,288 @@
           }
         }
       }
+    },
+    "/api/builds/{family}/{variant}/{stamp}/model": {
+      "get": {
+        "tags": [
+          "viewer"
+        ],
+        "summary": "Get Model",
+        "description": "Model parts of a build (`model/*.step`), with STL bounds.",
+        "operationId": "get_model_api_builds__family___variant___stamp__model_get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Stamp"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds/{family}/{variant}/{stamp}/model/tessellation": {
+      "get": {
+        "tags": [
+          "viewer"
+        ],
+        "summary": "Get Tessellation",
+        "description": "three-cad-viewer shapes for all parts, tessellated on first request and cached\nin `model/.viewer/` (keyed by tolerances and the STEP files' mtimes).",
+        "operationId": "get_tessellation_api_builds__family___variant___stamp__model_tessellation_get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Stamp"
+            }
+          },
+          {
+            "name": "deviation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 5.0,
+              "exclusiveMinimum": 0.001,
+              "default": 0.1,
+              "title": "Deviation"
+            }
+          },
+          {
+            "name": "angular",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1.0,
+              "exclusiveMinimum": 0.01,
+              "default": 0.2,
+              "title": "Angular"
+            }
+          },
+          {
+            "name": "accept-encoding",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Accept-Encoding"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ocp-tessellate instanced format `{instances, shapes}` (three-cad-viewer protocol v3 with base64 buffers; decode with `decodeInstancedFormat`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds/{family}/{variant}/{stamp}/section": {
+      "get": {
+        "tags": [
+          "viewer"
+        ],
+        "summary": "Get Section",
+        "description": "Cross-section at `axis = offset` (world mm): loops, material and void areas.\n\nDefault: trimesh on `model/<part>.stl` (ms). `exact=true`: build123d `section()` of\nthe STEP in a guarded child (seconds), compared with the mesh result.",
+        "operationId": "get_section_api_builds__family___variant___stamp__section_get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Stamp"
+            }
+          },
+          {
+            "name": "axis",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "x",
+                "y",
+                "z"
+              ],
+              "type": "string",
+              "title": "Axis"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 10000,
+              "minimum": -10000,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "part",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "default": "all",
+              "title": "Part"
+            }
+          },
+          {
+            "name": "exact",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exact"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Section"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1857,6 +2139,134 @@
         ],
         "title": "Material"
       },
+      "ModelInfo": {
+        "properties": {
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "variant": {
+            "type": "string",
+            "title": "Variant"
+          },
+          "stamp": {
+            "type": "string",
+            "title": "Stamp"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPart"
+            },
+            "type": "array",
+            "title": "Parts"
+          },
+          "bbox_min": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox Min",
+            "description": "All parts (from the STLs), mm"
+          },
+          "bbox_max": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox Max"
+          }
+        },
+        "type": "object",
+        "required": [
+          "family",
+          "variant",
+          "stamp",
+          "parts"
+        ],
+        "title": "ModelInfo"
+      },
+      "ModelPart": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Part name = file stem (body, head, tail, \u2026)"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step",
+            "description": "STEP file, relative to the build folder"
+          },
+          "stl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stl",
+            "description": "Export mesh, relative to the build folder"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size",
+            "description": "STEP size in bytes"
+          },
+          "bbox_min": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox Min",
+            "description": "From the STL, mm"
+          },
+          "bbox_max": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox Max"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "step",
+          "stl",
+          "size"
+        ],
+        "title": "ModelPart"
+      },
       "ProfileArgs": {
         "properties": {
           "image": {
@@ -2124,6 +2534,162 @@
           "variant"
         ],
         "title": "SaveResult"
+      },
+      "Section": {
+        "properties": {
+          "axis": {
+            "type": "string",
+            "enum": [
+              "x",
+              "y",
+              "z"
+            ],
+            "title": "Axis"
+          },
+          "offset": {
+            "type": "number",
+            "title": "Offset",
+            "description": "Plane position along `axis`, mm (world)"
+          },
+          "part": {
+            "type": "string",
+            "title": "Part"
+          },
+          "plane_axes": {
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Plane Axes",
+            "description": "World axes of the loop (u, v) coords"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "mesh",
+              "exact"
+            ],
+            "title": "Method"
+          },
+          "loops": {
+            "items": {
+              "$ref": "#/components/schemas/SectionLoop"
+            },
+            "type": "array",
+            "title": "Loops"
+          },
+          "area_mm2": {
+            "type": "number",
+            "title": "Area Mm2",
+            "description": "Material area (outlines minus voids)"
+          },
+          "void_area_mm2": {
+            "type": "number",
+            "title": "Void Area Mm2"
+          },
+          "perimeter_mm": {
+            "type": "number",
+            "title": "Perimeter Mm",
+            "description": "All loops, outer and void"
+          },
+          "mesh_area_mm2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mesh Area Mm2",
+            "description": "exact only: the mesh result"
+          },
+          "delta_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Pct",
+            "description": "exact only: exact vs mesh area, %"
+          },
+          "differs": {
+            "type": "boolean",
+            "title": "Differs",
+            "description": "exact differs from mesh by > 1.0%",
+            "default": false
+          },
+          "elapsed_ms": {
+            "type": "number",
+            "title": "Elapsed Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "axis",
+          "offset",
+          "part",
+          "plane_axes",
+          "method",
+          "loops",
+          "area_mm2",
+          "void_area_mm2",
+          "perimeter_mm",
+          "elapsed_ms"
+        ],
+        "title": "Section"
+      },
+      "SectionLoop": {
+        "properties": {
+          "part": {
+            "type": "string",
+            "title": "Part"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "outer",
+              "void"
+            ],
+            "title": "Kind",
+            "description": "Material outline or internal void"
+          },
+          "points": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Points",
+            "description": "Closed polyline in (u, v), mm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "part",
+          "kind",
+          "points"
+        ],
+        "title": "SectionLoop"
       },
       "SpecChange": {
         "properties": {
