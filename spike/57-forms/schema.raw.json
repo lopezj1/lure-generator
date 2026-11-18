@@ -1,0 +1,775 @@
+{
+ "$defs": {
+  "BallastConfig": {
+   "additionalProperties": false,
+   "properties": {
+    "material": {
+     "default": "tungsten",
+     "title": "Material",
+     "type": "string"
+    },
+    "density": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Density"
+    },
+    "mass_g": {
+     "anyOf": [
+      {
+       "exclusiveMinimum": 0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Pin the ballast mass; else solved.",
+     "title": "Mass G"
+    },
+    "x_from_joint_mm": {
+     "default": 22.0,
+     "title": "X From Joint Mm",
+     "type": "number"
+    },
+    "z_above_belly_mm": {
+     "default": 6.0,
+     "title": "Z Above Belly Mm",
+     "type": "number"
+    }
+   },
+   "title": "BallastConfig",
+   "type": "object"
+  },
+  "BuoyancyConfig": {
+   "additionalProperties": false,
+   "properties": {
+    "water": {
+     "default": "salt",
+     "enum": [
+      "salt",
+      "fresh"
+     ],
+     "title": "Water",
+     "type": "string"
+    },
+    "water_density": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Water Density"
+    },
+    "target_sink": {
+     "default": "slow_sink",
+     "enum": [
+      "float",
+      "suspend",
+      "slow_sink"
+     ],
+     "title": "Target Sink",
+     "type": "string"
+    },
+    "sink_bands": {
+     "additionalProperties": {
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ],
+      "type": "array"
+     },
+     "propertyNames": {
+      "enum": [
+       "float",
+       "suspend",
+       "slow_sink"
+      ]
+     },
+     "title": "Sink Bands",
+     "type": "object"
+    },
+    "head_density": {
+     "default": [
+      1.0,
+      1.05
+     ],
+     "maxItems": 2,
+     "minItems": 2,
+     "prefixItems": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "title": "Head Density",
+     "type": "array"
+    },
+    "tail_density": {
+     "default": [
+      0.7,
+      0.8
+     ],
+     "maxItems": 2,
+     "minItems": 2,
+     "prefixItems": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "title": "Tail Density",
+     "type": "array"
+    },
+    "head_tail_mass_ratio": {
+     "default": 2.4,
+     "exclusiveMinimum": 0,
+     "title": "Head Tail Mass Ratio",
+     "type": "number"
+    },
+    "level_tolerance_mm": {
+     "default": 1.0,
+     "exclusiveMinimum": 0,
+     "title": "Level Tolerance Mm",
+     "type": "number"
+    },
+    "cb_above_cg_frac": {
+     "default": 0.08,
+     "minimum": 0,
+     "title": "Cb Above Cg Frac",
+     "type": "number"
+    },
+    "trim_pocket": {
+     "default": true,
+     "title": "Trim Pocket",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "sink_bands"
+   ],
+   "title": "BuoyancyConfig",
+   "type": "object"
+  },
+  "CncDfm": {
+   "additionalProperties": false,
+   "properties": {
+    "tools": {
+     "default": [
+      "flat_6.35",
+      "flat_3.175",
+      "ball_3.175"
+     ],
+     "items": {
+      "type": "string"
+     },
+     "title": "Tools",
+     "type": "array"
+    },
+    "min_wood_wall_mm": {
+     "default": 3.5,
+     "title": "Min Wood Wall Mm",
+     "type": "number"
+    },
+    "max_pocket_depth_x_dia": {
+     "default": 3.0,
+     "title": "Max Pocket Depth X Dia",
+     "type": "number"
+    },
+    "roundover_r_mm": {
+     "default": 4.0,
+     "title": "Roundover R Mm",
+     "type": "number"
+    }
+   },
+   "title": "CncDfm",
+   "type": "object"
+  },
+  "DfmConfig": {
+   "additionalProperties": false,
+   "properties": {
+    "print": {
+     "$ref": "#/$defs/PrintDfm",
+     "default": {
+      "min_wall_mm": 1.6,
+      "cavity_roof": "gable45",
+      "min_skin_to_cavity_mm": 1.2
+     }
+    },
+    "cnc": {
+     "$ref": "#/$defs/CncDfm",
+     "default": {
+      "tools": [
+       "flat_6.35",
+       "flat_3.175",
+       "ball_3.175"
+      ],
+      "min_wood_wall_mm": 3.5,
+      "max_pocket_depth_x_dia": 3.0,
+      "roundover_r_mm": 4.0
+     }
+    }
+   },
+   "title": "DfmConfig",
+   "type": "object"
+  },
+  "HardwareItem": {
+   "additionalProperties": false,
+   "description": "A hardware point mass. `id` refers to spec/hardware; unset fields come from the catalog.",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "section": {
+     "enum": [
+      "head",
+      "tail"
+     ],
+     "title": "Section",
+     "type": "string"
+    },
+    "x_mm": {
+     "title": "X Mm",
+     "type": "number"
+    },
+    "z_mm": {
+     "title": "Z Mm",
+     "type": "number"
+    },
+    "qty": {
+     "default": 1,
+     "minimum": 1,
+     "title": "Qty",
+     "type": "integer"
+    },
+    "name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Name"
+    },
+    "mass_g": {
+     "anyOf": [
+      {
+       "maxItems": 2,
+       "minItems": 2,
+       "prefixItems": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "number"
+        }
+       ],
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Mass G"
+    },
+    "material": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Material"
+    },
+    "density": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Density"
+    },
+    "measured": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Measured"
+    }
+   },
+   "required": [
+    "id",
+    "section",
+    "x_mm",
+    "z_mm"
+   ],
+   "title": "HardwareItem",
+   "type": "object"
+  },
+  "JointConfig": {
+   "additionalProperties": false,
+   "properties": {
+    "joint_frac": {
+     "default": 0.5,
+     "maximum": 0.55,
+     "minimum": 0.45,
+     "title": "Joint Frac",
+     "type": "number"
+    },
+    "gap_mm": {
+     "default": 2.3,
+     "maximum": 3.5,
+     "minimum": 1.5,
+     "title": "Gap Mm",
+     "type": "number"
+    },
+    "angle_deg": {
+     "default": 37.0,
+     "maximum": 45,
+     "minimum": 30,
+     "title": "Angle Deg",
+     "type": "number"
+    },
+    "hinge_eye_z": {
+     "default": [
+      -12.0,
+      6.0
+     ],
+     "maxItems": 2,
+     "minItems": 2,
+     "prefixItems": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "title": "Hinge Eye Z",
+     "type": "array"
+    },
+    "line_tie_z": {
+     "default": -4.0,
+     "maximum": 0,
+     "minimum": -6,
+     "title": "Line Tie Z",
+     "type": "number"
+    }
+   },
+   "title": "JointConfig",
+   "type": "object"
+  },
+  "PrintDfm": {
+   "additionalProperties": false,
+   "properties": {
+    "min_wall_mm": {
+     "default": 1.6,
+     "title": "Min Wall Mm",
+     "type": "number"
+    },
+    "cavity_roof": {
+     "default": "gable45",
+     "enum": [
+      "gable45",
+      "teardrop"
+     ],
+     "title": "Cavity Roof",
+     "type": "string"
+    },
+    "min_skin_to_cavity_mm": {
+     "default": 1.2,
+     "title": "Min Skin To Cavity Mm",
+     "type": "number"
+    }
+   },
+   "title": "PrintDfm",
+   "type": "object"
+  },
+  "ProcessConfig": {
+   "additionalProperties": false,
+   "properties": {
+    "method": {
+     "enum": [
+      "print",
+      "cnc"
+     ],
+     "title": "Method",
+     "type": "string"
+    },
+    "body_style": {
+     "default": "loft3d",
+     "enum": [
+      "loft3d",
+      "profile25d"
+     ],
+     "title": "Body Style",
+     "type": "string"
+    },
+    "material": {
+     "title": "Material",
+     "type": "string"
+    },
+    "material_density": {
+     "anyOf": [
+      {
+       "exclusiveMinimum": 0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Override, e.g. a weighed blank.",
+     "title": "Material Density"
+    },
+    "rigging": {
+     "default": "screw_eye",
+     "enum": [
+      "screw_eye",
+      "through_wire"
+     ],
+     "title": "Rigging",
+     "type": "string"
+    }
+   },
+   "required": [
+    "method",
+    "material"
+   ],
+   "title": "ProcessConfig",
+   "type": "object"
+  },
+  "ProfileConfig": {
+   "additionalProperties": false,
+   "properties": {
+    "source": {
+     "enum": [
+      "image",
+      "preset"
+     ],
+     "title": "Source",
+     "type": "string"
+    },
+    "image": {
+     "anyOf": [
+      {
+       "format": "path",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Image"
+    },
+    "top_image": {
+     "anyOf": [
+      {
+       "format": "path",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Top Image"
+    },
+    "preset": {
+     "anyOf": [
+      {
+       "format": "path",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Preset"
+    },
+    "scale": {
+     "default": "length",
+     "enum": [
+      "aruco",
+      "length"
+     ],
+     "title": "Scale",
+     "type": "string"
+    },
+    "aruco_marker_mm": {
+     "default": 30.0,
+     "exclusiveMinimum": 0,
+     "title": "Aruco Marker Mm",
+     "type": "number"
+    },
+    "n_stations": {
+     "default": 23,
+     "maximum": 30,
+     "minimum": 8,
+     "title": "N Stations",
+     "type": "integer"
+    },
+    "section_shape": {
+     "default": "ellipse",
+     "enum": [
+      "ellipse",
+      "egg",
+      "teardrop"
+     ],
+     "title": "Section Shape",
+     "type": "string"
+    },
+    "width_rule": {
+     "$ref": "#/$defs/WidthRule",
+     "default": {
+      "mode": "ratio_of_depth",
+      "value": 0.34
+     }
+    },
+    "smoothing": {
+     "$ref": "#/$defs/Smoothing",
+     "default": {
+      "method": "efd",
+      "harmonics": 20,
+      "spline_s": null
+     }
+    }
+   },
+   "required": [
+    "source"
+   ],
+   "title": "ProfileConfig",
+   "type": "object"
+  },
+  "ReportConfig": {
+   "additionalProperties": false,
+   "properties": {
+    "show_oz": {
+     "default": true,
+     "title": "Show Oz",
+     "type": "boolean"
+    }
+   },
+   "title": "ReportConfig",
+   "type": "object"
+  },
+  "SizeConfig": {
+   "additionalProperties": false,
+   "properties": {
+    "length_mm": {
+     "anyOf": [
+      {
+       "maximum": 250,
+       "minimum": 100,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Length Mm"
+    },
+    "target_weight_oz": {
+     "anyOf": [
+      {
+       "exclusiveMinimum": 0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Target Weight Oz"
+    }
+   },
+   "title": "SizeConfig",
+   "type": "object"
+  },
+  "Smoothing": {
+   "additionalProperties": false,
+   "properties": {
+    "method": {
+     "default": "efd",
+     "enum": [
+      "efd",
+      "spline"
+     ],
+     "title": "Method",
+     "type": "string"
+    },
+    "harmonics": {
+     "default": 20,
+     "maximum": 60,
+     "minimum": 4,
+     "title": "Harmonics",
+     "type": "integer"
+    },
+    "spline_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Spline S"
+    }
+   },
+   "title": "Smoothing",
+   "type": "object"
+  },
+  "WidthRule": {
+   "additionalProperties": false,
+   "properties": {
+    "mode": {
+     "const": "ratio_of_depth",
+     "default": "ratio_of_depth",
+     "title": "Mode",
+     "type": "string"
+    },
+    "value": {
+     "default": 0.34,
+     "exclusiveMinimum": 0,
+     "maximum": 1.5,
+     "title": "Value",
+     "type": "number"
+    }
+   },
+   "title": "WidthRule",
+   "type": "object"
+  }
+ },
+ "additionalProperties": false,
+ "properties": {
+  "name": {
+   "title": "Name",
+   "type": "string"
+  },
+  "family": {
+   "title": "Family",
+   "type": "string"
+  },
+  "size": {
+   "$ref": "#/$defs/SizeConfig"
+  },
+  "profile": {
+   "$ref": "#/$defs/ProfileConfig"
+  },
+  "joint": {
+   "anyOf": [
+    {
+     "$ref": "#/$defs/JointConfig"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null
+  },
+  "buoyancy": {
+   "$ref": "#/$defs/BuoyancyConfig"
+  },
+  "ballast": {
+   "$ref": "#/$defs/BallastConfig",
+   "default": {
+    "material": "tungsten",
+    "density": null,
+    "mass_g": null,
+    "x_from_joint_mm": 22.0,
+    "z_above_belly_mm": 6.0
+   }
+  },
+  "hardware": {
+   "default": [],
+   "items": {
+    "$ref": "#/$defs/HardwareItem"
+   },
+   "title": "Hardware",
+   "type": "array"
+  },
+  "process": {
+   "$ref": "#/$defs/ProcessConfig"
+  },
+  "dfm": {
+   "$ref": "#/$defs/DfmConfig",
+   "default": {
+    "print": {
+     "cavity_roof": "gable45",
+     "min_skin_to_cavity_mm": 1.2,
+     "min_wall_mm": 1.6
+    },
+    "cnc": {
+     "max_pocket_depth_x_dia": 3.0,
+     "min_wood_wall_mm": 3.5,
+     "roundover_r_mm": 4.0,
+     "tools": [
+      "flat_6.35",
+      "flat_3.175",
+      "ball_3.175"
+     ]
+    }
+   }
+  },
+  "report": {
+   "$ref": "#/$defs/ReportConfig",
+   "default": {
+    "show_oz": true
+   }
+  }
+ },
+ "required": [
+  "name",
+  "family",
+  "size",
+  "profile",
+  "buoyancy",
+  "process"
+ ],
+ "title": "LureConfig",
+ "type": "object"
+}

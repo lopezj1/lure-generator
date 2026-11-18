@@ -1,0 +1,691 @@
+{
+ "schema": {
+  "additionalProperties": false,
+  "properties": {
+   "name": {
+    "title": "Name",
+    "type": "string"
+   },
+   "family": {
+    "title": "Family",
+    "type": "string"
+   },
+   "size": {
+    "additionalProperties": false,
+    "properties": {
+     "length_mm": {
+      "maximum": 250,
+      "minimum": 100,
+      "type": "number",
+      "title": "Length (mm)",
+      "x-nullable": true,
+      "x-widget": "slider",
+      "x-step": 1
+     },
+     "target_weight_oz": {
+      "exclusiveMinimum": 0,
+      "type": "number",
+      "title": "Target weight (oz)",
+      "x-nullable": true
+     }
+    },
+    "title": "Size",
+    "type": "object"
+   },
+   "profile": {
+    "additionalProperties": false,
+    "properties": {
+     "source": {
+      "enum": [
+       "image",
+       "preset"
+      ],
+      "title": "Source",
+      "type": "string"
+     },
+     "image": {
+      "type": "string",
+      "title": "Image",
+      "x-nullable": true,
+      "x-widget": "path"
+     },
+     "top_image": {
+      "type": "string",
+      "title": "Top image",
+      "x-nullable": true,
+      "x-widget": "path"
+     },
+     "preset": {
+      "type": "string",
+      "title": "Preset",
+      "x-nullable": true,
+      "x-widget": "path"
+     },
+     "scale": {
+      "default": "length",
+      "enum": [
+       "aruco",
+       "length"
+      ],
+      "title": "Scale",
+      "type": "string"
+     },
+     "aruco_marker_mm": {
+      "default": 30.0,
+      "exclusiveMinimum": 0,
+      "title": "Aruco marker (mm)",
+      "type": "number"
+     },
+     "n_stations": {
+      "default": 23,
+      "maximum": 30,
+      "minimum": 8,
+      "title": "N stations",
+      "type": "integer",
+      "x-widget": "slider",
+      "x-step": 1
+     },
+     "section_shape": {
+      "default": "ellipse",
+      "enum": [
+       "ellipse",
+       "egg",
+       "teardrop"
+      ],
+      "title": "Section shape",
+      "type": "string"
+     },
+     "width_rule": {
+      "additionalProperties": false,
+      "properties": {
+       "mode": {
+        "const": "ratio_of_depth",
+        "default": "ratio_of_depth",
+        "title": "Mode",
+        "type": "string"
+       },
+       "value": {
+        "default": 0.34,
+        "exclusiveMinimum": 0,
+        "maximum": 1.5,
+        "title": "Value",
+        "type": "number"
+       }
+      },
+      "title": "Width rule",
+      "type": "object"
+     },
+     "smoothing": {
+      "additionalProperties": false,
+      "properties": {
+       "method": {
+        "default": "efd",
+        "enum": [
+         "efd",
+         "spline"
+        ],
+        "title": "Method",
+        "type": "string"
+       },
+       "harmonics": {
+        "default": 20,
+        "maximum": 60,
+        "minimum": 4,
+        "title": "Harmonics",
+        "type": "integer",
+        "x-widget": "slider",
+        "x-step": 1
+       },
+       "spline_s": {
+        "type": "number",
+        "title": "Spline s",
+        "x-nullable": true
+       }
+      },
+      "title": "Smoothing",
+      "type": "object"
+     }
+    },
+    "required": [
+     "source"
+    ],
+    "title": "Profile",
+    "type": "object"
+   },
+   "joint": {
+    "additionalProperties": false,
+    "properties": {
+     "joint_frac": {
+      "default": 0.5,
+      "maximum": 0.55,
+      "minimum": 0.45,
+      "title": "Joint (fraction)",
+      "type": "number",
+      "x-widget": "slider",
+      "x-step": 0.001
+     },
+     "gap_mm": {
+      "default": 2.3,
+      "maximum": 3.5,
+      "minimum": 1.5,
+      "title": "Gap (mm)",
+      "type": "number",
+      "x-widget": "slider",
+      "x-step": 0.01
+     },
+     "angle_deg": {
+      "default": 37.0,
+      "maximum": 45,
+      "minimum": 30,
+      "title": "Angle (\u00b0)",
+      "type": "number",
+      "x-widget": "slider",
+      "x-step": 0.1
+     },
+     "hinge_eye_z": {
+      "default": [
+       -12.0,
+       6.0
+      ],
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Hinge eye z",
+      "type": "array",
+      "items": [
+       {
+        "type": "number",
+        "title": "min"
+       },
+       {
+        "type": "number",
+        "title": "max"
+       }
+      ],
+      "additionalItems": false,
+      "x-widget": "range-pair"
+     },
+     "line_tie_z": {
+      "default": -4.0,
+      "maximum": 0,
+      "minimum": -6,
+      "title": "Line tie z",
+      "type": "number",
+      "x-widget": "slider",
+      "x-step": 0.01
+     }
+    },
+    "title": "Joint",
+    "type": "object",
+    "x-nullable": true
+   },
+   "buoyancy": {
+    "additionalProperties": false,
+    "properties": {
+     "water": {
+      "default": "salt",
+      "enum": [
+       "salt",
+       "fresh"
+      ],
+      "title": "Water",
+      "type": "string"
+     },
+     "water_density": {
+      "type": "number",
+      "title": "Water density",
+      "x-nullable": true,
+      "x-derived": "computed",
+      "readOnly": true
+     },
+     "target_sink": {
+      "default": "slow_sink",
+      "enum": [
+       "float",
+       "suspend",
+       "slow_sink"
+      ],
+      "title": "Target sink",
+      "type": "string"
+     },
+     "sink_bands": {
+      "title": "Sink bands",
+      "type": "object",
+      "properties": {
+       "float": {
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array",
+        "title": "Float",
+        "items": [
+         {
+          "type": "number",
+          "title": "min"
+         },
+         {
+          "type": "number",
+          "title": "max"
+         }
+        ],
+        "additionalItems": false,
+        "x-widget": "range-pair"
+       },
+       "suspend": {
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array",
+        "title": "Suspend",
+        "items": [
+         {
+          "type": "number",
+          "title": "min"
+         },
+         {
+          "type": "number",
+          "title": "max"
+         }
+        ],
+        "additionalItems": false,
+        "x-widget": "range-pair"
+       },
+       "slow_sink": {
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array",
+        "title": "Slow sink",
+        "items": [
+         {
+          "type": "number",
+          "title": "min"
+         },
+         {
+          "type": "number",
+          "title": "max"
+         }
+        ],
+        "additionalItems": false,
+        "x-widget": "range-pair"
+       }
+      },
+      "additionalProperties": false
+     },
+     "head_density": {
+      "default": [
+       1.0,
+       1.05
+      ],
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Head density",
+      "type": "array",
+      "items": [
+       {
+        "type": "number",
+        "title": "min"
+       },
+       {
+        "type": "number",
+        "title": "max"
+       }
+      ],
+      "additionalItems": false,
+      "x-widget": "range-pair"
+     },
+     "tail_density": {
+      "default": [
+       0.7,
+       0.8
+      ],
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Tail density",
+      "type": "array",
+      "items": [
+       {
+        "type": "number",
+        "title": "min"
+       },
+       {
+        "type": "number",
+        "title": "max"
+       }
+      ],
+      "additionalItems": false,
+      "x-widget": "range-pair"
+     },
+     "head_tail_mass_ratio": {
+      "default": 2.4,
+      "exclusiveMinimum": 0,
+      "title": "Head tail mass ratio",
+      "type": "number"
+     },
+     "level_tolerance_mm": {
+      "default": 1.0,
+      "exclusiveMinimum": 0,
+      "title": "Level tolerance (mm)",
+      "type": "number"
+     },
+     "cb_above_cg_frac": {
+      "default": 0.08,
+      "minimum": 0,
+      "title": "Cb above cg (fraction)",
+      "type": "number"
+     },
+     "trim_pocket": {
+      "default": true,
+      "title": "Trim pocket",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "sink_bands"
+    ],
+    "title": "Buoyancy",
+    "type": "object"
+   },
+   "ballast": {
+    "additionalProperties": false,
+    "properties": {
+     "material": {
+      "default": "tungsten",
+      "title": "Material",
+      "type": "string",
+      "x-widget": "material-select",
+      "x-options": [
+       "tungsten",
+       "tungsten_putty",
+       "lead"
+      ]
+     },
+     "density": {
+      "type": "number",
+      "title": "Density",
+      "x-nullable": true,
+      "x-derived": "catalog"
+     },
+     "mass_g": {
+      "exclusiveMinimum": 0,
+      "type": "number",
+      "description": "Pin the ballast mass; else solved.",
+      "title": "Mass (g)",
+      "x-nullable": true
+     },
+     "x_from_joint_mm": {
+      "default": 22.0,
+      "title": "X from joint (mm)",
+      "type": "number"
+     },
+     "z_above_belly_mm": {
+      "default": 6.0,
+      "title": "Z above belly (mm)",
+      "type": "number"
+     }
+    },
+    "title": "Ballast",
+    "type": "object"
+   },
+   "hardware": {
+    "default": [],
+    "items": {
+     "additionalProperties": false,
+     "description": "A hardware point mass. `id` refers to spec/hardware; unset fields come from the catalog.",
+     "properties": {
+      "id": {
+       "title": "Id",
+       "type": "string"
+      },
+      "section": {
+       "enum": [
+        "head",
+        "tail"
+       ],
+       "title": "Section",
+       "type": "string"
+      },
+      "x_mm": {
+       "title": "X (mm)",
+       "type": "number"
+      },
+      "z_mm": {
+       "title": "Z (mm)",
+       "type": "number"
+      },
+      "qty": {
+       "default": 1,
+       "minimum": 1,
+       "title": "Qty",
+       "type": "integer"
+      },
+      "name": {
+       "type": "string",
+       "title": "Name",
+       "x-nullable": true,
+       "x-derived": "catalog"
+      },
+      "mass_g": {
+       "maxItems": 2,
+       "minItems": 2,
+       "type": "array",
+       "title": "Mass (g)",
+       "x-nullable": true,
+       "items": [
+        {
+         "type": "number",
+         "title": "min"
+        },
+        {
+         "type": "number",
+         "title": "max"
+        }
+       ],
+       "additionalItems": false,
+       "x-widget": "range-pair",
+       "x-derived": "catalog"
+      },
+      "material": {
+       "type": "string",
+       "title": "Material",
+       "x-nullable": true,
+       "x-widget": "material-select",
+       "x-options": [
+        "steel",
+        "stainless",
+        "brass"
+       ],
+       "x-derived": "catalog"
+      },
+      "density": {
+       "type": "number",
+       "title": "Density",
+       "x-nullable": true,
+       "x-derived": "catalog"
+      },
+      "measured": {
+       "type": "boolean",
+       "title": "Measured",
+       "x-nullable": true,
+       "x-derived": "catalog"
+      }
+     },
+     "required": [
+      "id",
+      "section",
+      "x_mm",
+      "z_mm"
+     ],
+     "title": "Hardware",
+     "type": "object"
+    },
+    "title": "Hardware",
+    "type": "array"
+   },
+   "process": {
+    "additionalProperties": false,
+    "properties": {
+     "method": {
+      "enum": [
+       "print",
+       "cnc"
+      ],
+      "title": "Method",
+      "type": "string"
+     },
+     "body_style": {
+      "default": "loft3d",
+      "enum": [
+       "loft3d",
+       "profile25d"
+      ],
+      "title": "Body style",
+      "type": "string"
+     },
+     "material": {
+      "title": "Material",
+      "type": "string",
+      "x-widget": "material-select",
+      "x-options": [
+       "PETG",
+       "ASA",
+       "PLA",
+       "resin",
+       "resin_microballoon",
+       "basswood",
+       "cedar",
+       "pvc_board"
+      ]
+     },
+     "material_density": {
+      "exclusiveMinimum": 0,
+      "type": "number",
+      "description": "Override, e.g. a weighed blank.",
+      "title": "Material density",
+      "x-nullable": true,
+      "x-derived": "catalog"
+     },
+     "rigging": {
+      "default": "screw_eye",
+      "enum": [
+       "screw_eye",
+       "through_wire"
+      ],
+      "title": "Rigging",
+      "type": "string"
+     }
+    },
+    "required": [
+     "method",
+     "material"
+    ],
+    "title": "Process",
+    "type": "object"
+   },
+   "dfm": {
+    "additionalProperties": false,
+    "properties": {
+     "print": {
+      "additionalProperties": false,
+      "properties": {
+       "min_wall_mm": {
+        "default": 1.6,
+        "title": "Min wall (mm)",
+        "type": "number"
+       },
+       "cavity_roof": {
+        "default": "gable45",
+        "enum": [
+         "gable45",
+         "teardrop"
+        ],
+        "title": "Cavity roof",
+        "type": "string"
+       },
+       "min_skin_to_cavity_mm": {
+        "default": 1.2,
+        "title": "Min skin to cavity (mm)",
+        "type": "number"
+       }
+      },
+      "title": "Print",
+      "type": "object"
+     },
+     "cnc": {
+      "additionalProperties": false,
+      "properties": {
+       "tools": {
+        "default": [
+         "flat_6.35",
+         "flat_3.175",
+         "ball_3.175"
+        ],
+        "items": {
+         "type": "string"
+        },
+        "title": "Tools",
+        "type": "array"
+       },
+       "min_wood_wall_mm": {
+        "default": 3.5,
+        "title": "Min wood wall (mm)",
+        "type": "number"
+       },
+       "max_pocket_depth_x_dia": {
+        "default": 3.0,
+        "title": "Max pocket depth \u00d7 dia",
+        "type": "number"
+       },
+       "roundover_r_mm": {
+        "default": 4.0,
+        "title": "Roundover r (mm)",
+        "type": "number"
+       }
+      },
+      "title": "Cnc",
+      "type": "object"
+     }
+    },
+    "title": "Dfm",
+    "type": "object"
+   },
+   "report": {
+    "additionalProperties": false,
+    "properties": {
+     "show_oz": {
+      "default": true,
+      "title": "Show (oz)",
+      "type": "boolean"
+     }
+    },
+    "title": "Report",
+    "type": "object"
+   }
+  },
+  "required": [
+   "name",
+   "family",
+   "size",
+   "profile",
+   "buoyancy",
+   "process"
+  ],
+  "title": "LureConfig",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#"
+ },
+ "uiSchema": {
+  "hardware": {
+   "ui:options": {
+    "orderable": true,
+    "addable": true,
+    "removable": true
+   }
+  },
+  "dfm": {
+   "cnc": {
+    "tools": {
+     "ui:options": {
+      "orderable": true
+     }
+    }
+   }
+  }
+ }
+}

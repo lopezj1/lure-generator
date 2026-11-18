@@ -1,0 +1,30 @@
+{
+  "name": "sjsf-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "svelte-check"
+  },
+  "dependencies": {
+    "@picocss/pico": "2.1.1",
+    "@sjsf/ajv8-validator": "3.10.0",
+    "@sjsf/basic-theme": "3.10.0",
+    "@sjsf/form": "3.10.0",
+    "@standard-schema/spec": "1.1.0",
+    "@types/json-schema-merge-allof": "0.6.5",
+    "ajv": "8.20.0",
+    "esm-env": "1.2.2",
+    "json-schema-merge-allof": "0.8.1",
+    "json-schema-typed": "8.0.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "playwright": "1.65.1",
+    "svelte": "5.57.3",
+    "svelte-check": "4.7.8",
+    "typescript": "6.0.3",
+    "vite": "8.3.8"
+  }
+}

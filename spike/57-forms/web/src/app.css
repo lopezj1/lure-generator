@@ -1,0 +1,12 @@
+.badge { font-size: 0.7rem; font-weight: normal; padding: 0 0.4rem; margin-left: 0.4rem;
+  border-radius: 0.6rem; border: 1px solid var(--pico-muted-border-color); color: var(--pico-muted-color); }
+.badge[data-layer="variant"], .badge[data-layer="edited"] { color: var(--pico-primary); border-color: var(--pico-primary); }
+.badge[data-layer="resolved"] { font-style: italic; }
+.slider-number, .range-pair { display: flex; gap: 0.5rem; align-items: center; width: 100%; }
+.slider-number input[type="range"] { flex: 3; margin: 0; }
+.slider-number input[type="number"] { flex: 1; margin: 0; }
+.range-pair input { margin: 0; }
+.range-pair span { color: var(--pico-muted-color); }
+pre { font-size: 0.75rem; max-height: 30rem; }
+.sjsf-layout[data-layout="field-title-row"] > span, .sjsf-layout[data-layout="object-field-title-row"] > span,
+.sjsf-layout[data-layout="array-field-title-row"] > span { display: flex; align-items: baseline; gap: 0.25rem; }
