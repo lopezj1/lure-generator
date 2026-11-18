@@ -48,3 +48,10 @@ body,
   place-items: center;
   background: var(--pico-card-background-color);
 }
+
+.viewport > .pane {
+  align-self: stretch;
+  justify-self: stretch;
+  min-height: 0;
+  min-width: 0;
+}
