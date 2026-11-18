@@ -10,10 +10,11 @@ bitsetter = true               # confirmed by the owner
 [controller]
 kind = "carbide_motion"
 firmware = "grbl_1.1_carbide"
-# Everything else is rejected or ignored by Carbide Motion. G53 is accepted as the
+# Everything else is rejected or ignored by Carbide Motion. G94 appears in a reference file
+# that ran on this machine. G53 is accepted as the
 # machine-coordinate modifier that Carbide Create itself emits.
 supported = ["G0", "G1", "G2", "G3", "G4", "G17", "G18", "G19", "G20", "G21", "G28",
-             "G53", "G90", "G91", "M0", "M1", "M2", "M3", "M5", "M6", "M30"]
+             "G53", "G90", "G91", "G94", "M0", "M1", "M2", "M3", "M5", "M6", "M30"]
 
 [travel]
 x = 838.0

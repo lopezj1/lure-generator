@@ -190,6 +190,8 @@ class _State:
 
 _MOTION_CODES = {"G0": "rapid", "G1": "feed", "G2": "cw", "G3": "ccw"}
 _PLANE_CODES: dict[str, Plane] = {"G17": "xy", "G18": "zx", "G19": "yz"}
+# Codes whose axis words are not a motion (offsets, canned cycles): skipped, not modeled.
+_AXES_NOT_MOTION = {"G10", "G92", "G43", "G43.1", *(f"G{n}" for n in range(73, 90))}
 
 
 def interpret(lines: Iterable[Line]) -> Iterator[Event]:
@@ -235,7 +237,7 @@ def interpret(lines: Iterable[Line]) -> Iterator[Event]:
             start = tuple(st.pos)
             st.pos = [UNKNOWN_XY, UNKNOWN_XY, UNKNOWN_Z]
             yield Motion(ln.number, "rapid", start, tuple(st.pos), machine=True)
-        elif axes and "G4" not in gm:
+        elif axes and "G4" not in gm and not gm & _AXES_NOT_MOTION:
             yield from _motion(ln, st, axes, machine="G53" in gm)
         for code in ("M0", "M1", "M2", "M30"):
             if code in gm:
