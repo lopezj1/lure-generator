@@ -26,3 +26,11 @@ CLAUDE.local.md
 
 # Feature worktrees (see CLAUDE.md)
 .claude/worktrees/
+
+# Web app (#54)
+uploads/
+web/node_modules/
+web/dist/
+
+# Test debug artifacts (LUREGEN_TEST_ARTIFACTS, uploaded by CI)
+artifacts/
