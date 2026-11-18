@@ -36,6 +36,7 @@ web = [
     "python-multipart==0.0.34",
     "tomlkit==0.15.2",
     "httpx2==2.16.2",  # FastAPI TestClient
+    "ocp-tessellate==3.6.3",  # three-cad-viewer format (spike #58)
 ]
 
 [build-system]

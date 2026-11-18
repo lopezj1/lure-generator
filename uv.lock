@@ -660,6 +660,7 @@ viewer = [
 web = [
     { name = "fastapi" },
     { name = "httpx2" },
+    { name = "ocp-tessellate" },
     { name = "python-multipart" },
     { name = "tomlkit" },
     { name = "uvicorn", extra = ["standard"] },
@@ -692,6 +693,7 @@ viewer = [{ name = "ocp-vscode", specifier = "==4.2.0" }]
 web = [
     { name = "fastapi", specifier = "==0.163.2" },
     { name = "httpx2", specifier = "==2.16.2" },
+    { name = "ocp-tessellate", specifier = "==3.6.3" },
     { name = "python-multipart", specifier = "==0.0.34" },
     { name = "tomlkit", specifier = "==0.15.2" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
