@@ -4,6 +4,8 @@
   import EditorPanel from './lib/editor/EditorPanel.svelte';
   import PrintView from './lib/print/PrintView.svelte';
   import CncView from './lib/cnc/CncView.svelte';
+  import BuildsDrawer from './lib/drawer/BuildsDrawer.svelte';
+  import SpecBadge from './lib/drawer/SpecBadge.svelte';
 
   type Tab = 'Model' | 'Print' | 'CNC';
   const tabs: Tab[] = ['Model', 'Print', 'CNC'];
@@ -20,6 +22,7 @@
     <nav>
       <ul><li><strong>Lure generator</strong></li></ul>
       <ul>
+        <li><SpecBadge /></li>
         <li>
           {#await health}
             <small aria-busy="true">API…</small>
@@ -58,9 +61,6 @@
   </main>
 
   <footer>
-    <details>
-      <summary>Jobs and log</summary>
-      <p><small>No jobs yet.</small></p>
-    </details>
+    <BuildsDrawer />
   </footer>
 </div>

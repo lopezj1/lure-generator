@@ -1,0 +1,203 @@
+/* Builds/jobs drawer (W9). */
+.w9 {
+  font-size: 0.85rem;
+  margin: 0.25rem 0;
+}
+.w9 > summary {
+  margin: 0.25rem 0;
+}
+.w9 .drawer-grid {
+  display: grid;
+  grid-template-columns: minmax(18rem, 2fr) 3fr;
+  gap: 1rem;
+  max-height: 45vh;
+  overflow: hidden;
+}
+.w9 .drawer-grid > section {
+  margin: 0;
+  min-width: 0;
+  overflow: auto;
+  max-height: 45vh;
+}
+@media (max-width: 900px) {
+  .w9 .drawer-grid {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+}
+.w9 .head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+.w9 .head select {
+  width: auto;
+  margin: 0;
+  padding: 0.1rem 2rem 0.1rem 0.5rem;
+  font-size: 0.8rem;
+  height: auto;
+}
+.w9 table.compact {
+  font-size: 0.78rem;
+  margin: 0 0 0.5rem;
+}
+.w9 table.compact th,
+.w9 table.compact td {
+  padding: 0.15rem 0.35rem;
+  white-space: nowrap;
+}
+.w9 table.compact td.target {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w9 table.compact tbody tr {
+  cursor: pointer;
+}
+.w9 table.compact tbody tr.selected td {
+  background: var(--pico-primary-focus);
+}
+.w9 table.compact tbody tr.selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--pico-primary);
+}
+.w9 .jobs table.compact {
+  table-layout: fixed;
+  width: 100%;
+}
+.w9 .jobs col.status {
+  width: 6.5rem;
+}
+.w9 .jobs col.op {
+  width: 4.5rem;
+}
+.w9 .jobs col.time {
+  width: 4.5rem;
+}
+.w9 .jobs col.actions {
+  width: 6rem;
+}
+.w9 .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.w9 .delta.pos {
+  color: var(--pico-ins-color);
+}
+.w9 .delta.neg {
+  color: var(--pico-del-color);
+}
+.w9 input[type='checkbox'] {
+  margin: 0;
+}
+.w9 .badge {
+  font-size: 0.7rem;
+  padding: 0 0.4rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+  white-space: nowrap;
+}
+.w9 .badge[data-status='failed'],
+.w9 .badge[data-status='error'],
+.w9 .badge[data-status='interrupted'],
+.w9 .badge[data-verdict='fail'] {
+  color: var(--pico-del-color);
+  border-color: var(--pico-del-color);
+}
+.w9 .badge[data-status='succeeded'],
+.w9 .badge[data-status='built'],
+.w9 .badge[data-verdict='pass'] {
+  color: var(--pico-ins-color);
+  border-color: var(--pico-ins-color);
+}
+.w9 .badge[data-status='running'] {
+  color: var(--pico-primary);
+  border-color: var(--pico-primary);
+}
+.w9 .mini {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  background: transparent;
+  color: var(--pico-muted-color);
+  border: 1px solid var(--pico-muted-border-color);
+}
+.w9 .mini:hover {
+  color: var(--pico-primary);
+  border-color: var(--pico-primary);
+}
+.w9 .error-text {
+  display: block;
+  color: var(--pico-del-color);
+}
+.w9 .warn-text {
+  display: block;
+  color: var(--pico-muted-color);
+}
+.w9 .cmd {
+  display: block;
+  font-size: 0.72rem;
+  margin: 0.25rem 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.w9 .job-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.w9 .job-log {
+  font-size: 0.7rem;
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+}
+.w9 progress {
+  margin: 0.25rem 0;
+}
+.w9 .detail,
+.w9 .compare {
+  border-top: 1px solid var(--pico-muted-border-color);
+  padding-top: 0.25rem;
+  margin-top: 0.25rem;
+}
+.w9 .downloads {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.25rem 0;
+}
+.w9 .downloads > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+}
+.w9 .downloads > div > small:first-child {
+  min-width: 3.5rem;
+}
+.w9 .actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.w9 details {
+  margin: 0.25rem 0;
+}
+
+/* The open drawer squeezes the viewport: clip the viewport's panels instead of letting them
+   spill over the drawer. */
+.layout:has(> footer > .w9[open]) > main {
+  overflow: hidden;
+}
+.layout > footer:has(> .w9) {
+  position: relative;
+  z-index: 10;
+  background: var(--pico-background-color);
+}

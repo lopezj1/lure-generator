@@ -136,7 +136,7 @@ class ReportSummary(BaseModel):
 
 
 class Download(BaseModel):
-    label: str = Field(description="e.g. 'model/head.step', 'head.glb', 'all files (zip)'")
+    label: str = Field(description="e.g. 'model/head.step', 'model/head.glb', 'cnc files'")
     format: str = Field(description="STEP, STL, 3MF, GLB, G-code, NC, ZIP, …")
     href: str = Field(description="API URL (same origin) that downloads it")
     size: int | None = Field(None, description="Bytes, when known before the download")

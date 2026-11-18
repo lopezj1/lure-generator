@@ -713,7 +713,7 @@ export interface components {
         Download: {
             /**
              * Label
-             * @description e.g. 'model/head.step', 'head.glb', 'all files (zip)'
+             * @description e.g. 'model/head.step', 'model/head.glb', 'cnc files'
              */
             label: string;
             /**

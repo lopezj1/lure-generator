@@ -414,7 +414,7 @@ def _downloads(family: str, variant: str, stamp: str, files: list[BuildFile]) ->
         members = [f for f in files if f.name.startswith(prefix)]
         if not members:
             continue
-        label = "all files (zip)" if group == "all" else f"{prefix} (zip)"
+        label = "all files" if group == "all" else f"{group} files"
         href = f"{base}/archive?group={group}"
         out.append(Download(label=label, format="ZIP", href=href))
     return out

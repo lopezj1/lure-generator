@@ -2,6 +2,7 @@
   /** Print G-code preview (W6, #67): layer/move scrubbing, legend, markers and stats. */
   import { onDestroy, onMount } from 'svelte';
   import { api } from '../client';
+  import { currentBuild } from '../stores/build';
   import { fetchToolpath, type PrintToolpath } from '../toolpath/reader';
   import { drawRange, formatDuration, layerTicks, primeTowerFeature } from './model';
   import { PAUSE_COLOR, TRAVEL_COLOR, cssColor, featureColor, toolColor } from './palette';
@@ -111,6 +112,28 @@
   });
   $effect(() => {
     if (active) scene?.requestRender();
+  });
+
+  // Follow the shared current build (W9): pick its first print G-code and load it once the tab
+  // is visible.
+  let follow = $state('');
+  $effect(() => {
+    const cb = $currentBuild;
+    if (!cb) return;
+    const prefix = `/api/builds/${[cb.family, cb.variant, cb.stamp].map(encodeURIComponent).join('/')}/`;
+    void listSources().then(() => {
+      const source = sources.find((s) => s.url.startsWith(prefix));
+      if (source && source.url !== loadedUrl) {
+        selected = source.url;
+        follow = source.url;
+      }
+    });
+  });
+  $effect(() => {
+    if (!active || !scene || !follow) return;
+    const url = follow;
+    follow = '';
+    void load(url);
   });
 
   onMount(() => {
