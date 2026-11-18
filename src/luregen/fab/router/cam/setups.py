@@ -92,7 +92,7 @@ class Layout:
     def setup(self, name: str, safe_z: float) -> Setup:
         zero = "front-left corner, stock top"
         if name == "setup2":
-            zero += ", after the flip about X"
+            zero += " (after the flip about X)"
         return Setup(
             name=name,
             stock_min=(0.0, 0.0, -self.thickness),
