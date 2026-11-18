@@ -609,3 +609,200 @@
 
     ## Done when
     - [ ] Three or more printed builds logged; the density bands are updated from data
+
+# --- 2026-11-17: parallel-work prep (contracts in F0; F6/F7 split into a = plumbing, b = integration) ---
+
+- key: f0t6
+  parent: f0
+  title: "[Task] Shared contracts: StationTable format and self-registering CLI subcommands"
+  labels: [type:task, area:infra]
+  body: |
+    ## Goal
+    Fix the interfaces that parallel features build against, so their branches don't conflict:
+    - **`StationTable`**: a frozen dataclass plus CSV schema (`x, center_z, v_radius, half_width` in mm, with header metadata for units, source and length). It includes validation (x strictly increasing, radii ≥ 0) and `load_csv`/`to_csv`. F1 produces it and F2 consumes it.
+    - **CLI registration:** each feature adds `src/luregen/commands/<name>.py` exposing `register(app)`. `cli.py` discovers the modules automatically, so features never edit a shared file.
+    - **Dependencies:** all known dependencies for F1–F7 are pinned in F0, so feature branches don't need to touch `uv.lock`.
+    ## Acceptance
+    - [ ] Round-trip and validation tests for `StationTable`
+    - [ ] A dummy command module is discovered without editing `cli.py`
+    ## Files / modules touched
+    `src/luregen/profile/table.py`, `src/luregen/commands/`, `src/luregen/cli.py`
+    ## Depends on
+    {{f0t1}}
+
+- key: f6t1
+  parent: f6
+  title: "[Task] F6a: `lure sync-profiles` fetch and flatten U1 Orca profiles"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    For a pinned slicer and version (upstream OrcaSlicer 2.5.1 primary, Snapmaker Orca 2.4.1 fallback), download the U1 machine, process (0.20 Standard) and PETG filament profile chains from the tagged GitHub source.
+    - Resolve `inherits`: same vendor first, then OrcaFilamentLibrary, merged root-first.
+    - Set a clean `name` and `*_settings_id`. Read files as UTF-8-sig.
+    - Write `spec/printers/snapmaker_u1/profiles/<app>/{machine,process,filament}.json` and record the source tag in `machine.toml`.
+    ## Acceptance
+    - [ ] Flattened files contain no `inherits`; key values match the research (0.2 layer, Klipper flavor, M600 pause, prime tower on in stock)
+    - [ ] Tests run against fixture JSON (no network in CI)
+    ## Files / modules touched
+    `src/luregen/fab/printer/profiles.py`, `src/luregen/commands/sync_profiles.py`, `spec/printers/snapmaker_u1/`
+
+- key: f6t2
+  parent: f6
+  title: "[Task] F6a: slicer runner (AppImage, xvfb, overrides from machine.toml)"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    Locate or download and extract the pinned AppImage under a cache dir. Build the CLI call (`--slice 0 --load-settings … --load-filaments … --outputdir …`) with overrides from `machine.toml`: prime tower off, 100% infill, 4 walls, 6 top / 4 bottom layers, seam back, no ironing. Booleans use the `--key=0` form. Wrap in `xvfb-run -a` when it's available. STL input only.
+    ## Acceptance
+    - [ ] Slices a generated test cube to G-code locally
+    - [ ] Gives a clear error when the binary is missing; CI skips the integration test
+    ## Files / modules touched
+    `src/luregen/fab/printer/orca.py`, `spec/printers/snapmaker_u1/machine.toml`
+
+- key: f6t3
+  parent: f6
+  title: "[Task] F6a: pause insertion post-processor"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    Insert the machine's pause command (`M600` by default, from `machine.toml`) at the first layer change at or above a given Z, with a comment.
+    ## Acceptance
+    - [ ] Unit tests on fixture G-code: correct layer, idempotent, multiple pauses supported
+    ## Files / modules touched
+    `src/luregen/fab/printer/gcode_post.py`, `src/luregen/fab/gcode.py`
+
+- key: f6t4
+  parent: f6
+  title: "[Task] F6a: print G-code parser and reference diff"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    Parse Orca output: estimated time, filament g/mm, layer count, thumbnails, the CONFIG block and the start/end G-code. Diff it against `spec/printers/snapmaker_u1/reference/*.gcode` and report differing keys.
+    ## Acceptance
+    - [ ] Works on fixture output; the real reference diff waits on {{f6t0}}
+    ## Files / modules touched
+    `src/luregen/fab/printer/verify.py`
+
+- key: f6t5
+  parent: f6
+  title: "[Task] F6b: orient and export print STLs from a build; `lure fab --format print` end-to-end"
+  labels: [type:task, area:print]
+  body: |
+    ## Goal
+    From a build folder: orient each section on its side, export STLs (the cavity as an inner shell of the same mesh), slice, insert the pause at the cavity-ceiling Z from `report.json`, verify, and write `fab/print/`.
+    ## Acceptance
+    - [ ] End-to-end on the sample variant
+    ## Depends on
+    {{f3}}, {{f6t2}}, {{f6t3}}
+
+- key: f7t1
+  parent: f7
+  title: "[Task] F7a: toolpath IR and post.toml schema"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    A machine-neutral toolpath intermediate representation:
+    - Operations made of moves: rapid, feed, arc (plane, center, direction), dwell, comment.
+    - Tool changes and spindle on/off.
+    - Setup metadata: stock and zero.
+
+    Plus a pydantic schema for `spec/routers/<m>/post.toml`, with the draft Shapeoko values from the F7 issue body.
+    ## Acceptance
+    - [ ] The IR serializes to/from JSON; `post.toml` validates
+    ## Files / modules touched
+    `src/luregen/fab/router/ir.py`, `src/luregen/fab/router/post_config.py`, `spec/routers/shapeoko3_xxl/post.toml`
+
+- key: f7t2
+  parent: f7
+  title: "[Task] F7a: Carbide Motion / GRBL post writer + golden tests"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    IR + `post.toml` → `.nc`:
+    - Header and footer.
+    - Precision and word separator.
+    - Modal suppression.
+    - Arc endpoint snapping: round the start and center, recompute the end on the circle.
+    - Arc limits: chord, radius, max sweep, otherwise linearize.
+    - Drilling expanded into pecks.
+    - Sanitized comments ≤ 80 characters.
+    - Tool change: `M5`, `G53` retract, `M6 T`.
+    - The forbidden-code guard.
+
+    Reimplement the logic yourself; copy no third-party code.
+    ## Acceptance
+    - [ ] Golden-file tests for: profile with arcs, peck drill, two-tool job
+    - [ ] Output never contains forbidden codes
+    ## Files / modules touched
+    `src/luregen/fab/router/post.py`, `tests/golden/`
+    ## Depends on
+    {{f7t1}}
+
+- key: f7t3
+  parent: f7
+  title: "[Task] F7a: `lure analyze-gcode` reference analyzer"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    Read a sample `.nc` and infer: units, word separator, decimals per word, header and footer, arc format, spindle form, tool-change style, retract style, comment style. Print a proposed `post.toml` and a diff against the current one.
+    ## Acceptance
+    - [ ] Correct on a Carbide-Create-style fixture; the real file waits on {{f7t0}}
+    ## Files / modules touched
+    `src/luregen/fab/gcode.py`, `src/luregen/commands/analyze_gcode.py`
+
+- key: f7t4
+  parent: f7
+  title: "[Task] F7a: G-code verifier and heightmap cut simulation"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    - **Static checks:** bounds vs stock and travel, no G0 below safe Z (except pure Z approaches), spindle on before cutting, feed set before G1, forbidden codes, line length, runtime estimate.
+    - **Simulation:** a numpy stock heightmap stamped by flat and ball tools along each segment. Diff against a target heightmap and output a gouge/leftover PNG.
+    ## Acceptance
+    - [ ] Detects seeded faults in fixtures; the simulation of a simple pocket matches the analytic depth
+    ## Files / modules touched
+    `src/luregen/fab/router/verify.py`, `src/luregen/fab/router/sim.py`
+
+- key: f7t5
+  parent: f7
+  title: "[Task] F7b: CNC internals (halves, glue-face pockets, wire groove, dowels)"
+  labels: [type:task, area:cnc, area:geometry]
+  body: |
+    ## Goal
+    Split the envelope on the centerplane into halves. Glue-face ballast and air pockets (flat bottom, corner radius ≥ tool radius), a ball-nose half-groove for the through-wire, and dowel and registration holes in the waste area.
+    ## Depends on
+    {{f2}}
+
+- key: f7t6
+  parent: f7
+  title: "[Task] F7b: setup planner, flip transform and 2.5D ops"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    - **Setups:** setup 1 is the glue face; setup 2 is the outer face after flipping about X with mirrored Y.
+    - **Shapely ops:** face, pocket (offset rings), profile with 4–6 tabs, peck drill, groove.
+    - **Feeds** from `feeds.toml`.
+    ## Depends on
+    {{f7t1}}, {{f7t5}}
+
+- key: f7t7
+  parent: f7
+  title: "[Task] F7b: 3D heightmap roughing and ball-nose finishing"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    - A trimesh ray-cast heightmap (~0.15 mm), then a ball-kernel `grey_dilation` to get the tool-tip surface.
+    - Roughing: z-level contours leaving 0.5 mm.
+    - Finishing: a raster along the body with scallop-based stepover (s = √(8Rh)).
+    ## Depends on
+    {{f7t6}}
+
+- key: f7t8
+  parent: f7
+  title: "[Task] F7b: setup sheet and `lure fab --format cnc` end-to-end"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    Produce per-setup `.nc` files plus `setup.md` (stock, zero, tools per setup, flip, ballast and wire before glue-up), verified and simulated.
+    ## Depends on
+    {{f7t2}}, {{f7t4}}, {{f7t6}}, {{f7t7}}
