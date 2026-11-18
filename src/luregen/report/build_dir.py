@@ -109,6 +109,10 @@ def render_report_md(cfg: LureConfig, report: dict) -> str:
         )
     if env := report.get("envelope"):
         lines += ["", "## Envelope", "", *_envelope_md(env)]
+    if report.get("lure"):
+        from luregen.report.balance import balance_md
+
+        lines += ["", *balance_md(report)]
     if report["warnings"]:
         lines += ["", "## Warnings", "", *(f"- {w}" for w in report["warnings"])]
     return "\n".join(lines) + "\n"
