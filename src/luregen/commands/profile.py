@@ -34,6 +34,7 @@ def register(app: typer.Typer) -> None:
 
         Also writes profile_debug.png and profile_mask.png next to the CSV.
         """
+        from luregen import progress
         from luregen.profile.debug import write_debug
         from luregen.profile.extract import ProfileError
         from luregen.profile.pipeline import ExtractOptions, extract_profile
@@ -47,6 +48,7 @@ def register(app: typer.Typer) -> None:
             harmonics=harmonics,
             use_rembg=rembg,
         )
+        progress.emit("extract", 0.0, str(image))
         try:
             result = extract_profile(
                 image, opts, n_stations=n_stations, top_image=top, width_ratio=width_ratio
@@ -55,9 +57,11 @@ def register(app: typer.Typer) -> None:
             typer.echo(f"profile error: {exc}", err=True)
             raise typer.Exit(code=1) from exc
 
+        progress.emit("write", 0.8, str(out))
         out.parent.mkdir(parents=True, exist_ok=True)
         result.table.to_csv(out)
         debug = write_debug(result, out.parent)
+        progress.emit("write", 1.0, "done")
         t = result.table
         typer.echo(f"stations: {out} ({len(t)} stations)")
         typer.echo(
@@ -67,3 +71,21 @@ def register(app: typer.Typer) -> None:
         for note in result.notes:
             typer.echo(f"note: {note}", err=True)
         typer.echo(f"debug: {', '.join(str(p) for p in debug)}")
+        by_name = {p.name: p for p in debug}
+        progress.result(
+            csv=_rel(out),
+            debug_png=_rel(by_name["profile_debug.png"]),
+            mask_png=_rel(by_name["profile_mask.png"]),
+            mask_top_png=_rel(by_name["profile_mask_top.png"])
+            if "profile_mask_top.png" in by_name
+            else None,
+            stations=len(t),
+            length_mm=round(t.length, 2),
+        )
+
+
+def _rel(path: Path) -> str:
+    """`path` relative to the working directory (the data root for API jobs) when inside it."""
+    resolved = path.resolve()
+    cwd = Path.cwd().resolve()
+    return resolved.relative_to(cwd).as_posix() if resolved.is_relative_to(cwd) else str(resolved)
