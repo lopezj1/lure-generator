@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 
 import pytest
@@ -92,3 +93,14 @@ def test_sample_variant_validates(sample_variant: Path):
     assert cfg.joint is not None
     assert cfg.profile.preset is not None and cfg.profile.preset.is_file()
     assert len(cfg.hardware) >= 5
+
+
+def test_path_helpers_round_trip(tmp_path: Path):
+    from luregen.config import PATH_KEYS, absolutize_paths, relativize_paths
+
+    assert ("profile", "image") in PATH_KEYS
+    data = {"profile": {"image": "img/side.png", "preset": "../p.csv", "n": 3}, "name": "x"}
+    absolute = absolutize_paths(copy.deepcopy(data), tmp_path / "spec")
+    assert absolute["profile"]["image"] == str((tmp_path / "spec" / "img" / "side.png").resolve())
+    assert absolute["profile"]["preset"] == str((tmp_path / "p.csv").resolve())
+    assert relativize_paths(absolute, (tmp_path / "spec").resolve()) == data

@@ -18,13 +18,17 @@
   let progress: JobProgress | null = $state(null);
   let lines: string[] = $state([]);
   let pre: HTMLPreElement | undefined = $state();
+  // A derived compares by value: a parent passing `job.id` from a refreshed object must not
+  // restart the stream (and replay the whole log) on every refresh.
+  const jobId = $derived(id);
 
   $effect(() => {
+    const current = jobId;
     lines = [];
     status = 'queued';
     progress = null;
     error = null;
-    return followJob(id, {
+    return followJob(current, {
       log: (d) => {
         lines.push(d.line);
         if (lines.length > 500) lines.splice(0, lines.length - 500);

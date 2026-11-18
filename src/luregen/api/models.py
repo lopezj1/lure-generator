@@ -107,6 +107,41 @@ class BuildFile(BaseModel):
     size: int
 
 
+class SectionSummary(BaseModel):
+    mass_g: float | None = None
+    density_g_cm3: float | None = None
+
+
+class Verdict(BaseModel):
+    status: str = Field(description='"pass" or "fail"')
+    label: str = ""
+    failed: list[str] = []
+
+
+class ReportSummary(BaseModel):
+    """Key numbers of report.json (hardware band mid). Absent fields are None."""
+
+    mass_g: float | None = None
+    mass_oz: float | None = None
+    density_g_cm3: float | None = None
+    cg_mm: list[float] | None = Field(None, description="Centre of gravity (x, y, z)")
+    cb_mm: list[float] | None = Field(None, description="Centre of buoyancy (x, y, z)")
+    cg_minus_cb_mm: list[float] | None = Field(None, description="CG − CB (x, y, z)")
+    cb_above_cg_mm: float | None = Field(None, description="CB z − CG z (> 0: self-righting)")
+    cb_above_cg_target_mm: float | None = None
+    envelope_volume_cm3: float | None = None
+    verdict: Verdict | None = None
+    sections: dict[str, SectionSummary] = {}
+    error: str | None = Field(None, description="The build's error, when status is error")
+
+
+class Download(BaseModel):
+    label: str = Field(description="e.g. 'model/head.step', 'model/head.glb', 'cnc files'")
+    format: str = Field(description="STEP, STL, 3MF, GLB, G-code, NC, ZIP, …")
+    href: str = Field(description="API URL (same origin) that downloads it")
+    size: int | None = Field(None, description="Bytes, when known before the download")
+
+
 class BuildSummary(BaseModel):
     family: str
     variant: str
@@ -118,4 +153,33 @@ class BuildSummary(BaseModel):
     git_sha: str | None = None
     git_dirty: bool | None = None
     warnings: list[str] = []
+    report: ReportSummary | None = Field(None, description="None without a report.json")
     files: list[BuildFile]
+    downloads: list[Download] = Field(
+        [], description="Exports: model and fab files, converted GLBs and zip archives"
+    )
+
+
+class Delta(BaseModel):
+    key: str
+    label: str
+    unit: str
+    a: float | None
+    b: float | None
+    delta: float | None = Field(description="b − a (None if either is missing)")
+
+
+class ConfigChange(BaseModel):
+    key: str = Field(description="Dotted key in resolved.toml (list items by index)")
+    a: Any = None
+    b: Any = None
+
+
+class BuildComparison(BaseModel):
+    a: BuildSummary
+    b: BuildSummary
+    deltas: list[Delta]
+    config_changes: list[ConfigChange] = Field(
+        description="resolved.toml keys that differ (name excluded), at most 200"
+    )
+    config_changes_truncated: bool = False

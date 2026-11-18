@@ -16,7 +16,6 @@ All paths in `edited` are absolute; `load_layered` makes the parents' paths abso
 """
 
 import copy
-import os
 import tomllib
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -26,7 +25,7 @@ import tomlkit
 from tomlkit.items import AoT, InlineTable, Item, Table
 from tomlkit.toml_document import TOMLDocument
 
-from luregen.config.loader import _PATH_KEYS, _absolutize_paths, deep_merge, load_layered
+from luregen.config import PATH_KEYS, absolutize_paths, deep_merge, load_layered, relative_path
 
 PROTECTED = ("extends", "name")
 _MISSING = object()
@@ -207,14 +206,14 @@ def _path_strings(
     desired: dict[str, Any], own_raw: dict[str, Any], own_abs: dict[str, Any], base: Path
 ) -> None:
     """Write path keys relative to the variant file, keeping the file's own spelling."""
-    for section, key in _PATH_KEYS:
+    for section, key in PATH_KEYS:
         table = desired.get(section)
         if not isinstance(table, dict) or not isinstance(table.get(key), str):
             continue
         if (own_abs.get(section) or {}).get(key) == table[key]:
             table[key] = own_raw[section][key]
         else:
-            table[key] = Path(os.path.relpath(table[key], base)).as_posix()
+            table[key] = relative_path(table[key], base)
 
 
 def rewrite_variant(
@@ -228,7 +227,7 @@ def rewrite_variant(
     text = path.read_text()
     doc: TOMLDocument = tomlkit.parse(text)
     own_raw = tomllib.loads(text)
-    own_abs = _absolutize_paths(copy.deepcopy(own_raw), path.parent.resolve())
+    own_abs = absolutize_paths(copy.deepcopy(own_raw), path.parent.resolve())
     parent = own_raw.get("extends")
     parents = load_layered(path.parent / parent) if parent else {}
     fixed = {k: own_raw[k] for k in PROTECTED if k in own_raw and k != "extends"}
