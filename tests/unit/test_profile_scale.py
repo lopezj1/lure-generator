@@ -4,6 +4,7 @@ import pytest
 from _profile_synth import PX_PER_MM, Scene, tilt, tilt_matrix
 
 from luregen.profile.extract import ProfileError
+from luregen.profile.pipeline import ExtractOptions, extract_profile
 from luregen.profile.scale import detect_marker, length_scale, rectify
 
 LENGTH, DEPTH, MARKER = 175.0, 50.0, 30.0
@@ -49,6 +50,39 @@ def test_rectify_square_marker_gives_scale():
     assert scale.method == "aruco"
     assert scale.mm_per_px == pytest.approx(1 / PX_PER_MM, rel=0.002)
     assert np.abs(np.subtract(out.shape[:2], img.shape[:2])).max() <= 2
+
+
+@pytest.mark.parametrize("amount", [0.0, 0.12, 0.2])
+def test_tilted_ellipse_is_recovered_within_one_percent(amount):
+    img = tilt(scene(), amount) if amount else scene()
+    result = extract_profile(img, ExtractOptions(scale="aruco", marker_mm=MARKER))
+    t = result.table
+    assert t.length == pytest.approx(LENGTH, rel=0.01)
+    assert t.max_depth == pytest.approx(DEPTH, rel=0.01)
+    assert result.side.scale.method == "aruco"
+    assert not result.notes
+
+
+def test_far_marker_adds_a_note():
+    s = Scene(260, 120)
+    s.ellipse(150, 60, LENGTH / 2, DEPTH / 2)
+    s.marker(5, 115, MARKER)
+    result = extract_profile(s.render(), ExtractOptions(marker_mm=MARKER))
+    assert any("marker widths" in n for n in result.notes)
+
+
+def test_length_fallback_when_no_marker():
+    result = extract_profile(scene(marker=False), ExtractOptions(length_mm=LENGTH))
+    assert result.side.scale.method == "length"
+    assert result.table.length == pytest.approx(LENGTH)
+    assert result.table.max_depth == pytest.approx(DEPTH, rel=0.01)
+
+
+def test_missing_scale_is_an_error():
+    with pytest.raises(ProfileError, match="known total length"):
+        extract_profile(scene(marker=False), ExtractOptions())
+    with pytest.raises(ProfileError, match="no DICT_4X4_50 marker"):
+        extract_profile(scene(marker=False), ExtractOptions(scale="aruco", length_mm=LENGTH))
 
 
 def test_length_scale_validates():

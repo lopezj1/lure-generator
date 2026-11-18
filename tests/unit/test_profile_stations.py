@@ -2,8 +2,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from _profile_synth import Scene
 
+from luregen.config import load_config
 from luregen.profile.extract import ProfileError, split_rails
+from luregen.profile.pipeline import ExtractOptions, extract_profile
 from luregen.profile.stations import (
     build_table,
     cosine_stations,
@@ -56,3 +59,31 @@ def test_rails_must_be_in_body_frame():
     rails = split_rails(np.column_stack([10 + 50 * np.cos(t), np.sin(t)]))
     with pytest.raises(ProfileError, match="body frame"):
         build_table(rails, 10, width_from_ratio(0.34))
+
+
+def test_top_view_image_gives_width_within_one_percent():
+    side, top = Scene(220, 80), Scene(220, 50)
+    side.ellipse(110, 40, 87.5, 25)
+    top.ellipse(110, 25, 87.5, 8.5)
+    result = extract_profile(
+        side.render(), ExtractOptions(length_mm=175), top_image=top.render(), n_stations=23
+    )
+    t = result.table
+    assert t.length == pytest.approx(175, rel=0.01)
+    assert t.max_depth == pytest.approx(50, rel=0.01)
+    assert t.max_width == pytest.approx(17, rel=0.01)
+    assert t.meta["width"].startswith("top view")
+
+
+def test_csv_loads_through_config_preset_path(mini_spec: Path, tmp_path: Path):
+    s = Scene(220, 80)
+    s.ellipse(110, 40, 87.5, 25)
+    table = extract_profile(s.render(), ExtractOptions(length_mm=175), n_stations=12).table
+    table.to_csv(mini_spec / "designs" / "fam" / "p.csv")
+
+    cfg = load_config(mini_spec / "designs" / "fam" / "variants" / "v.toml")
+    assert cfg.profile.source == "preset"
+    back = StationTable.load_csv(cfg.profile.preset)
+    assert len(back) == cfg.profile.n_stations == 12
+    assert back.length == pytest.approx(175) and back.meta["width"] == "ratio_of_depth 0.34"
+    np.testing.assert_allclose(back.v_radius, table.v_radius, atol=1e-3)
