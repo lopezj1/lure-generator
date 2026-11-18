@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from luregen.cli import make_app
 from luregen.fab.gcode import PLANE_AXES, Motion, interpret, parse
 from luregen.viewer.binfmt import (
+    ENCODER_REVISION,
     MAGIC,
     ToolpathFormatError,
     cache_path,
@@ -210,8 +211,38 @@ def test_fusion_tool_table_and_lengths():
         "corner_radius": 0.0,
         "zmin": -13.208,
         "description": "flat end mill",
+        "spindle_rpm": 5000.0,
     }
     assert {RAPID, FEED, PLUNGE} <= set(tp.seg_kind.tolist())
+
+
+def test_cnc_timeline_two_tool_golden():
+    """W7 (#68): per-segment job time with M6 and G4 waits, per-axis rapids, spindle rpm."""
+    tp = extract_cnc((REPO / "tests" / "golden" / "two_tool.nc").read_text())
+    meta, time = tp.meta, tp.time
+    assert time is not None and time.shape == (tp.n_segments, 2)
+    assert np.all(time[:, 0] <= time[:, 1]) and np.all(np.diff(time[:, 1]) >= 0)
+    assert np.all(time[1:, 0] >= time[:-1, 1] - 1e-3)
+    stats = meta["stats"]
+    # Two M6 (60 s each) and two 3 s spin-up dwells.
+    assert stats["tool_changes"] == 2 and stats["wait_s"] == pytest.approx(126)
+    assert stats["time_s"] == pytest.approx(stats["motion_s"] + stats["wait_s"], abs=0.2)
+    assert time[-1, 1] == pytest.approx(stats["motion_s"] + stats["wait_s"], abs=0.1)
+    assert sum(r["time_s"] for r in stats["tools"]) == pytest.approx(stats["motion_s"], abs=0.2)
+    # The second tool's first move starts after the change and its dwell.
+    change = next(m for m in meta["markers"] if m["type"] == "tool_change")
+    gap = time[change["segment"], 0] - time[change["segment"] - 1, 1]
+    assert gap == pytest.approx(63, abs=1e-3)
+    assert change["time_s"] == pytest.approx(float(time[change["segment"] - 1, 1]), abs=0.01)
+    # X1000 at F1200 takes 30 s; a rapid is limited by its slowest axis (Z at 2500 mm/min).
+    feed = np.flatnonzero((tp.seg_kind == FEED) & (tp.feed == 1200))[0]
+    assert time[feed, 1] - time[feed, 0] == pytest.approx(30 / 1200 * 60, rel=1e-4)
+    z_rapid = np.flatnonzero(
+        (tp.seg_kind == RAPID) & (tp.points[:-1, :2] == tp.points[1:, :2]).all(axis=1)
+    )[0]
+    dz = abs(float(tp.points[z_rapid + 1, 2] - tp.points[z_rapid, 2]))
+    assert time[z_rapid, 1] - time[z_rapid, 0] == pytest.approx(dz / 2500 * 60, rel=1e-4)
+    assert [t["spindle_rpm"] for t in meta["tools"]] == [18000, 24000]
 
 
 def _arc_motions(path: Path) -> list[Motion]:
@@ -269,7 +300,7 @@ def test_g19_arc_is_tessellated_in_the_toolpath():
 
 def _assert_same(a, b):
     assert a.kind == b.kind
-    for attr in ("points", "seg_kind", "tool", "feed", "line", "feature", "layer", "width"):
+    for attr in ("points", "seg_kind", "tool", "feed", "line", "feature", "layer", "width", "time"):
         x, y = getattr(a, attr), getattr(b, attr)
         assert (x is None) == (y is None)
         if x is not None:
@@ -289,6 +320,8 @@ def test_round_trip(path: Path):
     expected = ["points", "kind", "tool", "feed", "line"]
     if tp.kind == "print":
         expected += ["feature", "layer", "width", "height"]
+    else:
+        expected += ["time"]
     assert names == expected
     for entry in header["arrays"]:
         assert entry["offset"] % 8 == 0 and entry["offset"] >= data_start
@@ -330,6 +363,16 @@ def test_encode_file_caches_by_mtime(tmp_path: Path):
     assert out.stat().st_mtime_ns != second  # different parameters: re-encoded
     header = read_file_header(out)
     assert header["params"]["tolerance"] == 0.05 and header["source"]["name"] == "part.gcode"
+    # A cache written by an older encoder revision is rebuilt.
+    data = bytearray(out.read_bytes())
+    marker = f'"encoder":{ENCODER_REVISION}'.encode()
+    at = data.index(marker)
+    data[at : at + len(marker)] = b'"encoder":0' + b" " * (len(marker) - len(b'"encoder":0'))
+    out.write_bytes(bytes(data))
+    third = out.stat().st_mtime_ns
+    os.utime(out, ns=(third + 10**9, third + 10**9))
+    encode_file(src, tolerance=0.05)
+    assert read_file_header(out)["params"]["encoder"] == ENCODER_REVISION
     assert not list(tmp_path.glob(".*"))  # no temp files left behind
 
 
