@@ -1,0 +1,70 @@
+# Carbide Motion (Carbide 3D's GRBL 1.1 fork) post, Carbide Create output style.
+# Style confirmed against the owner's Carbide Create sample (#28): stock comment header,
+# G53G0Z-5.000 retract, M05 / (TOOL/MILL,...) / M6T<n> / M03S<rpm> for every tool (so the
+# BitSetter measures each one), no word spaces, XYZ 3 decimals, F 1 decimal.
+# Templates are G-code lines with {tokens}; each is re-emitted with the separator and
+# decimals below. Tokens: design setup zero stock_min stock_max stock_block safe_z, plus in
+# tool_change/spindle: tool_number tool_id tool_name dia corner_r op rpm (spindle: dial).
+name = "Carbide Motion (GRBL 1.1)"
+units = "mm"
+word_separator = ""
+max_line_length = 80
+
+header = [
+  "(Design File: {design})",
+  "(Setup: {setup}, zero {zero})",
+  "(stockMin:{stock_min})",
+  "(stockMax:{stock_max})",
+  "(STOCK/BLOCK,{stock_block})",
+  "G90",
+  "G21",
+  "G17",
+  "(Move to safe Z to avoid workholding)",
+  "G53 G0 Z-5",
+]
+footer = ["M05", "G53 G0 Z-5", "M30"]
+safe_retract = "G53 G0 Z-5"
+tool_change = ["M05", "G53 G0 Z-5", "(TOOL/MILL,{dia}, {corner_r}, 0.00, 0.00)", "M6 T{tool_number}"]
+# G41/G42/G43 compensation, G80-G83 canned cycles: rejected. G54-59/G10/G92: ignored or
+# unsafe. M4 (reverse) and M7/M8/M9 (coolant) have no hardware here.
+forbid = ["G10", "G92", "G41", "G42", "G43", "G54", "G55", "G56", "G57", "G58", "G59",
+          "G80", "G81", "G82", "G83", "M4", "M7", "M8", "M9"]
+
+[decimals]
+xyz = 3
+ijk = 3
+feed = 1
+rpm = 0
+dwell = 2
+
+[modal]
+motion = true
+axes = true
+feed = true
+
+[spindle]
+# A hand-set router: S is advisory (the dial-to-rpm mapping is still unknown). Add
+# "(Router dial {dial})" here once machine.toml has a dial table.
+type = "router_dial"
+on = ["M03 S{rpm}"]
+dwell_s = 3.0
+
+[arcs]
+enabled = true
+format = "ij"
+# A Fusion-posted file with XZ (G18) lead arcs down to r = 0.317 mm ran on this machine.
+planes = ["xy", "zx"]
+max_sweep_deg = 180.0
+min_radius = 0.1
+min_chord = 0.25
+snap_endpoint = true
+linearize_tol = 0.01
+
+[drill]
+mode = "expand"
+clearance = 0.5
+
+[comments]
+max_length = 80
+allowed = " .,:_/+=#*%-"
+replacement = "_"

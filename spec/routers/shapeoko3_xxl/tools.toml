@@ -1,0 +1,28 @@
+# Starter tool library. Keys match `dfm.cnc.tools` in spec/designs/_common.toml.
+# `number` is the M6 T<n> the post emits; Carbide Motion uses it in its tool-change prompt.
+# 102 (1/8in flat, listed as 3.17 mm) is confirmed by the owner's Carbide Create sample.
+# The others follow the same catalog numbering but are UNVERIFIED placeholders.
+
+[tools."flat_6.35"]
+name = "1/4in flat end mill"
+number = 201
+shape = "flat"
+diameter = 6.35
+flutes = 2
+number_verified = false
+
+[tools."flat_3.175"]
+name = "1/8in flat end mill"
+number = 102
+shape = "flat"
+diameter = 3.175
+flutes = 2
+number_verified = true
+
+[tools."ball_3.175"]
+name = "1/8in ball end mill"
+number = 101
+shape = "ball"
+diameter = 3.175
+flutes = 2
+number_verified = false
