@@ -535,6 +535,9 @@ dev = [
 viewer = [
     { name = "ocp-vscode" },
 ]
+web = [
+    { name = "ocp-tessellate" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -560,6 +563,7 @@ dev = [
     { name = "ruff", specifier = ">=0.8" },
 ]
 viewer = [{ name = "ocp-vscode", specifier = "==4.2.0" }]
+web = [{ name = "ocp-tessellate", specifier = "==3.6.3" }]
 
 [[package]]
 name = "manifold3d"
