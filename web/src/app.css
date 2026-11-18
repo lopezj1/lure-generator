@@ -1,0 +1,50 @@
+html,
+body,
+#app {
+  height: 100%;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    'header header'
+    'panel viewport'
+    'drawer drawer';
+  height: 100%;
+}
+
+.layout > header {
+  grid-area: header;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+.layout > aside {
+  grid-area: panel;
+  overflow: auto;
+  padding: 1rem;
+  border-right: 1px solid var(--pico-muted-border-color);
+}
+
+.layout > main {
+  grid-area: viewport;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.5rem 1rem;
+}
+
+.layout > footer {
+  grid-area: drawer;
+  border-top: 1px solid var(--pico-muted-border-color);
+  padding: 0 1rem;
+}
+
+.viewport {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  background: var(--pico-card-background-color);
+}

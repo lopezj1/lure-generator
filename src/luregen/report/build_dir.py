@@ -20,6 +20,9 @@ class GitInfo:
 
 
 def git_info(cwd: Path) -> GitInfo:
+    """Short HEAD sha and dirty flag; falls back to $LUREGEN_GIT_SHA / $LUREGEN_GIT_DIRTY
+    (set in images built without .git), then to "nogit"."""
+
     def run(*args: str) -> str:
         return subprocess.run(
             ["git", *args], cwd=cwd, capture_output=True, text=True, check=True
@@ -29,7 +32,9 @@ def git_info(cwd: Path) -> GitInfo:
         sha = run("rev-parse", "--short=7", "HEAD")
         dirty = bool(run("status", "--porcelain", "--untracked-files=no"))
     except (subprocess.CalledProcessError, FileNotFoundError):
-        return GitInfo(sha="nogit", dirty=False)
+        sha = os.environ.get("LUREGEN_GIT_SHA", "").strip()[:7] or "nogit"
+        dirty = os.environ.get("LUREGEN_GIT_DIRTY", "").strip().lower() in {"1", "true", "yes"}
+        return GitInfo(sha=sha, dirty=dirty)
     return GitInfo(sha=sha, dirty=dirty)
 
 
