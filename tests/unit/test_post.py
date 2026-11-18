@@ -215,3 +215,28 @@ def test_arc_far_off_its_circle_is_a_cam_error():
     )
     with pytest.raises(PostError, match="off its circle"):
         post_program(program, post, machine)
+
+
+def test_header_tokens_with_parentheses_are_escaped():
+    post, machine, lib = shapeoko()
+    tool = lib.get("flat_3.175")
+    program = Program(
+        design="lure (v2); test",
+        setup=Setup(
+            name="setup2",
+            stock_min=(0, 0, -10),
+            stock_max=(50, 50, 0),
+            zero="front-left corner (after the flip)",
+        ),
+        tools={tool.id: tool},
+        operations=[
+            Operation(name="op (a)", tool=tool.id, rpm=18000, moves=[Rapid(x=1, y=1, z=5)])
+        ],
+    )
+    text = post_program(program, post, machine)
+    lines = text.splitlines()
+    assert lines[0] == "(Design File: lure _v2__ test)"
+    assert lines[1] == "(Setup: setup2, zero front-left corner _after the flip_)"
+    for line in lines:
+        if line.startswith("("):
+            assert line.count("(") == 1 and line.endswith(")")

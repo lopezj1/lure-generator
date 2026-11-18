@@ -88,10 +88,16 @@ class _Writer:
     def comment(self, text: str) -> None:
         self.lines.append(sanitize_comment(text, self.cfg))
 
+    def _escape(self, tokens: dict[str, str]) -> dict[str, str]:
+        """Token values are free text (design, setup, zero): parentheses or `;` in them would
+        close or open a comment early, so replace them before substitution."""
+        r = self.cfg.comments.replacement
+        return {k: re.sub(r"[();]", r, str(v)) for k, v in tokens.items()}
+
     def template(self, lines: list[str], tokens: dict[str, str]) -> None:
         """Render template lines: substitute tokens, re-emit words, track modal state."""
         for raw in lines:
-            line = tokenize_line(raw.format_map(tokens))
+            line = tokenize_line(raw.format_map(self._escape(tokens)))
             for text in line.comments:
                 self.comment(text)
             words: list[str] = []

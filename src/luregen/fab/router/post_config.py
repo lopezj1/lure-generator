@@ -93,6 +93,16 @@ class CommentCfg(Strict):
     replacement: str = "_"
 
 
+class OutputCfg(Strict):
+    """How a setup's program is written out (#43)."""
+
+    split_by_tool: bool = Field(
+        True,
+        description="One file per tool (<setup>_<nn>_<tool>.nc), each with its own M6 block; "
+        "false: one file per setup with an M6 block at each tool change.",
+    )
+
+
 class PostConfig(Strict):
     name: str = "GRBL"
     units: Literal["mm"] = "mm"
@@ -108,6 +118,7 @@ class PostConfig(Strict):
     arcs: Arcs = Arcs()
     drill: DrillCfg = DrillCfg()
     comments: CommentCfg = CommentCfg()
+    output: OutputCfg = OutputCfg()
     forbid: list[str] = ["G10", "G92", "G41", "G42", "G43", "G80", "G81", "G82", "G83"]
 
     @model_validator(mode="after")
