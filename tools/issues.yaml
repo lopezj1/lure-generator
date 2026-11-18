@@ -1290,3 +1290,116 @@
     - [ ] Tests in `test_progress.py` / `test_jobs.py`
     ## Files / modules touched
     `src/luregen/commands/build.py`, `src/luregen/commands/profile.py`
+
+# --- 2026-11-18: F3 tasks (feature starting) and wave-A follow-ups ---
+
+- key: f3t1
+  parent: f3
+  title: "[Task] F3: V-joint split, pin bore, hinge eyes and line tie"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    Split the envelope at `joint.joint_frac` into **head** and **tail** solids with the V-joint:
+    - gap `joint.gap_mm`
+    - arms at `joint.angle_deg`
+    - apex radius ≥ the CNC tool radius when `process.method = "cnc"`
+
+    Add the vertical pin bore just behind the joint, the hinge-eye locations at `joint.hinge_eye_z`, and the line tie at `joint.line_tie_z`. Do the booleans on the full body before splitting where possible, and assert validity after every boolean.
+    ## Acceptance
+    - [ ] Two valid solids; volumes sum to the envelope minus the gap wedge (analytic check)
+    - [ ] Exported as `model/head.*` and `model/tail.*`
+    ## Files / modules touched
+    `src/luregen/geometry/joint.py`, `src/luregen/families/glide.py` (new family module)
+
+- key: f3t2
+  parent: f3
+  title: "[Task] F3: inset-loft cavities with a self-supporting roof and a solid keel"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    Per section, build one sealed air cavity as an **explicit inset loft** through the mid stations only. Never use `offset_3d` or Shell.
+    - **Walls:** v_radius/half_width reduced by `wall_thk`, keeping the min-skin rule.
+    - **Roof:** a gable (45°) or teardrop cross-section roof, self-supporting when printed on its side.
+    - **Keel:** solid below `keel_top_z`; keep cavities ≥ 1 mm from joint, hinge and ballast features.
+
+    Use identical spline parameters across sections (F2 pitfall).
+    ## Acceptance
+    - [ ] Each print section is 1 solid with 2 shells
+    - [ ] The cavity volume responds monotonically to `wall_thk` and `keel_top_z`; these are the solver knobs for F4
+    ## Files / modules touched
+    `src/luregen/geometry/cavity.py`
+
+- key: f3t3
+  parent: f3
+  title: "[Task] F3: ballast pocket, tail trim pocket and screw-eye bosses"
+  labels: [type:task, area:geometry]
+  body: |
+    ## Goal
+    - **Main ballast pocket:** at `ballast.x_from_joint_mm` ahead of the joint and `ballast.z_above_belly_mm`, sized from ballast mass/density (cylinder or slot).
+    - **Aft tail trim pocket:** when `buoyancy.trim_pocket` is set.
+    - **Solid bosses** around each `[[hardware]]` screw-eye position (print), so eyes go into solid material (spec F7).
+    ## Acceptance
+    - [ ] Pockets and bosses keep validity and the 1-void rule
+    - [ ] Pocket volume is reported
+    ## Files / modules touched
+    `src/luregen/geometry/pockets.py`
+
+- key: f3t4
+  parent: f3
+  title: "[Task] F3: mass properties per section (solids + ballast + hardware point masses)"
+  labels: [type:task, area:physics]
+  body: |
+    ## Goal
+    `src/luregen/physics/massprops.py`:
+    - **Per section:** Σ ρᵢVᵢ and centroids for the body solid (cavity excluded) and the ballast; hardware point masses at their x/z, with their volume counted as displacement; **CB = centroid of the displaced envelope volume**.
+    - **Whole lure:** mass (g, oz), volume, overall density, fore/aft CG−CB, vertical CB−CG, head:tail mass ratio, section densities.
+    - Evaluate at both ends of the hardware mass band.
+    ## Acceptance
+    - [ ] Analytic tests (an ellipsoid with a known void and point masses)
+    - [ ] The sample variant's numbers appear in the report
+    ## Files / modules touched
+    `src/luregen/physics/massprops.py`
+
+- key: f3t5
+  parent: f3
+  title: "[Task] F3: build pipeline wiring + report (report.json/md, CG/CB diagram)"
+  labels: [type:task, area:geometry, area:physics]
+  body: |
+    ## Goal
+    - Wire joint, internals and mass props into `lure build` through the glide family module.
+    - Export per section.
+    - `report.json` gains a `sections` block and a `lure` block, a `verdict` against the targets (no solving yet, that's F4), and `progress.emit` stages (coordinate with #74).
+    - `report.md` plus a side-view **CG/CB diagram PNG**.
+    ## Acceptance
+    - [ ] `lure build` on the sample produces head/tail models and a full report
+    ## Files / modules touched
+    `src/luregen/commands/build.py`, `src/luregen/report/`
+
+- key: w8t1
+  parent: w8
+  title: "[Task] W8 follow-up (post-v1): shrink the deploy image"
+  labels: [type:task, area:deploy]
+  body: |
+    ## Goal
+    The deploy image is 2.65 GB (0.99 GB compressed) against a 1.5–2 GB target. The main costs:
+    - Python venv 1.24 GB: OCP 380 MB, opencv 170 MB, scipy 130 MB, threejs_materials 87 MB, plus transitive sympy/sklearn/jedi
+    - OrcaSlicer 624 MB
+    - GTK/WebKit/mesa ~520 MB
+
+    Investigate:
+    - why sympy/sklearn/jedi/threejs_materials are pulled into the `web` sync, and drop them
+    - stripping tests/docs from site-packages
+    - pruning unused AppImage resources (other printer vendors' profiles)
+    - whether `.pyc` precompile is worth it (it is needed for non-root jobs)
+    ## Acceptance
+    - [ ] Image ≤ 2 GB with all integration tests still passing in the image
+
+- key: wt_paths
+  parent: wepic
+  title: "[Task] Make config path helpers public (used by the API diff writer)"
+  labels: [type:task, area:api]
+  body: |
+    ## Goal
+    `luregen.api` imports `luregen.config.loader._PATH_KEYS` and `_absolutize_paths` (private). Expose public helpers, e.g. `PATH_KEYS`, `absolutize_paths()` and a matching `relativize_paths(data, base)`, and use them in the API.
+    ## Acceptance
+    - [ ] No private imports across packages; tests unchanged
