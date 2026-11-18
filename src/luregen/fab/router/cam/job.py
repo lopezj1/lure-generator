@@ -1,7 +1,7 @@
 """`lure fab --format cnc`: a CNC build folder → verified G-code for both setups.
 
 Reads only the build folder (resolved.toml, report.json, model/<section>.stl) plus the
-router's spec folder (post, machine, tools, feeds). Writes `<build>/cnc/`:
+router's spec folder (post, machine, tools, feeds). Writes `<build>/fab/cnc/`:
 
 - `<setup>_<nn>_<tool>.nc` per tool (default, `output.split_by_tool`), else `<setup>.nc`
 - `halves/<section>_<side>.stl`: the centerplane halves, in lure coordinates
@@ -35,7 +35,7 @@ from luregen.fab.router.post_config import (
 )
 from luregen.fab.router.verify import verify
 
-OUT_DIR = "cnc"
+OUT_DIR = "fab/cnc"  # web viewer and archive groups expect this path
 OP_KINDS = ("pocket", "groove", "drill", "profile", "face")
 
 

@@ -52,7 +52,7 @@ def test_cnc_build_has_glue_face_ballast_pocket(cnc_build):
 def test_fab_cnc_writes_verified_files_per_tool(cnc_build):
     res = invoke("fab", str(cnc_build), "--format", "cnc")
     assert res.exit_code == 0, res.output
-    out = cnc_build / "cnc"
+    out = cnc_build / "fab" / "cnc"
     names = sorted(p.name for p in out.glob("*.nc"))
     assert names == [
         "setup1_01_flat_3.175.nc",
