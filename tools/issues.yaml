@@ -806,3 +806,59 @@
     Produce per-setup `.nc` files plus `setup.md` (stock, zero, tools per setup, flip, ballast and wire before glue-up), verified and simulated.
     ## Depends on
     {{f7t2}}, {{f7t4}}, {{f7t6}}, {{f7t7}}
+
+# --- 2026-11-18: feeds & speeds from the sister calculator repo ---
+
+- key: f7t9
+  parent: f7
+  title: "[Task] F7: port Shapeoko feeds & speeds from cnc-feeds-speeds-calculator into feeds.toml + feeds.py"
+  labels: [type:task, area:cnc]
+  body: |
+    ## Goal
+    Use the owner's sister repo [lopezj1/cnc-feeds-speeds-calculator](https://github.com/lopezj1/cnc-feeds-speeds-calculator) as the **source of truth** for Shapeoko 3 feeds, speeds, depth of cut and stepover. Its data comes from the community Shapeoko "A to Z" feeds & speeds guide. Port its tables to data (`spec/routers/shapeoko3_xxl/feeds.toml`) and its formulas to `src/luregen/fab/router/feeds.py`, so the CAM ops (#41, #42) pull their numbers from it.
+
+    ## Source data (inches, as in the calculator)
+    **Chipload per tooth, [conservative, aggressive]:**
+    | Endmill | soft-plastic | soft-wood | hard-wood |
+    |---|---|---|---|
+    | 1/16" | 0.002–0.003 | 0.001–0.0015 | 0.0005–0.001 |
+    | 1/8" | 0.002–0.005 | 0.001–0.0025 | 0.0005–0.001 |
+    | 1/4" | 0.004–0.010 | 0.001–0.005 | 0.001–0.002 |
+
+    **Formulas:**
+    - feed = chipload × flutes × RPM
+    - DOC = fraction × D: 10% conservative / 50% aggressive (hard-wood 5% / 25%)
+    - stepover = 40% / 70% × D
+    - plunge = feed × 45% (soft-plastic) / 35% (soft-wood) / 20% (hard-wood)
+
+    **Special tools:**
+    - V-bit: feed 30–60 IPM, DOC 0.10–0.20", plunge 10–20 IPM, by material
+    - Surfacing: 80–100 IPM, DOC 0.01–0.05"
+
+    **RPM:** range 10,000–30,000; calculator default 18,000.
+
+    ## Design notes
+    - Store the table in inches exactly as the source does, with a `source` field; convert to mm and mm/min in code. Output stays in mm.
+    - **Material mapping** (in `feeds.toml`):
+      - basswood, cedar → soft-wood
+      - pvc_board → soft-plastic
+      - hardwoods → hard-wood
+    - **Mode per operation** (`conservative` | `aggressive`), set per op in the CAM config.
+      - Default: roughing = aggressive DOC within the pocket-depth DFM limit; finishing = conservative.
+      - The scallop-based stepover for ball-nose finishing (#42) overrides the calculator's stepover.
+    - **Ball-nose:** the calculator has no ball-nose rows. Use the flat-endmill chipload for the same diameter and flag it as an assumption. 3D finishing needs a 1/8" ball, so confirm the owner has one (#28).
+    - **Sanity check from the owner's samples:** real jobs ran a 1/8" flat at 60–80 IPM (1524–2032 mm/min), plunge 20 IPM, DOC ≈ 1.27 mm. Report how that compares with the calculator's modes (material unknown).
+    - **Chipload status** (below/within/above range), as in the calculator, goes in the setup sheet.
+    - The RPM ↔ router-dial mapping is still owner input (#28). Keep the RPM a config value.
+
+    ## Acceptance
+    - [ ] Unit tests reproduce calculator outputs, e.g. 1/8" 2-flute soft-wood conservative @ 18,000 RPM → feed 36 IPM (914.4 mm/min), DOC 0.0125" (0.3175 mm), stepover 0.05" (1.27 mm), plunge 12.6 IPM (320.04 mm/min)
+    - [ ] V-bit and surfacing ranges
+    - [ ] Material-mapping errors for unknown materials
+    - [ ] `feeds.toml` cites the sister repo and the A-to-Z guide as sources
+
+    ## Files / modules touched
+    `spec/routers/shapeoko3_xxl/feeds.toml`, `src/luregen/fab/router/feeds.py`, `tests/unit/test_feeds.py`
+
+    ## Depends on
+    Nothing. Can start any time; needed by {{f7t6}} and {{f7t7}}.
