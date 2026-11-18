@@ -180,6 +180,119 @@ class DfmConfig(Strict):
     cnc: CncDfm = CncDfm()
 
 
+class CncStock(Strict):
+    """Blank for the CNC halves; zero is the front-left corner of the stock top."""
+
+    thickness_mm: float | None = Field(
+        None, gt=0, description="Measured board thickness; default: face + half width + top."
+    )
+    top_allowance_mm: float = Field(
+        1.0, ge=0, description="Auto thickness: stock left above the outer apex."
+    )
+    face_mm: float = Field(
+        0.0, ge=0, description="Facing depth on the glue-face side (setup 1); 0 = no facing."
+    )
+    margin_mm: float = Field(20.0, gt=0, description="Waste around the parts.")
+    spacing_mm: float = Field(10.0, gt=0, description="Waste between two halves.")
+
+
+class CncRegistration(Strict):
+    """Flip pins: through holes on the flip axis, in the end waste, into the spoilboard."""
+
+    enabled: bool = True
+    pin_d_mm: float = Field(6.35, gt=0)
+    into_spoilboard_mm: float = Field(3.0, ge=0)
+
+
+class CncWire(Strict):
+    """Through-wire half-groove (process.rigging = "through_wire"), cut with a ball nose."""
+
+    diameter_mm: float = Field(1.04, gt=0, description="Wire diameter (0.041in = 1.04 mm).")
+    clearance_mm: float = Field(0.15, ge=0, description="Extra depth per half.")
+    z_mm: float | None = Field(None, description="Groove height; default: joint.line_tie_z.")
+    exit_mm: float = Field(3.0, ge=0, description="Groove run-out past the outline.")
+
+
+class CncTabs(Strict):
+    count: int = Field(4, ge=0, le=8, description="Holding tabs per half on the cut-out.")
+    width_mm: float = Field(5.0, gt=0)
+    height_mm: float = Field(1.5, gt=0)
+
+
+class CncOp(Strict):
+    """Tool and feeds for one CAM operation: a calculator mode or a named preset."""
+
+    tool: str = Field(description="Key in spec/routers/<machine>/tools.toml.")
+    mode: Literal["conservative", "aggressive"] = "conservative"
+    preset: str | None = Field(None, description="Named preset in feeds.toml.")
+
+
+# One class per op so each default lives on the field itself (the web editor drops values
+# equal to the defaults key by key, so nested defaults must not differ from the class's).
+class PocketOp(CncOp):
+    tool: str = "flat_3.175"
+    mode: Literal["conservative", "aggressive"] = "aggressive"
+
+
+class GrooveOp(CncOp):
+    tool: str = "ball_3.175"
+
+
+class DrillOp(CncOp):
+    tool: str = "flat_3.175"
+
+
+class ProfileOp(CncOp):
+    tool: str = "flat_3.175"
+    preset: str | None = "owner_contour_flat_3.175"
+
+
+class FaceOp(CncOp):
+    tool: str = "flat_3.175"
+    mode: Literal["conservative", "aggressive"] = "aggressive"
+
+
+class CncOps(Strict):
+    pocket: PocketOp = PocketOp()
+    groove: GrooveOp = GrooveOp()
+    drill: DrillOp = DrillOp()
+    profile: ProfileOp = ProfileOp()
+    face: FaceOp = FaceOp()
+
+
+class AirPocket(Strict):
+    """A glue-face air pocket: rounded rectangle in the side view, `depth_mm` into each half."""
+
+    section: Literal["head", "tail"]
+    x_mm: float
+    z_mm: float
+    length_mm: float = Field(gt=0)
+    height_mm: float = Field(gt=0)
+    depth_mm: float = Field(gt=0)
+
+
+class CncConfig(Strict):
+    """CNC halves (process.method = "cnc"): glue-face pockets, wire groove, setups, CAM."""
+
+    rpm: float = Field(18000, gt=0, description="Router rpm used for the feeds (advisory).")
+    corner_clearance_mm: float = Field(
+        0.25, ge=0, description="Pocket corner radius = pocket tool radius + this."
+    )
+    ballast_max_length_mm: float = Field(
+        30.0, gt=0, description="Longest glue-face ballast pocket before sizing fails."
+    )
+    ballast_min_depth_mm: float = Field(0.8, gt=0, description="Shallowest pocket per half.")
+    ramp_angle_deg: float = Field(3.0, gt=0, le=30, description="Pocket/profile ramp entry.")
+    cutout_overcut_mm: float = Field(0.3, ge=0, description="Cut-out depth below the stock.")
+    climb: bool = True
+    air_pockets: list[AirPocket] = []
+    stock: CncStock = CncStock()
+    registration: CncRegistration = CncRegistration()
+    wire: CncWire = CncWire()
+    tabs: CncTabs = CncTabs()
+    ops: CncOps = CncOps()
+
+
 class ReportConfig(Strict):
     show_oz: bool = True
 
@@ -196,6 +309,7 @@ class LureConfig(Strict):
     internals: InternalsConfig = InternalsConfig()
     process: ProcessConfig
     dfm: DfmConfig = DfmConfig()
+    cnc: CncConfig = CncConfig()
     report: ReportConfig = ReportConfig()
 
     @property

@@ -8,7 +8,9 @@ asserted after each):
 3. print only: one sealed cavity per section (explicit inset loft, roof, solid keel),
    kept clear of every other feature, and solid bosses around the screw eyes.
 
-CNC (wood) sections get no cavity (F10: no void for wood) and are 1 solid with 1 shell.
+CNC (wood) sections get no cavity (F10: no void for wood). Their ballast sits in a closed
+glue-face pocket (and optional air pockets) cut into the two halves (`geometry.cnc_halves`),
+so a CNC section is 1 solid with 1 shell plus one per sealed pocket.
 """
 
 from __future__ import annotations
@@ -130,18 +132,31 @@ class GlideFamily:
         emit("joint", 0.0, "ballast and trim pockets")
         ballast_g = cfg.ballast.mass_g or cfg.internals.ballast_seed_g
         rho_ballast = float(cfg.ballast.density)
-        ballast = pk.ballast_pocket(
-            env,
-            table,
-            shape,
-            spec.x_joint - cfg.ballast.x_from_joint_mm,
-            cfg.ballast.z_above_belly_mm,
-            1000.0 * ballast_g / rho_ballast,
-            wall("head"),
-        )
+        x_ballast = spec.x_joint - cfg.ballast.x_from_joint_mm
+        if is_print:
+            ballast = pk.ballast_pocket(
+                env,
+                table,
+                shape,
+                x_ballast,
+                cfg.ballast.z_above_belly_mm,
+                1000.0 * ballast_g / rho_ballast,
+                wall("head"),
+            )
+        else:  # CNC halves: a closed glue-face pocket, ballast set in before glue-up (#40)
+            from luregen.geometry import cnc_halves as ch
+
+            ballast = ch.ballast_pocket(cfg, table, shape, spec, x_ballast, ballast_g / rho_ballast)
         ballast_fill = (env & ballast.solid()).solids()[0]
-        body = (env - ballast.solid()).solids()[0]
-        assert_valid(body, solids=1, shells=1, what="body after ballast pocket")
+        body = env
+        sealed: dict[str, list] = {"head": [], "tail": []}  # CNC pockets, cut after the split
+        if is_print:
+            body = (env - ballast.solid()).solids()[0]
+            assert_valid(body, solids=1, shells=1, what="body after ballast pocket")
+        else:
+            sealed["head"].append(ballast)
+            for pocket in ch.air_pockets(cfg, table, shape, spec):
+                sealed[pocket.kind.split(":")[1]].append(pocket)
 
         trim = None
         trim_report: dict[str, Any] | None = None
@@ -179,6 +194,11 @@ class GlideFamily:
 
         # 3. internals ----------------------------------------------------------------------
         sections = {"head": split.head, "tail": split.tail}
+        for name, pockets in sealed.items():
+            for i, pocket in enumerate(pockets):
+                cut = (sections[name] - pocket.solid()).solids()[0]
+                assert_valid(cut, solids=1, shells=2 + i, what=f"{name} {pocket.kind} pocket")
+                sections[name] = cut
         internals: dict[str, Any] = {}
         cavities: dict[str, Any] = {}
         if is_print:
@@ -244,7 +264,8 @@ class GlideFamily:
                     "boss_r_mm": r_boss,
                 }
         for name, solid in sections.items():
-            assert_valid(solid, solids=1, shells=2 if is_print else 1, what=f"{name} section")
+            shells = 2 if is_print else 1 + len(sealed[name])
+            assert_valid(solid, solids=1, shells=shells, what=f"{name} section")
         emit("internals", 1.0, "sections valid")
 
         # mass-property inputs --------------------------------------------------------------
@@ -287,7 +308,15 @@ class GlideFamily:
                 "length_mm": _r(ballast.length),
                 "volume_cm3": _r(ballast_fill.volume / 1000.0, 4),
                 "centroid_mm": [_r(v) for v in _centroid(ballast_fill)],
+                **({} if is_print else {"glue_face_pocket": ballast.as_dict()}),
             },
+            **(
+                {}
+                if is_print
+                else {
+                    "cnc_air_pockets": [p.as_dict() for p in [*sealed["head"][1:], *sealed["tail"]]]
+                }
+            ),
             "trim_pocket": trim_report,
             "internals": internals or None,
             "hardware_band_g": _r(hardware_band_g(cfg)),
