@@ -401,10 +401,797 @@
           }
         }
       }
+    },
+    "/api/designs": {
+      "get": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "List Designs",
+        "operationId": "list_designs_api_designs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DesignSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Designs Api Designs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/designs/{family}/variants": {
+      "get": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "List Variants",
+        "operationId": "list_variants_api_designs__family__variants_get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VariantSummary"
+                  },
+                  "title": "Response List Variants Api Designs  Family  Variants Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/machines": {
+      "get": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "List Machines",
+        "operationId": "list_machines_api_machines_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MachineSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Machines Api Machines Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/materials": {
+      "get": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "List Materials",
+        "operationId": "list_materials_api_materials_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Material"
+                  },
+                  "type": "array",
+                  "title": "Response List Materials Api Materials Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/schema/lure-config": {
+      "get": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "Lure Config Schema",
+        "description": "Draft-07 form schema for @sjsf/form (rules R1\u2013R9; see luregen.api.formschema).",
+        "operationId": "lure_config_schema_api_schema_lure_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/variants/{family}/{name}": {
+      "get": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "Get Variant",
+        "operationId": "get_variant_api_variants__family___name__get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariantDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "Save Variant",
+        "description": "Validate, then write only what differs from the parent layers (comments kept).",
+        "operationId": "save_variant_api_variants__family___name__put",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "if-match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveResult"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file changed since it was read (etag mismatch)"
+          },
+          "422": {
+            "description": "Config errors: `detail` is a list of {path, message}"
+          },
+          "428": {
+            "description": "No etag given"
+          }
+        }
+      }
+    },
+    "/api/variants/{family}/{name}/validate": {
+      "post": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "Validate Variant",
+        "description": "Dry-run validation of form output; [] means valid.",
+        "operationId": "validate_variant_api_variants__family___name__validate_post",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Config"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldError"
+                  },
+                  "title": "Response Validate Variant Api Variants  Family   Name  Validate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spec/status": {
+      "get": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "Spec Status",
+        "description": "Uncommitted changes under spec/ (for the UI badge; commits stay manual).",
+        "operationId": "spec_status_api_spec_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads": {
+      "post": {
+        "tags": [
+          "uploads"
+        ],
+        "summary": "Upload",
+        "description": "Store a photo, station CSV or G-code file at uploads/<sha256>.<ext>.",
+        "operationId": "upload_api_uploads_post",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "photo",
+                "csv",
+                "gcode"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_api_uploads_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Upload"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Larger than 25 MB"
+          },
+          "422": {
+            "description": "Content check failed"
+          }
+        }
+      }
+    },
+    "/api/builds": {
+      "get": {
+        "tags": [
+          "builds"
+        ],
+        "summary": "List Builds",
+        "description": "Builds, newest first, with report.json summaries (dot-folders like .jobs skipped).",
+        "operationId": "list_builds_api_builds_get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Variant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BuildSummary"
+                  },
+                  "title": "Response List Builds Api Builds Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds/{family}/{variant}/{stamp}/files/{name}": {
+      "get": {
+        "tags": [
+          "builds"
+        ],
+        "summary": "Get Build File",
+        "description": "A file of a build (`name` may include subfolders, e.g. model/body.stl).",
+        "operationId": "get_build_file_api_builds__family___variant___stamp__files__name__get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Stamp"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Download"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds/{family}/{variant}/{stamp}/toolpath/{name}/header": {
+      "get": {
+        "tags": [
+          "builds"
+        ],
+        "summary": "Get Toolpath Header",
+        "description": "Only the JSON header of the binary toolpath (bounds, layers, tools, markers, \u2026).",
+        "operationId": "get_toolpath_header_api_builds__family___variant___stamp__toolpath__name__header_get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Stamp"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "auto",
+                "print",
+                "cnc"
+              ],
+              "type": "string",
+              "default": "auto",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Toolpath Header Api Builds  Family   Variant   Stamp  Toolpath  Name  Header Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds/{family}/{variant}/{stamp}/toolpath/{name}": {
+      "get": {
+        "tags": [
+          "builds"
+        ],
+        "summary": "Get Toolpath",
+        "description": "G-code \u2192 binary toolpath v1 (docs/viewer-binary-format.md), gzipped when accepted.\n\nEncoded files are cached next to the G-code as `<file>.<kind>.bin[.gz]`.",
+        "operationId": "get_toolpath_api_builds__family___variant___stamp__toolpath__name__get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "stamp",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Stamp"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "auto",
+                "print",
+                "cnc"
+              ],
+              "type": "string",
+              "default": "auto",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "accept-encoding",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Accept-Encoding"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Toolpath v1",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Body_upload_api_uploads_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_api_uploads_post"
+      },
       "BuildArgs": {
         "properties": {
           "variant": {
@@ -420,6 +1207,25 @@
         ],
         "title": "BuildArgs",
         "description": "`lure build VARIANT [--set k=v \u2026]`."
+      },
+      "BuildFile": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Relative to the build folder"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "size"
+        ],
+        "title": "BuildFile"
       },
       "BuildJob": {
         "properties": {
@@ -448,6 +1254,126 @@
           "args"
         ],
         "title": "BuildJob"
+      },
+      "BuildSummary": {
+        "properties": {
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "variant": {
+            "type": "string",
+            "title": "Variant"
+          },
+          "stamp": {
+            "type": "string",
+            "title": "Stamp"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "latest": {
+            "type": "boolean",
+            "title": "Latest"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "git_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Sha"
+          },
+          "git_dirty": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Dirty"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/BuildFile"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "family",
+          "variant",
+          "stamp",
+          "path",
+          "latest",
+          "files"
+        ],
+        "title": "BuildSummary"
+      },
+      "DesignSummary": {
+        "properties": {
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "family.toml, relative to the data root"
+          },
+          "variants": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Variants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "family",
+          "path",
+          "variants"
+        ],
+        "title": "DesignSummary"
       },
       "FabArgs": {
         "properties": {
@@ -513,6 +1439,55 @@
           "args"
         ],
         "title": "FabPrintJob"
+      },
+      "FieldError": {
+        "properties": {
+          "path": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Path",
+            "description": "Config key path (pydantic loc); [] = whole"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "message"
+        ],
+        "title": "FieldError"
+      },
+      "FormSchema": {
+        "properties": {
+          "schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Schema"
+          },
+          "uiSchema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Uischema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema",
+          "uiSchema"
+        ],
+        "title": "FormSchema"
       },
       "HTTPValidationError": {
         "properties": {
@@ -741,6 +1716,25 @@
         ],
         "title": "JobStatus"
       },
+      "Layer": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "\"variant\", \"family\", \"common\" or the file stem"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "path"
+        ],
+        "title": "Layer"
+      },
       "LogData": {
         "properties": {
           "stream": {
@@ -785,6 +1779,83 @@
           "data"
         ],
         "title": "LogEvent"
+      },
+      "MachineSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Folder name under spec/printers or spec/routers"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "printer",
+              "router"
+            ],
+            "title": "Type"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "name",
+          "path"
+        ],
+        "title": "MachineSummary"
+      },
+      "Material": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "density": {
+            "type": "number",
+            "title": "Density",
+            "description": "g/cm\u00b3"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "density"
+        ],
+        "title": "Material"
       },
       "ProfileArgs": {
         "properties": {
@@ -998,6 +2069,109 @@
         ],
         "title": "ResultEvent"
       },
+      "SaveRequest": {
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config",
+            "description": "Edited config (form output)"
+          },
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag",
+            "description": "Precondition, if no If-Match header"
+          }
+        },
+        "type": "object",
+        "required": [
+          "config"
+        ],
+        "title": "SaveRequest"
+      },
+      "SaveResult": {
+        "properties": {
+          "changed": {
+            "type": "boolean",
+            "title": "Changed"
+          },
+          "backup": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup",
+            "description": "The .bak written, relative to the data root"
+          },
+          "variant": {
+            "$ref": "#/components/schemas/VariantDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "changed",
+          "variant"
+        ],
+        "title": "SaveResult"
+      },
+      "SpecChange": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Relative to the data root"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "git porcelain XY code, e.g. ' M', '??'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "status"
+        ],
+        "title": "SpecChange"
+      },
+      "SpecStatus": {
+        "properties": {
+          "git": {
+            "type": "boolean",
+            "title": "Git",
+            "description": "False when git or the repository is unavailable"
+          },
+          "dirty": {
+            "type": "boolean",
+            "title": "Dirty"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SpecChange"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "git",
+          "dirty",
+          "files"
+        ],
+        "title": "SpecStatus"
+      },
       "StatusData": {
         "properties": {
           "status": {
@@ -1055,6 +2229,41 @@
         ],
         "title": "StatusEvent"
       },
+      "Upload": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "sha256 of the content"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "csv",
+              "gcode"
+            ],
+            "title": "Kind"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Relative to the data root; usable as a config path value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "size",
+          "path"
+        ],
+        "title": "Upload"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -1094,6 +2303,131 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VariantDetail": {
+        "properties": {
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "etag": {
+            "type": "string",
+            "title": "Etag",
+            "description": "Send back as If-Match (or body `etag`) when saving"
+          },
+          "own": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Own",
+            "description": "The variant file itself"
+          },
+          "layered": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Layered",
+            "description": "Merged `extends` chain, before validation"
+          },
+          "resolved": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved",
+            "description": "Validated and catalog-resolved config (None when invalid)"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/Layer"
+            },
+            "type": "array",
+            "title": "Layers",
+            "description": "The `extends` chain, variant first"
+          },
+          "provenance": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Provenance",
+            "description": "JSON pointer \u2192 index into `layers` of the layer that set it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "family",
+          "name",
+          "path",
+          "etag",
+          "own",
+          "layered",
+          "resolved",
+          "layers",
+          "provenance"
+        ],
+        "title": "VariantDetail",
+        "description": "A variant for the editor. Path values (profile.image, \u2026) are relative to the data root."
+      },
+      "VariantSummary": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Variant TOML, relative to the data root"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "material": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "path"
+        ],
+        "title": "VariantSummary"
       }
     }
   }

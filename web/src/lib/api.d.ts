@@ -109,10 +109,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/designs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Designs */
+        get: operations["list_designs_api_designs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/designs/{family}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Variants */
+        get: operations["list_variants_api_designs__family__variants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/machines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Machines */
+        get: operations["list_machines_api_machines_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/materials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Materials */
+        get: operations["list_materials_api_materials_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/schema/lure-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lure Config Schema
+         * @description Draft-07 form schema for @sjsf/form (rules R1–R9; see luregen.api.formschema).
+         */
+        get: operations["lure_config_schema_api_schema_lure_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/variants/{family}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Variant */
+        get: operations["get_variant_api_variants__family___name__get"];
+        /**
+         * Save Variant
+         * @description Validate, then write only what differs from the parent layers (comments kept).
+         */
+        put: operations["save_variant_api_variants__family___name__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/variants/{family}/{name}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Variant
+         * @description Dry-run validation of form output; [] means valid.
+         */
+        post: operations["validate_variant_api_variants__family___name__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/spec/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Spec Status
+         * @description Uncommitted changes under spec/ (for the UI badge; commits stay manual).
+         */
+        get: operations["spec_status_api_spec_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload
+         * @description Store a photo, station CSV or G-code file at uploads/<sha256>.<ext>.
+         */
+        post: operations["upload_api_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Builds
+         * @description Builds, newest first, with report.json summaries (dot-folders like .jobs skipped).
+         */
+        get: operations["list_builds_api_builds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builds/{family}/{variant}/{stamp}/files/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Build File
+         * @description A file of a build (`name` may include subfolders, e.g. model/body.stl).
+         */
+        get: operations["get_build_file_api_builds__family___variant___stamp__files__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builds/{family}/{variant}/{stamp}/toolpath/{name}/header": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Toolpath Header
+         * @description Only the JSON header of the binary toolpath (bounds, layers, tools, markers, …).
+         */
+        get: operations["get_toolpath_header_api_builds__family___variant___stamp__toolpath__name__header_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builds/{family}/{variant}/{stamp}/toolpath/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Toolpath
+         * @description G-code → binary toolpath v1 (docs/viewer-binary-format.md), gzipped when accepted.
+         *
+         *     Encoded files are cached next to the G-code as `<file>.<kind>.bin[.gz]`.
+         */
+        get: operations["get_toolpath_api_builds__family___variant___stamp__toolpath__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_upload_api_uploads_post */
+        Body_upload_api_uploads_post: {
+            /** File */
+            file: string;
+        };
         /**
          * BuildArgs
          * @description `lure build VARIANT [--set k=v …]`.
@@ -123,6 +379,16 @@ export interface components {
              * @description Variant TOML, relative to the data root.
              */
             variant: string;
+        };
+        /** BuildFile */
+        BuildFile: {
+            /**
+             * Name
+             * @description Relative to the build folder
+             */
+            name: string;
+            /** Size */
+            size: number;
         };
         /** BuildJob */
         BuildJob: {
@@ -137,6 +403,46 @@ export interface components {
              * @description `--set` overrides, `a.b=value`.
              */
             overrides?: string[];
+        };
+        /** BuildSummary */
+        BuildSummary: {
+            /** Family */
+            family: string;
+            /** Variant */
+            variant: string;
+            /** Stamp */
+            stamp: string;
+            /** Path */
+            path: string;
+            /** Latest */
+            latest: boolean;
+            /** Created */
+            created?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Git Sha */
+            git_sha?: string | null;
+            /** Git Dirty */
+            git_dirty?: boolean | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+            /** Files */
+            files: components["schemas"]["BuildFile"][];
+        };
+        /** DesignSummary */
+        DesignSummary: {
+            /** Family */
+            family: string;
+            /**
+             * Path
+             * @description family.toml, relative to the data root
+             */
+            path: string;
+            /** Variants */
+            variants: string[];
         };
         /**
          * FabArgs
@@ -168,6 +474,27 @@ export interface components {
              */
             op: "fab_print";
             args: components["schemas"]["FabArgs"];
+        };
+        /** FieldError */
+        FieldError: {
+            /**
+             * Path
+             * @description Config key path (pydantic loc); [] = whole
+             */
+            path: (string | number)[];
+            /** Message */
+            message: string;
+        };
+        /** FormSchema */
+        FormSchema: {
+            /** Schema */
+            schema: {
+                [key: string]: unknown;
+            };
+            /** Uischema */
+            uiSchema: {
+                [key: string]: unknown;
+            };
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -243,6 +570,16 @@ export interface components {
          * @enum {string}
          */
         JobStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+        /** Layer */
+        Layer: {
+            /**
+             * Label
+             * @description "variant", "family", "common" or the file stem
+             */
+            label: string;
+            /** Path */
+            path: string;
+        };
         /** LogData */
         LogData: {
             /**
@@ -263,6 +600,37 @@ export interface components {
              */
             event: "log";
             data: components["schemas"]["LogData"];
+        };
+        /** MachineSummary */
+        MachineSummary: {
+            /**
+             * Id
+             * @description Folder name under spec/printers or spec/routers
+             */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "printer" | "router";
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+        };
+        /** Material */
+        Material: {
+            /** Name */
+            name: string;
+            /**
+             * Density
+             * @description g/cm³
+             */
+            density: number;
+            /** Category */
+            category?: string | null;
+            /** Range */
+            range?: number[] | null;
         };
         /**
          * ProfileArgs
@@ -334,6 +702,57 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** SaveRequest */
+        SaveRequest: {
+            /**
+             * Config
+             * @description Edited config (form output)
+             */
+            config: {
+                [key: string]: unknown;
+            };
+            /**
+             * Etag
+             * @description Precondition, if no If-Match header
+             */
+            etag?: string | null;
+        };
+        /** SaveResult */
+        SaveResult: {
+            /** Changed */
+            changed: boolean;
+            /**
+             * Backup
+             * @description The .bak written, relative to the data root
+             */
+            backup?: string | null;
+            variant: components["schemas"]["VariantDetail"];
+        };
+        /** SpecChange */
+        SpecChange: {
+            /**
+             * Path
+             * @description Relative to the data root
+             */
+            path: string;
+            /**
+             * Status
+             * @description git porcelain XY code, e.g. ' M', '??'
+             */
+            status: string;
+        };
+        /** SpecStatus */
+        SpecStatus: {
+            /**
+             * Git
+             * @description False when git or the repository is unavailable
+             */
+            git: boolean;
+            /** Dirty */
+            dirty: boolean;
+            /** Files */
+            files: components["schemas"]["SpecChange"][];
+        };
         /** StatusData */
         StatusData: {
             status: components["schemas"]["JobStatus"];
@@ -353,6 +772,26 @@ export interface components {
             event: "status";
             data: components["schemas"]["StatusData"];
         };
+        /** Upload */
+        Upload: {
+            /**
+             * Id
+             * @description sha256 of the content
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "photo" | "csv" | "gcode";
+            /** Size */
+            size: number;
+            /**
+             * Path
+             * @description Relative to the data root; usable as a config path value
+             */
+            path: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -365,6 +804,75 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * VariantDetail
+         * @description A variant for the editor. Path values (profile.image, …) are relative to the data root.
+         */
+        VariantDetail: {
+            /** Family */
+            family: string;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /**
+             * Etag
+             * @description Send back as If-Match (or body `etag`) when saving
+             */
+            etag: string;
+            /**
+             * Own
+             * @description The variant file itself
+             */
+            own: {
+                [key: string]: unknown;
+            };
+            /**
+             * Layered
+             * @description Merged `extends` chain, before validation
+             */
+            layered: {
+                [key: string]: unknown;
+            };
+            /**
+             * Resolved
+             * @description Validated and catalog-resolved config (None when invalid)
+             */
+            resolved: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: components["schemas"]["FieldError"][];
+            /**
+             * Layers
+             * @description The `extends` chain, variant first
+             */
+            layers: components["schemas"]["Layer"][];
+            /**
+             * Provenance
+             * @description JSON pointer → index into `layers` of the layer that set it
+             */
+            provenance: {
+                [key: string]: number;
+            };
+        };
+        /** VariantSummary */
+        VariantSummary: {
+            /** Name */
+            name: string;
+            /**
+             * Path
+             * @description Variant TOML, relative to the data root
+             */
+            path: string;
+            /** Method */
+            method?: string | null;
+            /** Material */
+            material?: string | null;
         };
     };
     responses: never;
@@ -585,6 +1093,441 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_designs_api_designs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesignSummary"][];
+                };
+            };
+        };
+    };
+    list_variants_api_designs__family__variants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_machines_api_machines_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineSummary"][];
+                };
+            };
+        };
+    };
+    list_materials_api_materials_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Material"][];
+                };
+            };
+        };
+    };
+    lure_config_schema_api_schema_lure_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormSchema"];
+                };
+            };
+        };
+    };
+    get_variant_api_variants__family___name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_variant_api_variants__family___name__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                family: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaveResult"];
+                };
+            };
+            /** @description The file changed since it was read (etag mismatch) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Config errors: `detail` is a list of {path, message} */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No etag given */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    validate_variant_api_variants__family___name__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldError"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    spec_status_api_spec_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpecStatus"];
+                };
+            };
+        };
+    };
+    upload_api_uploads_post: {
+        parameters: {
+            query: {
+                kind: "photo" | "csv" | "gcode";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_api_uploads_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Upload"];
+                };
+            };
+            /** @description Larger than 25 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Content check failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_builds_api_builds_get: {
+        parameters: {
+            query?: {
+                family?: string | null;
+                variant?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_build_file_api_builds__family___variant___stamp__files__name__get: {
+        parameters: {
+            query?: {
+                download?: boolean;
+            };
+            header?: never;
+            path: {
+                family: string;
+                variant: string;
+                stamp: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_toolpath_header_api_builds__family___variant___stamp__toolpath__name__header_get: {
+        parameters: {
+            query?: {
+                kind?: "auto" | "print" | "cnc";
+            };
+            header?: never;
+            path: {
+                family: string;
+                variant: string;
+                stamp: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_toolpath_api_builds__family___variant___stamp__toolpath__name__get: {
+        parameters: {
+            query?: {
+                kind?: "auto" | "print" | "cnc";
+            };
+            header?: {
+                "accept-encoding"?: string;
+            };
+            path: {
+                family: string;
+                variant: string;
+                stamp: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Toolpath v1 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
             };
             /** @description Validation Error */
             422: {

@@ -49,6 +49,11 @@ def create_app(root: Path) -> FastAPI:
     app.state.jobs = jobs
     app.include_router(health_router(root), prefix="/api")
     app.include_router(jobs_router(), prefix="/api")
+    # W1 (#62): spec, variants, schema, uploads, builds, toolpaths.
+    from luregen.api import builds, spec, uploads
+
+    for router in (spec.spec_router, uploads.uploads_router, builds.builds_router):
+        app.include_router(router(root), prefix="/api")
     # Mounted last: the catch-all static mount must not shadow /api routes.
     dist = root / "web" / "dist"
     if dist.is_dir():
