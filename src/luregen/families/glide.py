@@ -174,16 +174,25 @@ class GlideFamily:
             trim_volume = (env & trim.solid()).volume
             body = (body - trim.solid()).solids()[0]
             assert_valid(body, solids=1, shells=1, what="body after trim pocket")
+            capacity = rho_trim * trim_volume / 1000.0
+            fill_g = min(cfg.internals.trim_fill_g or 0.0, capacity)
+            if (cfg.internals.trim_fill_g or 0.0) > capacity + 1e-6:
+                warnings.append(
+                    f"trim fill {cfg.internals.trim_fill_g} g exceeds the pocket capacity "
+                    f"{capacity:.2f} g; clamped"
+                )
             trim_report = {
+                "section": "tail",
                 "x_mm": _r(trim.x),
                 "r_mm": _r(trim.r),
                 "z_top_mm": _r(trim.z_top),
                 "volume_cm3": _r(trim_volume / 1000.0, 4),
-                "capacity_g": _r(rho_trim * trim_volume / 1000.0),
+                "capacity_g": _r(capacity),
                 "material": cfg.internals.trim_material,
                 "density": rho_trim,
-                "fill_g": 0.0,
-                "note": "empty in the nominal build; F4 sizes the fill for the hardware band",
+                "fill_g": _r(fill_g),
+                "note": "nominal (band-mid) putty fill; the solver report sizes the band-end "
+                "corrections",
             }
 
         # 2. joint: pin bore, split, eye slots --------------------------------------------
@@ -279,6 +288,10 @@ class GlideFamily:
                 parts.append(
                     Part("ballast", ballast_fill.volume, _centroid(ballast_fill), rho_ballast)
                 )
+            if name == "tail" and trim_report and trim_report["fill_g"] > 0:
+                from luregen.physics.buoyancy import TrimSpec
+
+                parts.append(TrimSpec.from_report(trim_report).part(trim_report["fill_g"]))
             mass_inputs.append(SectionInput(name, parts, point_masses(cfg, name)))
 
         report = {
@@ -298,10 +311,12 @@ class GlideFamily:
                 "feature_volume_cm3": _r(split.feature_volume / 1000.0, 4),
             },
             "ballast": {
+                "section": "head",
                 "material": cfg.ballast.material,
                 "density": rho_ballast,
                 "mass_g": _r(rho_ballast * ballast_fill.volume / 1000.0),
-                "pinned": cfg.ballast.mass_g is not None,
+                "pinned": cfg.ballast.mass_g is not None
+                and "ballast.mass_g" not in cfg.solver.solved_knobs,
                 "x_mm": _r(ballast.x),
                 "z_axis_mm": _r(ballast.z_axis),
                 "r_mm": _r(ballast.r),

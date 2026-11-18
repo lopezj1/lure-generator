@@ -5,7 +5,7 @@
   `x_from_joint` ahead of the joint. The slot length is solved so the pocket volume inside
   the body equals the ballast volume (mass / density); the ballast fills it.
 - **Trim pocket** (tail, aft): a vertical cylinder open at the belly, sized to hold the
-  trim capacity in putty. It is empty in the nominal build; F4 fills it to absorb the
+  trim capacity in putty. The F4 balance step fills it halfway (nominal) to absorb the
   hardware mass band.
 - **Bosses**: a sphere of solid material around each screw-eye position. Bosses are not
   cut; they are keep-outs subtracted from the cavity, so eyes always go into solid plastic.
