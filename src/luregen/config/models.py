@@ -21,6 +21,12 @@ Range = tuple[float, float]
 class SizeConfig(Strict):
     length_mm: float | None = Field(None, ge=100, le=250)
     target_weight_oz: float | None = Field(None, gt=0)
+    solved_length_mm: float | None = Field(
+        None,
+        ge=100,
+        le=250,
+        description="Length solved from target_weight_oz (written by `lure build`).",
+    )
 
     @model_validator(mode="after")
     def exactly_one(self) -> "SizeConfig":
@@ -149,7 +155,28 @@ class InternalsConfig(Strict):
         None, gt=0, description="Trim putty capacity; default: hardware mass band + 1 g."
     )
     trim_material: str = "tungsten_putty"
+    trim_fill_g: float | None = Field(
+        None,
+        ge=0,
+        description="Nominal (hardware band mid) putty fill; the solver sets half the capacity.",
+    )
     trim_density: float | None = None  # filled by resolve()
+
+
+class SolverConfig(Strict):
+    """Balance solver (F4). `lure build` writes `solved = true` and the solved knob values
+    into resolved.toml, so rebuilding it reproduces the lure without solving again; pass
+    `--set solver.solved=false` to solve again."""
+
+    enabled: bool = True
+    max_passes: int = Field(5, ge=1, le=10)
+    solved: bool = Field(False, description="Knobs hold solved values; build without solving.")
+    solved_knobs: list[str] = Field(
+        [], description="Knobs the solver set (they are not user pins on a re-solve)."
+    )
+    weights: dict[str, float] = Field(
+        {}, description="Least-squares weight overrides by target id (e.g. head_density)."
+    )
 
 
 class ProcessConfig(Strict):
@@ -311,6 +338,7 @@ class LureConfig(Strict):
     dfm: DfmConfig = DfmConfig()
     cnc: CncConfig = CncConfig()
     report: ReportConfig = ReportConfig()
+    solver: SolverConfig = SolverConfig()
 
     @property
     def is_resolved(self) -> bool:

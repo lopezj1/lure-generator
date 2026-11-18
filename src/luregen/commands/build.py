@@ -21,31 +21,31 @@ def station_table_for(cfg: "LureConfig") -> "StationTable":
             "profile.source = 'image' is not supported by `lure build` yet: run `lure profile` "
             "to extract a station table, then point profile.preset at the CSV"
         )
-    if cfg.size.target_weight_oz is not None:
-        raise BuildError(
-            "size.target_weight_oz is solved in F4 (weight → length); set size.length_mm"
-        )
     if cfg.profile.preset is None or not Path(cfg.profile.preset).is_file():
         raise BuildError(f"profile.preset not found: {cfg.profile.preset}")
     try:
         table = StationTable.load_csv(Path(cfg.profile.preset))
     except StationTableError as exc:
         raise BuildError(str(exc)) from exc
-    if cfg.size.length_mm is not None and abs(cfg.size.length_mm - table.length) > 1e-9:
-        table = table.scaled(cfg.size.length_mm / table.length)
+    # weight-driven: the solved length, else the preset's own length (scaled in build_lure)
+    length = cfg.size.length_mm or cfg.size.solved_length_mm
+    if length is not None and abs(length - table.length) > 1e-9:
+        table = table.scaled(length / table.length)
     return table
 
 
-# Overall progress fraction at the start of each stage (monotonic; #74).
+# Overall progress fraction at the start of each stage (monotonic; #74). `solve` (F4)
+# runs the family build several times; without it the bar jumps to `joint`.
 STAGES = {
     "config": 0.0,
-    "stations": 0.05,
-    "envelope": 0.10,
-    "joint": 0.20,
-    "internals": 0.35,
-    "massprops": 0.65,
-    "export": 0.70,
-    "report": 0.95,
+    "stations": 0.02,
+    "envelope": 0.04,
+    "solve": 0.08,
+    "joint": 0.70,
+    "internals": 0.74,
+    "massprops": 0.84,
+    "export": 0.86,
+    "report": 0.97,
 }
 
 
@@ -112,14 +112,23 @@ def export_model(shape, model_dir: Path, stem: str) -> dict:
 
 def build_lure(cfg: "LureConfig", table: "StationTable", build_dir: Path) -> dict:
     """Envelope → family sections → mass properties → exports → report blocks."""
+    from luregen.config import dump_resolved
     from luregen.families import get_family
+    from luregen.physics.balance import balance_build
     from luregen.physics.massprops import band_props
     from luregen.report.balance import DIAGRAM_PATH, balance_blocks, render_diagram
 
     stage_emit("envelope", 0.0, f"{cfg.process.body_style} envelope")
     env = build_envelope(cfg, table)
+    scaling = None
+    if cfg.size.target_weight_oz is not None and not cfg.solver.solved:
+        cfg, table, scaling = scale_to_weight(cfg, table, env)
+        stage_emit("envelope", 0.5, f"envelope at {table.length:.1f} mm for the target weight")
+        env = build_envelope(cfg, table)
     family = get_family(cfg.family)
-    built = family.build(cfg, table, env, stage_emit)
+    outcome = balance_build(cfg, table, env, family, stage_emit)
+    cfg, built = outcome.cfg, outcome.built
+    (build_dir / "resolved.toml").write_text(dump_resolved(cfg))
 
     stage_emit("massprops", 0.0, "mass properties at the hardware band ends")
     props = band_props(built.mass_inputs)
@@ -137,13 +146,41 @@ def build_lure(cfg: "LureConfig", table: "StationTable", build_dir: Path) -> dic
     sections = blocks["sections"]
     for name in built.sections:
         sections[name]["files"] = files[name]
+    balance = outcome.report
+    if scaling is not None:
+        balance["scaling"] = scaling
     return {
         "envelope": envelope_report(cfg, table, env, files["body"]),
         "geometry": built.report,
         **blocks,
+        "balance": balance,
         "diagram": DIAGRAM_PATH,
-        "family_warnings": built.warnings,
+        "family_warnings": built.warnings + balance["solver"].get("warnings", []),
+        "_config": cfg,
     }
+
+
+def scale_to_weight(cfg: "LureConfig", table: "StationTable", env):
+    """Weight → length (F4): rescale the config and station table once."""
+    from luregen.geometry.envelope import mass_properties
+    from luregen.physics.scaling import (
+        ScalingError,
+        length_for_weight,
+        scale_config,
+        scaling_report,
+        target_density,
+        target_mass_g,
+    )
+
+    l_ref = table.length
+    v0 = 1000.0 * mass_properties(env.solid)["volume_cm3"]
+    mass, rho = target_mass_g(cfg), target_density(cfg)
+    length = length_for_weight(l_ref, v0, mass, rho)
+    try:
+        cfg = scale_config(cfg, l_ref, length)
+    except ScalingError as exc:
+        raise BuildError(str(exc)) from exc
+    return cfg, station_table_for(cfg), scaling_report(l_ref, v0, mass, rho, length)
 
 
 def register(app: typer.Typer) -> None:
@@ -158,8 +195,10 @@ def register(app: typer.Typer) -> None:
         """Resolve a variant, build the sections and their internals, measure and report.
 
         Writes resolved.toml, report.json/md, cg_cb.png and model/<part>.step|stl|3mf for
-        each section (head, tail) plus the outer envelope (body). Solving the internals to
-        meet the balance targets is F4; the report's verdict only compares.
+        each section (head, tail) plus the outer envelope (body). The balance solver tunes
+        the internals (print: walls, keels, ballast) to the targets and writes the solved
+        values into resolved.toml with solver.solved = true, so rebuilding that file
+        reproduces the lure without solving; --set solver.solved=false solves again.
         """
         from luregen import progress
         from luregen.config import ConfigError, load_config
@@ -183,6 +222,7 @@ def register(app: typer.Typer) -> None:
             update_report(build_dir, cfg, status="error", error=str(exc))
             typer.echo(f"geometry error: {exc}", err=True)
             raise typer.Exit(code=1) from exc
+        cfg = result.pop("_config")
         warnings = json_warnings(build_dir) + result.pop("family_warnings")
         report = update_report(build_dir, cfg, status="built", warnings=warnings, **result)
         stage_emit("report", 1.0, "done")
@@ -211,6 +251,18 @@ def echo_summary(report: dict) -> None:
         f"CG−CB {lure['cg_minus_cb_x_mm']:+.2f} mm, CB−CG {lure['cb_minus_cg_z_mm']:+.2f} mm, "
         f"head:tail {lure.get('head_tail_mass_ratio', float('nan')):.2f}"
     )
+    if bal := report.get("balance"):
+        sol = bal["solver"]
+        if sol["status"] == "skipped":
+            typer.echo(f"solver: skipped ({sol['reason']})")
+        else:
+            typer.echo(
+                f"solver: {sol['status']} in {sol['n_passes']} passes, {sol['builds']} builds, "
+                f"{sol['seconds']:.0f} s ({sol['reason']})"
+            )
+        hb = bal["hardware_band"]
+        ends = ", ".join(f"{k} {v['status']}" for k, v in hb["ends"].items())
+        typer.echo(f"hardware band: {hb['status']} ({ends})")
     typer.echo(f"verdict: {report['verdict']['status']} ({report['verdict']['label']})")
     parts = ", ".join([*report["sections"], "body"])
     typer.echo(f"  model: {parts}; diagram: {report['diagram']}")

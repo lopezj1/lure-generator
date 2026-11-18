@@ -76,7 +76,13 @@ def load_config(path: Path, overrides: list[str] | None = None) -> LureConfig:
         cfg = LureConfig.model_validate(data)
     except ValueError as exc:
         raise ConfigError(f"{path}: {exc}") from exc
-    return resolve(cfg, find_spec_root(path.parent))
+    try:
+        spec_root = find_spec_root(path.parent)
+    except ConfigError:
+        if cfg.is_resolved:  # a build's resolved.toml: self-contained, no catalogs needed
+            return cfg
+        raise
+    return resolve(cfg, spec_root)
 
 
 def dump_resolved(cfg: LureConfig) -> str:
