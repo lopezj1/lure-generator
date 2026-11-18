@@ -73,6 +73,15 @@ def _centroid(solid) -> tuple[float, float, float]:
     return (float(c.X), float(c.Y), float(c.Z))
 
 
+def mesh_extents(solid) -> tuple:
+    """(min, max) xyz of a fine mesh. OCCT bounding boxes of trimmed B-spline faces cover
+    the untrimmed surface, so they overstate a clipped cavity's extent."""
+    from luregen.geometry.export import tessellate
+
+    v = tessellate(solid, tolerance=0.05, max_triangles=None).mesh.vertices
+    return v.min(axis=0), v.max(axis=0)
+
+
 def side_slice(solid) -> list[list[list[float]]]:
     """The solid cut by the y = 0 plane, as closed [x, z] polylines (outer and holes)."""
     import numpy as np
@@ -220,15 +229,15 @@ class GlideFamily:
                     )
                 sections[name] = cav.hollow(sections[name], cavity, name)
                 cavities[name] = cavity
-                cbb = cavity.bounding_box()
+                lo, hi = mesh_extents(cavity)
                 internals[name] = {
                     "wall_thk_mm": t,
                     "keel_top_z_mm": knobs.keel_top_z_mm,
                     "roof": roof,
                     "cavity_volume_cm3": _r(cavity.volume / 1000.0, 4),
-                    "cavity_x_mm": [_r(cbb.min.X, 2), _r(cbb.max.X, 2)],
-                    "cavity_z_mm": [_r(cbb.min.Z, 2), _r(cbb.max.Z, 2)],
-                    "cavity_ceiling_z_mm": _r(cbb.max.Z, 2),
+                    "cavity_x_mm": [_r(lo[0], 2), _r(hi[0], 2)],
+                    "cavity_z_mm": [_r(lo[2], 2), _r(hi[2], 2)],
+                    "cavity_ceiling_z_mm": _r(hi[2], 2),
                     "min_skin_mm": _r(skin),
                     "dropped_cavity_mm3": _r(dropped, 1),
                     "bosses": [[_r(x, 2), _r(z, 2)] for x, z in bosses[name]],
