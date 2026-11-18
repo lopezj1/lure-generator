@@ -402,6 +402,132 @@
         }
       }
     },
+    "/api/uploads/{upload_id}/toolpath/header": {
+      "get": {
+        "tags": [
+          "uploads"
+        ],
+        "summary": "Get Upload Toolpath Header",
+        "description": "Only the JSON header of an uploaded G-code's binary toolpath.",
+        "operationId": "get_upload_toolpath_header_api_uploads__upload_id__toolpath_header_get",
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Upload Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "auto",
+                "print",
+                "cnc"
+              ],
+              "type": "string",
+              "default": "auto",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Upload Toolpath Header Api Uploads  Upload Id  Toolpath Header Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads/{upload_id}/toolpath": {
+      "get": {
+        "tags": [
+          "uploads"
+        ],
+        "summary": "Get Upload Toolpath",
+        "description": "Uploaded G-code \u2192 binary toolpath v1 (docs/viewer-binary-format.md), gzipped when\naccepted. Cached next to the upload as `<sha256>.<ext>.<kind>.bin[.gz]`.",
+        "operationId": "get_upload_toolpath_api_uploads__upload_id__toolpath_get",
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Upload Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "auto",
+                "print",
+                "cnc"
+              ],
+              "type": "string",
+              "default": "auto",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "accept-encoding",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Accept-Encoding"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Toolpath v1",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/designs": {
       "get": {
         "tags": [

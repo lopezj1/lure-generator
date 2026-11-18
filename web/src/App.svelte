@@ -2,6 +2,7 @@
   import { api } from './lib/client';
   import ModelTab from './lib/model/ModelTab.svelte';
   import EditorPanel from './lib/editor/EditorPanel.svelte';
+  import PrintView from './lib/print/PrintView.svelte';
 
   type Tab = 'Model' | 'Print' | 'CNC';
   const tabs: Tab[] = ['Model', 'Print', 'CNC'];
@@ -46,9 +47,11 @@
       </ul>
     </nav>
     <section class="viewport">
+      <!-- Kept mounted so a loaded toolpath survives tab switches. -->
+      <div class="pane" hidden={tab !== 'Print'}><PrintView active={tab === 'Print'} /></div>
       {#if tab === 'Model'}
         <ModelTab />
-      {:else}
+      {:else if tab !== 'Print'}
         <p>{tab} viewport</p>
       {/if}
     </section>
