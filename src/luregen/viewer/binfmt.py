@@ -26,6 +26,7 @@ The header's `arrays` list describes every array: `{"name", "dtype", "offset", "
     layer     uint16   N      print only: index into header.layers (0 = before layer 1)
     width     uint16   N      print only: extrusion width in µm (0 when not extruding)
     height    uint16   N      print only: layer height in µm (from ;HEIGHT:)
+    time      float32  N×2    CNC only: job time in s at the segment's start and end
 
 Print headers add `layers` (`[{z, height, start, line}]`, entry 0 is the start G-code),
 `layer_offsets` (len(layers)+1 prefix offsets: layer i is segments
@@ -67,7 +68,11 @@ _ARRAYS: tuple[tuple[str, str, str, int], ...] = (
     ("layer", "layer", "uint16", 1),
     ("width", "width", "uint16", 1),
     ("height", "height", "uint16", 1),
+    ("time", "time", "float32", 2),
 )
+# Bumped when the encoder's output changes within format v1 (new optional arrays or header
+# keys), so cached `.bin` files written by an older encoder are rebuilt.
+ENCODER_REVISION = 2
 
 
 class ToolpathFormatError(ValueError):
@@ -203,11 +208,12 @@ def encode_file(
     resolved = resolve_kind(source, kind)
     target = Path(out) if out is not None else cache_path(source, resolved)
     params = {"tolerance": tolerance, "max_arc_segments": max_arc_segments}
-    if not force and _fresh(source, target, resolved, params):
+    if not force and _fresh(source, target, resolved, {**params, "encoder": ENCODER_REVISION}):
         return target
     text = source.read_text(encoding="utf-8", errors="replace")
     tp = extract(text, resolved, **params)
     tp.meta["source"] = {"name": source.name, **tp.meta.get("source", {})}
+    tp.meta["params"]["encoder"] = ENCODER_REVISION
     data = encode(tp)
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)

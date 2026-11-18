@@ -3,6 +3,7 @@
   import ModelTab from './lib/model/ModelTab.svelte';
   import EditorPanel from './lib/editor/EditorPanel.svelte';
   import PrintView from './lib/print/PrintView.svelte';
+  import CncView from './lib/cnc/CncView.svelte';
 
   type Tab = 'Model' | 'Print' | 'CNC';
   const tabs: Tab[] = ['Model', 'Print', 'CNC'];
@@ -49,10 +50,9 @@
     <section class="viewport">
       <!-- Kept mounted so a loaded toolpath survives tab switches. -->
       <div class="pane" hidden={tab !== 'Print'}><PrintView active={tab === 'Print'} /></div>
+      <div class="pane" hidden={tab !== 'CNC'}><CncView active={tab === 'CNC'} /></div>
       {#if tab === 'Model'}
         <ModelTab />
-      {:else if tab !== 'Print'}
-        <p>{tab} viewport</p>
       {/if}
     </section>
   </main>

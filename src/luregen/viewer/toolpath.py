@@ -29,10 +29,13 @@ import numpy as np
 from luregen.fab.gcode import (
     PLANE_AXES,
     Comment,
+    Dwell,
     GcodeSyntaxError,
     Motion,
     Plane,
+    Spindle,
     Stop,
+    ToolChange,
     Vec3,
     arc_sweep,
     interpret,
@@ -49,7 +52,10 @@ RAPID, FEED, PLUNGE = 1, 2, 3
 
 DEFAULT_TOLERANCE = 0.02  # mm chord sagitta for arc tessellation
 DEFAULT_MAX_ARC_SEGMENTS = 512
-DEFAULT_RAPID_RATE = 5000.0  # mm/min, CNC time estimate only
+# CNC time estimate only: per-axis rapid rates (mm/min) and the wait per M6 (prompt, swap,
+# BitSetter probe), as in `spec/routers/shapeoko3_xxl/machine.toml` and `fab.router.verify`.
+DEFAULT_RAPID_RATES = (5000.0, 5000.0, 2500.0)
+DEFAULT_TOOL_CHANGE_S = 60.0
 DEFAULT_PAUSE_COMMANDS = ("M600", "PAUSE", "M601")
 CLEARANCE_MARGIN = 5.0  # mm above the highest known Z for machine-coordinate retracts
 UNKNOWN_FEATURE = "Unknown"
@@ -69,6 +75,7 @@ class Toolpath:
     layer: np.ndarray | None = None  # print: uint16, index into meta["layers"]
     width: np.ndarray | None = None  # print: uint16 µm (0 on non-extruding segments)
     height: np.ndarray | None = None  # print: uint16 µm
+    time: np.ndarray | None = None  # CNC: float32 (N, 2) job time in s at segment start/end
     meta: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -510,9 +517,14 @@ def extract_cnc(
     *,
     tolerance: float = DEFAULT_TOLERANCE,
     max_arc_segments: int = DEFAULT_MAX_ARC_SEGMENTS,
-    rapid_rate: float = DEFAULT_RAPID_RATE,
+    rapid_rates: tuple[float, float, float] = DEFAULT_RAPID_RATES,
+    tool_change_s: float = DEFAULT_TOOL_CHANGE_S,
 ) -> Toolpath:
-    """Segments of router G-code: rapid/feed/plunge, tool, feed; arcs tessellated."""
+    """Segments of router G-code: rapid/feed/plunge, tool, feed; arcs tessellated.
+
+    Also a job timeline (`Toolpath.time`): feeds take length / F, rapids the slowest axis at
+    `rapid_rates`, and every `M6` (`tool_change_s`) or `G4` dwell waits before the next move.
+    """
     b = _Builder(print_mode=False)
     tool_index: dict[int | None, int] = {}
     tool_info: dict[int | None, dict[str, Any]] = {}
@@ -520,6 +532,8 @@ def extract_cnc(
     stock: dict[str, list[float]] = {}
     markers: list[dict[str, Any]] = []
     skipped: list[int] = []
+    waits: list[tuple[int, float]] = []  # (next segment, seconds)
+    tool_changes = 0
     cur: dict[str, Any] = {"tool": None, "line": None}
 
     def index_of(number: int | None) -> int:
@@ -561,6 +575,17 @@ def extract_cnc(
     inf = math.inf
     for ev in interpret(lines()):
         if isinstance(ev, Comment):
+            continue
+        if isinstance(ev, ToolChange):
+            tool_changes += 1
+            waits.append((len(b), tool_change_s))
+            continue
+        if isinstance(ev, Dwell):
+            waits.append((len(b), ev.seconds))
+            continue
+        if isinstance(ev, Spindle):
+            if ev.on and ev.rpm:
+                tool_info.setdefault(cur["tool"], {}).setdefault("spindle_rpm", ev.rpm)
             continue
         if isinstance(ev, Stop):
             if ev.code in ("M0", "M1"):
@@ -630,12 +655,62 @@ def extract_cnc(
         "params": {
             "tolerance": tolerance,
             "max_arc_segments": max_arc_segments,
-            "rapid_rate": rapid_rate,
+            "rapid_rates": list(rapid_rates),
+            "tool_change_s": tool_change_s,
         },
     }
     if stock:
         meta["stock"] = stock
-    return _finish("cnc", arrays, meta, rapid_rate=rapid_rate)
+    tp = _finish("cnc", arrays, meta)
+    _cnc_timeline(tp, pts, rapid_rates, waits, tool_changes)
+    return tp
+
+
+def _cnc_timeline(
+    tp: Toolpath,
+    pts: np.ndarray,
+    rapid_rates: tuple[float, float, float],
+    waits: list[tuple[int, float]],
+    tool_changes: int,
+) -> None:
+    """Fill `tp.time` (start/end s per segment) and the time stats and marker times.
+
+    Waits (tool changes, dwells) sit between segments: segment i starts `wait[i]` after
+    segment i-1 ended. Per-tool `time_s` counts motion only; `stats.time_s` adds the waits.
+    """
+    n = tp.n_segments
+    meta = tp.meta
+    delta = np.abs(np.diff(pts, axis=0)) if n else np.zeros((0, 3))
+    seg_len = np.linalg.norm(delta, axis=1)
+    rapid = tp.seg_kind == RAPID
+    cutting = (tp.seg_kind == FEED) | (tp.seg_kind == PLUNGE)
+    feed = tp.feed.astype(np.float64)
+    dur = np.zeros(n)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        dur[rapid] = (delta[rapid] / np.asarray(rapid_rates)).max(axis=1) * 60.0
+        cut = cutting & (feed > 0)
+        dur[cut] = seg_len[cut] / feed[cut] * 60.0
+    wait = np.zeros(n + 1)
+    if waits:
+        idx, sec = zip(*waits, strict=True)
+        wait = np.bincount(np.asarray(idx), weights=np.asarray(sec, dtype=float), minlength=n + 1)
+    end = np.cumsum(dur + wait[:n])
+    total = float(end[-1] if n else 0.0) + float(wait[n])
+    tp.time = np.stack([end - dur, end], axis=1).astype(np.float32).reshape(-1, 2)
+
+    for m in meta["markers"]:
+        s = m["segment"]
+        m["time_s"] = round(float(end[s - 1]) if s > 0 else 0.0, 2)
+    stats = meta["stats"]
+    for row in stats["tools"]:
+        sel = tp.tool == row["tool"]
+        row["time_s"] = round(float(dur[sel].sum()), 1)
+        row["cut_time_s"] = round(float(dur[sel & cutting].sum()), 1)
+        row["rapid_time_s"] = round(float(dur[sel & rapid].sum()), 1)
+    stats["motion_s"] = round(float(dur.sum()), 1)
+    stats["wait_s"] = round(float(wait.sum()), 1)
+    stats["time_s"] = round(total, 1)
+    stats["tool_changes"] = tool_changes
 
 
 def _cnc_comment(
@@ -674,7 +749,6 @@ def _finish(
     kind: Kind,
     arrays: dict[str, np.ndarray],
     meta: dict[str, Any],
-    rapid_rate: float = DEFAULT_RAPID_RATE,
 ) -> Toolpath:
     """Convert to the stored dtypes and add bounds, counts and stats to `meta`."""
     pts64 = arrays.pop("points")
@@ -697,8 +771,6 @@ def _finish(
     rapid = tp.seg_kind == (TRAVEL if kind == "print" else RAPID)
     active = drawn & ~rapid
     feed = tp.feed.astype(np.float64)
-    if kind == "cnc":
-        feed = np.where(rapid, rapid_rate, feed)
     with np.errstate(divide="ignore", invalid="ignore"):
         seg_time = np.where(drawn & (feed > 0), seg_len / feed * 60.0, 0.0)
 

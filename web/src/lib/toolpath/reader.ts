@@ -42,6 +42,8 @@ export interface ToolChangeMarker {
   tool: number;
   /** Print only. */
   layer?: number;
+  /** CNC only: job time (s) when the change happens. */
+  time_s?: number;
 }
 
 export interface PauseMarker {
@@ -51,6 +53,8 @@ export interface PauseMarker {
   command: string;
   /** Print only. */
   layer?: number;
+  /** CNC only. */
+  time_s?: number;
 }
 
 export type Marker = ToolChangeMarker | PauseMarker;
@@ -68,6 +72,8 @@ export interface ToolEntry {
   corner_radius?: number;
   zmin?: number;
   description?: string;
+  /** CNC: the first `M3 S…` while the tool is loaded. */
+  spindle_rpm?: number;
 }
 
 export interface LayerEntry {
@@ -89,7 +95,11 @@ export interface ToolStat {
   segments: number;
   active_length_mm: number;
   rapid_length_mm: number;
+  /** CNC: motion time (cut + rapid), without tool changes and dwells. */
   time_s: number;
+  /** CNC only. */
+  cut_time_s?: number;
+  rapid_time_s?: number;
 }
 
 export interface ToolpathHeader {
@@ -105,8 +115,13 @@ export interface ToolpathHeader {
   stats: {
     kinds: Record<string, LengthStat>;
     tools: ToolStat[];
+    /** CNC: the end of the job timeline, waits included. */
     time_s: number;
     features?: Record<string, LengthStat>;
+    /** CNC only. */
+    motion_s?: number;
+    wait_s?: number;
+    tool_changes?: number;
   };
   source: {
     name?: string;
@@ -158,6 +173,11 @@ export interface PrintToolpath extends ToolpathBase {
 
 export interface CncToolpath extends ToolpathBase {
   type: 'cnc';
+  /**
+   * Job time in s at each segment's start and end (2 per segment), or null from encoders
+   * before revision 2. A gap between one end and the next start is a tool change or dwell.
+   */
+  time: Float32Array | null;
 }
 
 export type Toolpath = PrintToolpath | CncToolpath;
@@ -246,7 +266,10 @@ export function readToolpath(data: ArrayBuffer | ArrayBufferView): Toolpath {
       height: need('height', n) as Uint16Array,
     };
   }
-  if (header.kind === 'cnc') return { type: 'cnc', ...common };
+  if (header.kind === 'cnc') {
+    const time = arrays.time ? (need('time', 2 * n) as Float32Array) : null;
+    return { type: 'cnc', ...common, time };
+  }
   throw new ToolpathFormatError(`unknown toolpath kind ${String(header.kind)}`);
 }
 
