@@ -111,6 +111,10 @@ def test_get_variant(client, root):
     assert labels[prov["/joint/gap_mm"]] == "family"
     assert labels[prov["/buoyancy/water"]] == "common"
     assert labels[prov["/hardware/0/x_mm"]] == "variant"
+    inherited = body["inherited"]  # the parents alone: what "reset to inherited" restores
+    assert inherited["joint"]["gap_mm"] == 2.3
+    assert inherited["profile"]["preset"] == PRESET
+    assert "size" not in inherited and "hardware" not in inherited
 
 
 def test_get_invalid_variant_reports_errors(client, variant_file):

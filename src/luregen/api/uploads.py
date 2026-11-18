@@ -1,6 +1,7 @@
 """POST /uploads: content-checked, size-capped files stored as uploads/<sha256>.<ext>."""
 
 import hashlib
+import mimetypes
 import os
 import tempfile
 from pathlib import Path
@@ -8,8 +9,10 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse
 
 from luregen.api.models import Upload
+from luregen.api.safety import check_relpath, inside
 
 MAX_UPLOAD = 25 * 1024 * 1024
 _CHUNK = 1024 * 1024
@@ -132,5 +135,16 @@ def uploads_router(root: Path) -> APIRouter:
             finally:
                 Path(tmp).unlink(missing_ok=True)
         return Upload(id=sha, kind=kind, size=size, path=f"uploads/{target.name}")
+
+    @router.get("/uploads/{name:path}", response_class=FileResponse)
+    def get_upload(name: str) -> FileResponse:
+        """A file under uploads/ (e.g. a profile job's `profile_debug.png` overlay)."""
+        path = inside(folder, folder.joinpath(*check_relpath(name, "file name")))
+        if not path.is_file():
+            raise HTTPException(404, f"no upload {name!r}")
+        media = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        if media.startswith("text/"):
+            media += "; charset=utf-8"
+        return FileResponse(path, media_type=media)
 
     return router

@@ -829,6 +829,42 @@
         }
       }
     },
+    "/api/uploads/{name}": {
+      "get": {
+        "tags": [
+          "uploads"
+        ],
+        "summary": "Get Upload",
+        "description": "A file under uploads/ (e.g. a profile job's `profile_debug.png` overlay).",
+        "operationId": "get_upload_api_uploads__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/builds": {
       "get": {
         "tags": [
@@ -2900,6 +2936,13 @@
             "type": "object",
             "title": "Layered",
             "description": "Merged `extends` chain, before validation"
+          },
+          "inherited": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Inherited",
+            "description": "What the parent layers alone give (merged, before validation): the value a 'reset to inherited' restores",
+            "default": {}
           },
           "resolved": {
             "anyOf": [

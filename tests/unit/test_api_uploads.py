@@ -97,3 +97,20 @@ def test_size_cap(client, monkeypatch):
 
 def test_bad_kind(client):
     assert _post(client, "exe", b"MZ").status_code == 422
+
+
+def test_get_upload_serves_files_inside_uploads(client, tmp_path):
+    data = _png()
+    path = _post(client, "photo", data, "side.png").json()["path"]
+    res = client.get(f"/api/{path}")
+    assert res.status_code == 200 and res.content == data
+    assert res.headers["content-type"] == "image/png"
+    nested = tmp_path / "uploads/profiles/abc/profile.csv"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("x\n")
+    res = client.get("/api/uploads/profiles/abc/profile.csv")
+    assert res.status_code == 200 and res.text == "x\n"
+    assert client.get("/api/uploads/nope.png").status_code == 404
+    (tmp_path / "secret.txt").write_text("no")
+    for bad in ("../secret.txt", "..%2Fsecret.txt", ".hidden", "a//b"):
+        assert client.get(f"/api/uploads/{bad}").status_code in (400, 404)

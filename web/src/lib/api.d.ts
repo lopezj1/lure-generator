@@ -278,6 +278,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/uploads/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Upload
+         * @description A file under uploads/ (e.g. a profile job's `profile_debug.png` overlay).
+         */
+        get: operations["get_upload_api_uploads__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/builds": {
         parameters: {
             query?: never;
@@ -1027,6 +1047,14 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
+             * Inherited
+             * @description What the parent layers alone give (merged, before validation): the value a 'reset to inherited' restores
+             * @default {}
+             */
+            inherited: {
+                [key: string]: unknown;
+            };
+            /**
              * Resolved
              * @description Validated and catalog-resolved config (None when invalid)
              */
@@ -1584,6 +1612,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    get_upload_api_uploads__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
