@@ -20,6 +20,7 @@ _MULTIPART_SLACK = 64 * 1024
 GCODE_SUFFIXES = {".gcode", ".gco", ".g", ".nc", ".ngc", ".tap", ".cnc"}
 
 Kind = Literal["photo", "csv", "gcode"]
+PHOTO_EXTS = {"png", "jpg", "webp", "tif", "bmp"}
 
 
 def _image_ext(head: bytes) -> str | None:
@@ -135,6 +136,44 @@ def uploads_router(root: Path) -> APIRouter:
             finally:
                 Path(tmp).unlink(missing_ok=True)
         return Upload(id=sha, kind=kind, size=size, path=f"uploads/{target.name}")
+
+    @router.get("/uploads")
+    def list_uploads(kind: Annotated[Kind | None, Query()] = None) -> list[Upload]:
+        """Stored uploads, newest first, plus station CSVs written under uploads/ by profile
+        jobs (for the editor's path pickers)."""
+        out = []
+        if folder.is_dir():
+            for path in folder.rglob("*"):
+                rel = path.relative_to(folder)
+                if not path.is_file() or any(p.startswith(".") for p in rel.parts):
+                    continue
+                ext = path.suffix.lower()
+                found: Kind | None = (
+                    "photo"
+                    if ext[1:] in PHOTO_EXTS
+                    else "csv"
+                    if ext == ".csv"
+                    else "gcode"
+                    if ext in GCODE_SUFFIXES
+                    else None
+                )
+                if found is None or (kind and found != kind):
+                    continue
+                if len(rel.parts) > 1 and found != "csv":
+                    continue  # e.g. a profile job's debug PNGs
+                stat = path.stat()
+                out.append(
+                    (
+                        stat.st_mtime,
+                        Upload(
+                            id=path.stem if len(rel.parts) == 1 else rel.parent.as_posix(),
+                            kind=found,
+                            size=stat.st_size,
+                            path=f"uploads/{rel.as_posix()}",
+                        ),
+                    )
+                )
+        return [u for _, u in sorted(out, key=lambda t: t[0], reverse=True)]
 
     @router.get("/uploads/{name:path}", response_class=FileResponse)
     def get_upload(name: str) -> FileResponse:

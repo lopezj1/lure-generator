@@ -475,6 +475,55 @@
         }
       }
     },
+    "/api/designs/{family}/presets": {
+      "get": {
+        "tags": [
+          "spec"
+        ],
+        "summary": "List Presets",
+        "description": "Station-table CSVs under the family's profiles/ folder (relative to the data root).",
+        "operationId": "list_presets_api_designs__family__presets_get",
+        "parameters": [
+          {
+            "name": "family",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._-]*$",
+              "title": "Family"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response List Presets Api Designs  Family  Presets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/machines": {
       "get": {
         "tags": [
@@ -825,6 +874,63 @@
           },
           "422": {
             "description": "Content check failed"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "uploads"
+        ],
+        "summary": "List Uploads",
+        "description": "Stored uploads, newest first, plus station CSVs written under uploads/ by profile\njobs (for the editor's path pickers).",
+        "operationId": "list_uploads_api_uploads_get",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "photo",
+                    "csv",
+                    "gcode"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Upload"
+                  },
+                  "title": "Response List Uploads Api Uploads Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }

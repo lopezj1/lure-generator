@@ -74,6 +74,11 @@ def test_path_params_are_single_safe_segments(client, bad):
     assert client.get(f"/api/variants/glide/{bad}").status_code in (404, 422)
 
 
+def test_presets(client):
+    assert client.get("/api/designs/glide/presets").json() == [PRESET]
+    assert client.get("/api/designs/nope/presets").status_code == 404
+
+
 def test_machines_and_materials(client):
     machines = {m["id"]: m for m in client.get("/api/machines").json()}
     assert machines["snapmaker_u1"]["type"] == "printer"

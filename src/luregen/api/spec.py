@@ -184,6 +184,14 @@ def spec_router(root: Path) -> APIRouter:
             )
         return out
 
+    @router.get("/designs/{family}/presets")
+    def list_presets(family: Name) -> list[str]:
+        """Station-table CSVs under the family's profiles/ folder (relative to the data root)."""
+        folder = inside(designs, designs / family)
+        if not (folder / "family.toml").is_file():
+            raise HTTPException(404, f"no design family {family!r}")
+        return sorted(_rel(root, p) for p in (folder / "profiles").rglob("*.csv"))
+
     @router.get("/machines")
     def list_machines() -> list[MachineSummary]:
         out = []
