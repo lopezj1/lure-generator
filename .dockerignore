@@ -1,0 +1,16 @@
+# Build context for docker/Dockerfile (#69): only pyproject/uv.lock, src/, web/, and for the
+# test target tests/ and spec/ are used. Keep local state and large binaries out.
+.venv
+.git
+.claude
+builds
+uploads
+artifacts
+web/node_modules
+web/dist
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+*.AppImage
+squashfs-root
+spike
