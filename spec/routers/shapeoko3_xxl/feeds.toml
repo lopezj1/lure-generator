@@ -1,0 +1,117 @@
+# Feeds, speeds, depth of cut and stepover for the Shapeoko 3 (#46).
+#
+# Source of truth: the owner's calculator, https://github.com/lopezj1/cnc-feeds-speeds-calculator
+# (ported from calculator.js at cb0ad50), whose data comes from the community
+# "Shapeoko CNC A to Z" feeds & speeds guide:
+# https://shapeokoenthusiasts.gitbook.io/shapeoko-cnc-a-to-z/feeds-and-speeds-basics
+#
+# Tables stay in INCHES exactly as in the source; luregen.fab.router.feeds converts to mm and
+# mm/min. Formulas (per mode, conservative | aggressive):
+#   feed     = chipload × flutes × rpm
+#   doc      = doc_fraction × D
+#   stepover = stepover_fraction × D
+#   plunge   = plunge_fraction × feed
+source = "lopezj1/cnc-feeds-speeds-calculator@cb0ad50 (Shapeoko A to Z feeds & speeds guide)"
+units = "inch"
+
+[rpm]
+default = 18000
+range = [10000, 30000]
+# The router dial ↔ rpm mapping is still owner input (#28); rpm stays a config value.
+
+# Chipload per tooth (in), [conservative, aggressive], by endmill diameter (in) and material.
+[chipload."0.0625"]
+soft-plastic = [0.002, 0.003]
+soft-wood = [0.001, 0.0015]
+hard-wood = [0.0005, 0.001]
+
+[chipload."0.125"]
+soft-plastic = [0.002, 0.005]
+soft-wood = [0.001, 0.0025]
+hard-wood = [0.0005, 0.001]
+
+[chipload."0.25"]
+soft-plastic = [0.004, 0.010]
+soft-wood = [0.001, 0.005]
+hard-wood = [0.001, 0.002]
+
+# Depth of cut as a fraction of D. `default` applies to every material without its own row.
+[doc_fraction]
+default = { conservative = 0.10, aggressive = 0.50 }
+hard-wood = { conservative = 0.05, aggressive = 0.25 }
+
+[stepover_fraction]
+conservative = 0.40
+aggressive = 0.70
+
+# Plunge rate as a fraction of the feed rate.
+[plunge_fraction]
+soft-plastic = 0.45
+soft-wood = 0.35
+hard-wood = 0.20
+
+# Special tools: chipload does not apply; recommended [conservative, aggressive] ranges.
+# V-bit: feed and plunge in IPM, doc in inches.
+[vbit.soft-plastic]
+feedrate = [45, 60]
+doc = [0.15, 0.20]
+plunge = [15, 20]
+
+[vbit.soft-wood]
+feedrate = [40, 55]
+doc = [0.10, 0.20]
+plunge = [10, 20]
+
+[vbit.hard-wood]
+feedrate = [30, 40]
+doc = [0.10, 0.15]
+plunge = [10, 15]
+
+[surfacing]
+feedrate = [80, 100]  # IPM
+doc = [0.01, 0.05]    # in
+
+# Body material (spec/materials.toml) → calculator material category.
+[materials]
+basswood = "soft-wood"
+cedar = "soft-wood"
+pine = "soft-wood"
+balsa = "soft-wood"
+pvc_board = "soft-plastic"
+maple = "hard-wood"
+oak = "hard-wood"
+walnut = "hard-wood"
+cherry = "hard-wood"
+
+# Owner-proven presets (#27, 2026-11-18): settings that ran on the owner's Shapeoko 3 XXL in a
+# Fusion 360 3D job (material not recorded). Units here are mm and mm/min, as measured from
+# the G-code. Fields a preset leaves out come from the calculator in `base_mode`.
+[presets."owner_rough_flat_3.175"]
+description = "1/8in flat 3D pocket roughing (ramped entries)"
+tool_diameter_in = 0.125
+shape = "flat"
+base_mode = "aggressive"
+feed_mm_min = 4572.0     # 180 IPM
+plunge_mm_min = 1016.0   # 40 IPM ramp
+source = "owner Fusion 360 job, #27 comment 2026-11-18"
+
+[presets."owner_contour_flat_3.175"]
+description = "1/8in flat 2D contour cut-out"
+tool_diameter_in = 0.125
+shape = "flat"
+base_mode = "conservative"
+feed_mm_min = 2540.0     # 100 IPM
+plunge_mm_min = 1016.0   # 40 IPM ramp
+doc_mm = 1.016           # 0.04in step-down
+source = "owner Fusion 360 job, #27 comment 2026-11-18"
+
+[presets."owner_finish_flat_0.794"]
+description = "1/32in flat parallel finishing raster"
+tool_diameter_in = 0.03125
+shape = "flat"
+base_mode = "conservative"
+feed_mm_min = 4572.0     # 180 IPM
+plunge_mm_min = 1016.0
+stepover_mm = 0.076      # ~10% of D
+doc_mm = 0.2             # finishing pass; not from the sample (surface follows the model)
+source = "owner Fusion 360 job, #27 comment 2026-11-18 (the calculator has no 1/32in rows)"
