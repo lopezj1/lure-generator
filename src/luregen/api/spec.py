@@ -36,8 +36,17 @@ from luregen.api.models import (
 )
 from luregen.api.safety import Name, inside
 from luregen.api.tomldiff import rewrite_variant
-from luregen.config import ConfigError, LureConfig, load_config, load_layered, resolve
-from luregen.config.loader import _PATH_KEYS, _absolutize_paths
+from luregen.config import (
+    PATH_KEYS,
+    ConfigError,
+    LureConfig,
+    absolutize_paths,
+    load_config,
+    load_layered,
+    relative_path,
+    relativize_paths,
+    resolve,
+)
 from luregen.config.resolve import load_materials
 
 _CONFLICT = {"description": "The file changed since it was read (etag mismatch)"}
@@ -49,20 +58,12 @@ def _etag(data: bytes) -> str:
 
 
 def _rel(root: Path, value: str | Path) -> str:
-    path = Path(value)
-    try:
-        return path.relative_to(root).as_posix()
-    except ValueError:
-        return Path(os.path.relpath(path, root)).as_posix()
+    return relative_path(value, root)
 
 
 def _paths_to_root(data: dict[str, Any], root: Path) -> dict[str, Any]:
     """Absolute path values → relative to the data root (never leak home paths)."""
-    for section, key in _PATH_KEYS:
-        table = data.get(section)
-        if isinstance(table, dict) and isinstance(table.get(key), str):
-            table[key] = _rel(root, table[key])
-    return data
+    return relativize_paths(data, root)
 
 
 def _label(index: int, file: Path) -> str:
@@ -96,11 +97,11 @@ def spec_router(root: Path) -> APIRouter:
 
     def check(config: dict[str, Any]) -> tuple[dict[str, Any], list[FieldError]]:
         """Form output → (absolute-path data, errors)."""
-        data = _absolutize_paths(copy.deepcopy(restore(config)), root)
+        data = absolutize_paths(copy.deepcopy(restore(config)), root)
         data.pop("extends", None)  # layering is the file's business, not the form's
         errors = [
             FieldError(path=[section, key], message="path must stay inside the data root")
-            for section, key in _PATH_KEYS
+            for section, key in PATH_KEYS
             if isinstance(table := data.get(section), dict)
             and isinstance(v := table.get(key), str)
             and not Path(v).is_relative_to(root)
@@ -115,7 +116,7 @@ def spec_router(root: Path) -> APIRouter:
 
     def detail(family: str, name: str, path: Path) -> VariantDetail:
         raw = path.read_bytes()
-        own = _absolutize_paths(tomllib.loads(raw.decode()), path.parent)
+        own = absolutize_paths(tomllib.loads(raw.decode()), path.parent)
         try:
             layered = load_layered(path)
         except ConfigError as exc:

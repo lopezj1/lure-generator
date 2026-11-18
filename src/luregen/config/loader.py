@@ -6,6 +6,7 @@ Tables merge recursively; scalars and lists are replaced whole.
 """
 
 import copy
+import os
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -43,20 +44,48 @@ def load_layered(path: Path) -> dict[str, Any]:
     for file in reversed(chain):
         data = tomllib.loads(file.read_text())
         data.pop("extends", None)
-        merged = deep_merge(merged, _absolutize_paths(data, file.parent))
+        merged = deep_merge(merged, absolutize_paths(data, file.parent))
     return merged
 
 
 # Keys holding file paths; made absolute relative to the file that set them.
-_PATH_KEYS = {("profile", "image"), ("profile", "top_image"), ("profile", "preset")}
+PATH_KEYS: frozenset[tuple[str, str]] = frozenset(
+    {("profile", "image"), ("profile", "top_image"), ("profile", "preset")}
+)
 
 
-def _absolutize_paths(data: dict[str, Any], base: Path) -> dict[str, Any]:
-    for section, key in _PATH_KEYS:
+def absolutize_paths(data: dict[str, Any], base: Path) -> dict[str, Any]:
+    """Make the `PATH_KEYS` values of `data` absolute (relative ones are taken from `base`).
+
+    Mutates and returns `data`.
+    """
+    for section, key in PATH_KEYS:
         table = data.get(section)
         if isinstance(table, dict) and isinstance(table.get(key), str):
             table[key] = str((base / table[key]).resolve())
     return data
+
+
+def relativize_paths(data: dict[str, Any], base: Path) -> dict[str, Any]:
+    """Write the `PATH_KEYS` values of `data` relative to `base` (POSIX separators).
+
+    The inverse of `absolutize_paths`; paths outside `base` get `..` segments. Mutates and
+    returns `data`.
+    """
+    for section, key in PATH_KEYS:
+        table = data.get(section)
+        if isinstance(table, dict) and isinstance(table.get(key), str):
+            table[key] = relative_path(table[key], base)
+    return data
+
+
+def relative_path(value: str | Path, base: Path) -> str:
+    """`value` relative to `base` (POSIX), with `..` segments when it lies outside."""
+    path = Path(value)
+    try:
+        return path.relative_to(base).as_posix()
+    except ValueError:
+        return Path(os.path.relpath(path, base)).as_posix()
 
 
 def parse_value(text: str) -> Any:
