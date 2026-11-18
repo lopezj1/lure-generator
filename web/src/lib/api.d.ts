@@ -109,6 +109,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/uploads/{upload_id}/toolpath/header": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Upload Toolpath Header
+         * @description Only the JSON header of an uploaded G-code's binary toolpath.
+         */
+        get: operations["get_upload_toolpath_header_api_uploads__upload_id__toolpath_header_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{upload_id}/toolpath": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Upload Toolpath
+         * @description Uploaded G-code → binary toolpath v1 (docs/viewer-binary-format.md), gzipped when
+         *     accepted. Cached next to the upload as `<sha256>.<ext>.<kind>.bin[.gz]`.
+         */
+        get: operations["get_upload_toolpath_api_uploads__upload_id__toolpath_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/designs": {
         parameters: {
             query?: never;
@@ -1337,6 +1378,76 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upload_toolpath_header_api_uploads__upload_id__toolpath_header_get: {
+        parameters: {
+            query?: {
+                kind?: "auto" | "print" | "cnc";
+            };
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upload_toolpath_api_uploads__upload_id__toolpath_get: {
+        parameters: {
+            query?: {
+                kind?: "auto" | "print" | "cnc";
+            };
+            header?: {
+                "accept-encoding"?: string;
+            };
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Toolpath v1 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
             };
             /** @description Validation Error */
             422: {
