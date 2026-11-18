@@ -55,7 +55,8 @@ def test_upload_toolpath_identity_matches_header(client):
 def test_upload_toolpath_not_found(client, tmp_path):
     missing = "0" * 64
     assert client.get(f"/api/uploads/{missing}/toolpath").status_code == 404
-    assert client.get("/api/uploads/..%2Fsecret/toolpath").status_code in (404, 422)
+    # Rejected either by this router (404/422) or by the uploads catch-all route (400).
+    assert client.get("/api/uploads/..%2Fsecret/toolpath").status_code in (400, 404, 422)
     assert client.get("/api/uploads/ABC/toolpath/header").status_code == 422
     # A photo upload with the same id scheme is not G-code.
     (tmp_path / "uploads").mkdir()
