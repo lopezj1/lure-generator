@@ -1,5 +1,6 @@
 """FastAPI app factory: JSON API under /api, built SPA from web/dist at /."""
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
@@ -7,6 +8,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from luregen import __version__
+from luregen.api.jobs import JobManager
+from luregen.api.jobs_routes import jobs_router
 from luregen.report.build_dir import git_info
 
 
@@ -31,9 +34,21 @@ def health_router(root: Path) -> APIRouter:
 def create_app(root: Path) -> FastAPI:
     """Build the app for data root `root` (the repo checkout: spec/, builds/, web/dist)."""
     root = root.resolve()
-    app = FastAPI(title="luregen", version=__version__)
+    jobs = JobManager(root)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        await jobs.start()
+        try:
+            yield
+        finally:
+            await jobs.stop()
+
+    app = FastAPI(title="luregen", version=__version__, lifespan=lifespan)
     app.state.root = root
+    app.state.jobs = jobs
     app.include_router(health_router(root), prefix="/api")
+    app.include_router(jobs_router(), prefix="/api")
     # Mounted last: the catch-all static mount must not shadow /api routes.
     dist = root / "web" / "dist"
     if dist.is_dir():
