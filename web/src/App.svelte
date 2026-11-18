@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from './lib/client';
   import ModelTab from './lib/model/ModelTab.svelte';
+  import EditorPanel from './lib/editor/EditorPanel.svelte';
 
   type Tab = 'Model' | 'Print' | 'CNC';
   const tabs: Tab[] = ['Model', 'Print', 'CNC'];
@@ -31,8 +32,7 @@
   </header>
 
   <aside>
-    <h6>Config</h6>
-    <p><small>Variant editor goes here.</small></p>
+    <EditorPanel />
   </aside>
 
   <main>

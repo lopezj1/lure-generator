@@ -97,3 +97,35 @@ def test_size_cap(client, monkeypatch):
 
 def test_bad_kind(client):
     assert _post(client, "exe", b"MZ").status_code == 422
+
+
+def test_get_upload_serves_files_inside_uploads(client, tmp_path):
+    data = _png()
+    path = _post(client, "photo", data, "side.png").json()["path"]
+    res = client.get(f"/api/{path}")
+    assert res.status_code == 200 and res.content == data
+    assert res.headers["content-type"] == "image/png"
+    nested = tmp_path / "uploads/profiles/abc/profile.csv"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("x\n")
+    res = client.get("/api/uploads/profiles/abc/profile.csv")
+    assert res.status_code == 200 and res.text == "x\n"
+    assert client.get("/api/uploads/nope.png").status_code == 404
+    (tmp_path / "secret.txt").write_text("no")
+    for bad in ("../secret.txt", "..%2Fsecret.txt", ".hidden", "a//b"):
+        assert client.get(f"/api/uploads/{bad}").status_code in (400, 404)
+
+
+def test_list_uploads(client, tmp_path):
+    assert client.get("/api/uploads").json() == []
+    photo = _post(client, "photo", _png(), "side.png").json()
+    csv = _post(client, "csv", PRESET.read_bytes(), "p.csv").json()
+    job_out = tmp_path / "uploads/profiles/abc/profile.csv"
+    job_out.parent.mkdir(parents=True)
+    job_out.write_bytes(PRESET.read_bytes())
+    (job_out.parent / "profile_debug.png").write_bytes(_png())
+    paths = {u["path"] for u in client.get("/api/uploads").json()}
+    assert paths == {photo["path"], csv["path"], "uploads/profiles/abc/profile.csv"}
+    csvs = client.get("/api/uploads?kind=csv").json()
+    assert {u["path"] for u in csvs} == {csv["path"], "uploads/profiles/abc/profile.csv"}
+    assert [u["path"] for u in client.get("/api/uploads?kind=photo").json()] == [photo["path"]]

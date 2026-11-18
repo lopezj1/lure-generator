@@ -1,0 +1,177 @@
+/* Config editor (W4). Pico + @sjsf/basic-theme/css/pico.css underneath. */
+.editor {
+  font-size: 0.9rem;
+  --pico-form-element-spacing-vertical: 0.35rem;
+  --pico-form-element-spacing-horizontal: 0.5rem;
+}
+.editor .grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.editor .savebar {
+  position: sticky;
+  top: -1rem;
+  z-index: 2;
+  margin: 0 -1rem 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--pico-background-color);
+  border-bottom: 1px solid var(--pico-muted-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.editor .savebar-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.editor .savebar-actions button {
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+}
+.editor .layers {
+  color: var(--pico-muted-color);
+  margin-left: 0.25rem;
+}
+.editor .conflict {
+  margin: 0.25rem 0;
+  padding: 0.5rem;
+  border-left: 3px solid var(--pico-del-color);
+}
+.editor .error-text {
+  display: block;
+  color: var(--pico-del-color);
+}
+.editor .warn-text {
+  display: block;
+  color: var(--pico-mark-color, var(--pico-muted-color));
+}
+
+/* Badges and the reset actions next to labels and titles. */
+.editor .field-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+.editor .badge {
+  font-size: 0.7rem;
+  font-weight: normal;
+  padding: 0 0.4rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+  white-space: nowrap;
+}
+.editor .badge[data-layer='variant'],
+.editor .badge[data-layer='edited'] {
+  color: var(--pico-primary);
+  border-color: var(--pico-primary);
+}
+.editor .badge[data-layer='catalog'] {
+  font-style: italic;
+}
+.editor .badge[data-status='failed'],
+.editor .badge[data-status='interrupted'] {
+  color: var(--pico-del-color);
+  border-color: var(--pico-del-color);
+}
+.editor .badge[data-status='succeeded'] {
+  color: var(--pico-ins-color);
+  border-color: var(--pico-ins-color);
+}
+.editor .mini {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  border-radius: 0.6rem;
+  background: none;
+  border: 1px solid var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+  cursor: pointer;
+}
+.editor .mini:hover {
+  color: var(--pico-primary);
+  border-color: var(--pico-primary);
+}
+
+/* Widgets. */
+.editor .slider-number,
+.editor .range-pair,
+.editor .path-picker {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+.editor .slider-number input[type='range'] {
+  flex: 3;
+  margin: 0;
+}
+.editor .slider-number input[type='number'] {
+  flex: 2;
+  margin: 0;
+}
+.editor .range-pair input,
+.editor .path-picker input {
+  margin: 0;
+}
+.editor .range-pair span {
+  color: var(--pico-muted-color);
+}
+.editor .path-picker label {
+  margin: 0;
+}
+
+/* Pico paints a green check on every valid input; only errors matter here. */
+.editor {
+  --pico-icon-valid: none;
+  --pico-form-element-valid-border-color: var(--pico-form-element-border-color);
+  --pico-form-element-valid-active-border-color: var(--pico-form-element-active-border-color);
+  --pico-form-element-valid-focus-color: var(--pico-form-element-focus-color);
+}
+.editor form button[type='submit'] {
+  display: none; /* Save lives in the sticky bar */
+}
+
+/* Build runner and jobs. */
+.editor details {
+  margin: 0.75rem 0;
+}
+.editor .overrides {
+  margin: 0.25rem 0 0.5rem;
+}
+.editor .override-row {
+  display: grid;
+  grid-template-columns: 3fr 2fr auto;
+  gap: 0.25rem;
+  align-items: center;
+}
+.editor .override-row input {
+  margin: 0;
+}
+.editor .cli {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--pico-muted-color);
+}
+.editor .job-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.editor .job-log {
+  font-size: 0.7rem;
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+}
+.editor figure img {
+  width: 100%;
+}

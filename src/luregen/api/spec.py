@@ -129,6 +129,7 @@ def spec_router(root: Path) -> APIRouter:
             else:
                 errors = [FieldError(path=[], message=str(exc))]
         chain = extends_chain(path)
+        inherited = load_layered(chain[1]) if len(chain) > 1 else {}
         return VariantDetail(
             family=family,
             name=name,
@@ -136,6 +137,7 @@ def spec_router(root: Path) -> APIRouter:
             etag=_etag(raw),
             own=_paths_to_root(own, root),
             layered=_paths_to_root(layered, root),
+            inherited=_paths_to_root(inherited, root),
             resolved=_paths_to_root(resolved, root) if resolved else None,
             errors=errors,
             layers=[Layer(label=_label(i, f), path=_rel(root, f)) for i, f in enumerate(chain)],
@@ -181,6 +183,14 @@ def spec_router(root: Path) -> APIRouter:
                 )
             )
         return out
+
+    @router.get("/designs/{family}/presets")
+    def list_presets(family: Name) -> list[str]:
+        """Station-table CSVs under the family's profiles/ folder (relative to the data root)."""
+        folder = inside(designs, designs / family)
+        if not (folder / "family.toml").is_file():
+            raise HTTPException(404, f"no design family {family!r}")
+        return sorted(_rel(root, p) for p in (folder / "profiles").rglob("*.csv"))
 
     @router.get("/machines")
     def list_machines() -> list[MachineSummary]:

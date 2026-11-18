@@ -143,6 +143,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/designs/{family}/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Presets
+         * @description Station-table CSVs under the family's profiles/ folder (relative to the data root).
+         */
+        get: operations["list_presets_api_designs__family__presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/machines": {
         parameters: {
             query?: never;
@@ -265,13 +285,38 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Uploads
+         * @description Stored uploads, newest first, plus station CSVs written under uploads/ by profile
+         *     jobs (for the editor's path pickers).
+         */
+        get: operations["list_uploads_api_uploads_get"];
         put?: never;
         /**
          * Upload
          * @description Store a photo, station CSV or G-code file at uploads/<sha256>.<ext>.
          */
         post: operations["upload_api_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Upload
+         * @description A file under uploads/ (e.g. a profile job's `profile_debug.png` overlay).
+         */
+        get: operations["get_upload_api_uploads__name__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1027,6 +1072,14 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
+             * Inherited
+             * @description What the parent layers alone give (merged, before validation): the value a 'reset to inherited' restores
+             * @default {}
+             */
+            inherited: {
+                [key: string]: unknown;
+            };
+            /**
              * Resolved
              * @description Validated and catalog-resolved config (None when invalid)
              */
@@ -1347,6 +1400,37 @@ export interface operations {
             };
         };
     };
+    list_presets_api_designs__family__presets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_machines_api_machines_get: {
         parameters: {
             query?: never;
@@ -1547,6 +1631,37 @@ export interface operations {
             };
         };
     };
+    list_uploads_api_uploads_get: {
+        parameters: {
+            query?: {
+                kind?: ("photo" | "csv" | "gcode") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Upload"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_api_uploads_post: {
         parameters: {
             query: {
@@ -1584,6 +1699,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    get_upload_api_uploads__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

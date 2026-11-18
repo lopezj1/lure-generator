@@ -74,6 +74,11 @@ def test_path_params_are_single_safe_segments(client, bad):
     assert client.get(f"/api/variants/glide/{bad}").status_code in (404, 422)
 
 
+def test_presets(client):
+    assert client.get("/api/designs/glide/presets").json() == [PRESET]
+    assert client.get("/api/designs/nope/presets").status_code == 404
+
+
 def test_machines_and_materials(client):
     machines = {m["id"]: m for m in client.get("/api/machines").json()}
     assert machines["snapmaker_u1"]["type"] == "printer"
@@ -111,6 +116,10 @@ def test_get_variant(client, root):
     assert labels[prov["/joint/gap_mm"]] == "family"
     assert labels[prov["/buoyancy/water"]] == "common"
     assert labels[prov["/hardware/0/x_mm"]] == "variant"
+    inherited = body["inherited"]  # the parents alone: what "reset to inherited" restores
+    assert inherited["joint"]["gap_mm"] == 2.3
+    assert inherited["profile"]["preset"] == PRESET
+    assert "size" not in inherited and "hardware" not in inherited
 
 
 def test_get_invalid_variant_reports_errors(client, variant_file):

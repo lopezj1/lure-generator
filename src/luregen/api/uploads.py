@@ -1,6 +1,7 @@
 """POST /uploads: content-checked, size-capped files stored as uploads/<sha256>.<ext>."""
 
 import hashlib
+import mimetypes
 import os
 import tempfile
 from pathlib import Path
@@ -8,8 +9,10 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse
 
 from luregen.api.models import Upload
+from luregen.api.safety import check_relpath, inside
 
 MAX_UPLOAD = 25 * 1024 * 1024
 _CHUNK = 1024 * 1024
@@ -17,6 +20,7 @@ _MULTIPART_SLACK = 64 * 1024
 GCODE_SUFFIXES = {".gcode", ".gco", ".g", ".nc", ".ngc", ".tap", ".cnc"}
 
 Kind = Literal["photo", "csv", "gcode"]
+PHOTO_EXTS = {"png", "jpg", "webp", "tif", "bmp"}
 
 
 def _image_ext(head: bytes) -> str | None:
@@ -132,5 +136,54 @@ def uploads_router(root: Path) -> APIRouter:
             finally:
                 Path(tmp).unlink(missing_ok=True)
         return Upload(id=sha, kind=kind, size=size, path=f"uploads/{target.name}")
+
+    @router.get("/uploads")
+    def list_uploads(kind: Annotated[Kind | None, Query()] = None) -> list[Upload]:
+        """Stored uploads, newest first, plus station CSVs written under uploads/ by profile
+        jobs (for the editor's path pickers)."""
+        out = []
+        if folder.is_dir():
+            for path in folder.rglob("*"):
+                rel = path.relative_to(folder)
+                if not path.is_file() or any(p.startswith(".") for p in rel.parts):
+                    continue
+                ext = path.suffix.lower()
+                found: Kind | None = (
+                    "photo"
+                    if ext[1:] in PHOTO_EXTS
+                    else "csv"
+                    if ext == ".csv"
+                    else "gcode"
+                    if ext in GCODE_SUFFIXES
+                    else None
+                )
+                if found is None or (kind and found != kind):
+                    continue
+                if len(rel.parts) > 1 and found != "csv":
+                    continue  # e.g. a profile job's debug PNGs
+                stat = path.stat()
+                out.append(
+                    (
+                        stat.st_mtime,
+                        Upload(
+                            id=path.stem if len(rel.parts) == 1 else rel.parent.as_posix(),
+                            kind=found,
+                            size=stat.st_size,
+                            path=f"uploads/{rel.as_posix()}",
+                        ),
+                    )
+                )
+        return [u for _, u in sorted(out, key=lambda t: t[0], reverse=True)]
+
+    @router.get("/uploads/{name:path}", response_class=FileResponse)
+    def get_upload(name: str) -> FileResponse:
+        """A file under uploads/ (e.g. a profile job's `profile_debug.png` overlay)."""
+        path = inside(folder, folder.joinpath(*check_relpath(name, "file name")))
+        if not path.is_file():
+            raise HTTPException(404, f"no upload {name!r}")
+        media = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        if media.startswith("text/"):
+            media += "; charset=utf-8"
+        return FileResponse(path, media_type=media)
 
     return router

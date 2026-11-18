@@ -51,6 +51,11 @@ class VariantDetail(BaseModel):
     etag: str = Field(description="Send back as If-Match (or body `etag`) when saving")
     own: dict[str, Any] = Field(description="The variant file itself")
     layered: dict[str, Any] = Field(description="Merged `extends` chain, before validation")
+    inherited: dict[str, Any] = Field(
+        {},
+        description="What the parent layers alone give (merged, before validation): the "
+        "value a 'reset to inherited' restores",
+    )
     resolved: dict[str, Any] | None = Field(
         description="Validated and catalog-resolved config (None when invalid)"
     )
