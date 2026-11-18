@@ -21,10 +21,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Jobs
+         * @description Recent jobs first.
+         */
+        get: operations["list_jobs_api_jobs_get"];
+        put?: never;
+        /**
+         * Submit Job
+         * @description Queue a job; it runs `python -m luregen --progress json <cmd> …` in the data root.
+         */
+        post: operations["submit_job_api_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job Info */
+        get: operations["get_job_info_api_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Cancel Job
+         * @description Cancel: drop a queued job, or SIGTERM the running job's process group (SIGKILL
+         *     after a timeout). Returns the final state; 409 if the job had already finished.
+         */
+        delete: operations["cancel_job_api_jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job History
+         * @description All events so far (id > `after`) as JSON: the non-streaming twin of /events.
+         */
+        get: operations["job_history_api_jobs__job_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job Events
+         * @description SSE stream of `log` / `progress` / `result` / `status` events (data: JSON, id:
+         *     per-job counter). Replays from the start (or after `Last-Event-ID` / `?after=`),
+         *     then follows live, and ends after the final `status` event.
+         */
+        get: operations["job_events_api_jobs__job_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BuildArgs
+         * @description `lure build VARIANT [--set k=v …]`.
+         */
+        BuildArgs: {
+            /**
+             * Variant
+             * @description Variant TOML, relative to the data root.
+             */
+            variant: string;
+        };
+        /** BuildJob */
+        BuildJob: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "build";
+            args: components["schemas"]["BuildArgs"];
+            /**
+             * Overrides
+             * @description `--set` overrides, `a.b=value`.
+             */
+            overrides?: string[];
+        };
+        /**
+         * FabArgs
+         * @description `lure fab BUILD --format print|cnc [--machine M]`.
+         */
+        FabArgs: {
+            /**
+             * Build
+             * @description Build folder (or its `latest` link) under builds/.
+             */
+            build: string;
+            /** Machine */
+            machine?: string | null;
+        };
+        /** FabCncJob */
+        FabCncJob: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "fab_cnc";
+            args: components["schemas"]["FabArgs"];
+        };
+        /** FabPrintJob */
+        FabPrintJob: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "fab_print";
+            args: components["schemas"]["FabArgs"];
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** Health */
         Health: {
             /** Status */
@@ -33,6 +182,189 @@ export interface components {
             version: string;
             /** Git Sha */
             git_sha: string;
+        };
+        /** JobCreated */
+        JobCreated: {
+            /** Id */
+            id: string;
+        };
+        /** JobInfo */
+        JobInfo: {
+            /** Id */
+            id: string;
+            /** Op */
+            op: string;
+            /** Request */
+            request: components["schemas"]["ProfileJob"] | components["schemas"]["BuildJob"] | components["schemas"]["FabPrintJob"] | components["schemas"]["FabCncJob"];
+            /**
+             * Command
+             * @description The CLI command line (cwd = data root).
+             */
+            command: string[];
+            status: components["schemas"]["JobStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Returncode */
+            returncode?: number | null;
+            /** Error */
+            error?: string | null;
+            /** Result */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            progress?: components["schemas"]["JobProgress"] | null;
+            /**
+             * Last Event Id
+             * @default 0
+             */
+            last_event_id: number;
+        };
+        /** JobProgress */
+        JobProgress: {
+            /** Stage */
+            stage: string;
+            /** Frac */
+            frac?: number | null;
+            /**
+             * Msg
+             * @default
+             */
+            msg: string;
+        };
+        /**
+         * JobStatus
+         * @enum {string}
+         */
+        JobStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+        /** LogData */
+        LogData: {
+            /**
+             * Stream
+             * @enum {string}
+             */
+            stream: "stdout" | "stderr";
+            /** Line */
+            line: string;
+        };
+        /** LogEvent */
+        LogEvent: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "log";
+            data: components["schemas"]["LogData"];
+        };
+        /**
+         * ProfileArgs
+         * @description `lure profile IMAGE --out OUT …`; paths are relative to the data root.
+         */
+        ProfileArgs: {
+            /** Image */
+            image: string;
+            /**
+             * Out
+             * @description Station table CSV to write (inside the data root).
+             */
+            out: string;
+            /** Scale */
+            scale?: ("aruco" | "length" | "auto") | null;
+            /** Length */
+            length?: number | null;
+            /** Marker Mm */
+            marker_mm?: number | null;
+            /** Top */
+            top?: string | null;
+            /** Width Ratio */
+            width_ratio?: number | null;
+            /** N Stations */
+            n_stations?: number | null;
+            /** Nose */
+            nose?: ("left" | "right") | null;
+            /** Smoothing */
+            smoothing?: ("efd" | "spline") | null;
+            /** Harmonics */
+            harmonics?: number | null;
+            /**
+             * Rembg
+             * @default false
+             */
+            rembg: boolean;
+        };
+        /** ProfileJob */
+        ProfileJob: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "profile";
+            args: components["schemas"]["ProfileArgs"];
+        };
+        /** ProgressEvent */
+        ProgressEvent: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "progress";
+            data: components["schemas"]["JobProgress"];
+        };
+        /** ResultEvent */
+        ResultEvent: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "result";
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        /** StatusData */
+        StatusData: {
+            status: components["schemas"]["JobStatus"];
+            /** Returncode */
+            returncode?: number | null;
+            /** Error */
+            error?: string | null;
+        };
+        /** StatusEvent */
+        StatusEvent: {
+            /** Id */
+            id: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "status";
+            data: components["schemas"]["StatusData"];
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -59,6 +391,208 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    list_jobs_api_jobs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_job_api_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileJob"] | components["schemas"]["BuildJob"] | components["schemas"]["FabPrintJob"] | components["schemas"]["FabCncJob"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_info_api_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_job_api_jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_history_api_jobs__job_id__history_get: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (components["schemas"]["LogEvent"] | components["schemas"]["ProgressEvent"] | components["schemas"]["StatusEvent"] | components["schemas"]["ResultEvent"])[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_events_api_jobs__job_id__events_get: {
+        parameters: {
+            query?: {
+                /** @description Resume after this event id. */
+                after?: number | null;
+            };
+            header?: {
+                "last-event-id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+            /** @description Finished job, nothing after Last-Event-ID. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
