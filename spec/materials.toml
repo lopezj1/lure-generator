@@ -1,0 +1,75 @@
+# Densities in g/cm³. Wood varies blank to blank: weigh the blank and override with
+# `--set process.material_density=<measured>`. `range` documents typical spread.
+
+[materials.water_salt]
+density = 1.025
+category = "water"
+
+[materials.water_fresh]
+density = 1.000
+category = "water"
+
+# --- body: printed plastics (solid, 100% infill) ---
+[materials.PETG]
+density = 1.27
+category = "plastic"
+
+[materials.ASA]
+density = 1.07
+category = "plastic"
+
+[materials.PLA]
+density = 1.24
+category = "plastic"
+
+# --- body: cast resin ---
+[materials.resin]
+density = 1.10
+category = "resin"
+
+[materials.resin_microballoon]
+density = 0.70
+range = [0.55, 0.85]
+category = "resin"
+
+# --- body: wood and board ---
+[materials.basswood]
+density = 0.42
+range = [0.37, 0.47]
+category = "wood"
+
+[materials.cedar]
+density = 0.37
+range = [0.32, 0.42]
+category = "wood"
+
+[materials.pvc_board]
+density = 0.55
+range = [0.50, 0.60]
+category = "foam_board"
+
+# --- ballast ---
+[materials.tungsten]
+density = 18.0
+category = "ballast"
+
+[materials.tungsten_putty]
+density = 10.0
+category = "ballast"
+
+[materials.lead]
+density = 11.34
+category = "ballast"
+
+[materials.steel]
+density = 7.85
+category = "metal"
+
+# --- hardware ---
+[materials.stainless]
+density = 8.0
+category = "metal"
+
+[materials.brass]
+density = 8.5
+category = "metal"

@@ -11,9 +11,13 @@ Config-driven pipeline: profile image + TOML spec → balanced lure CAD (build12
   - `spec/printers/<machine>/`, `spec/routers/<machine>/`: machine.toml, flattened slicer profiles or post.toml/tools/feeds, `reference/` sample G-code.
   - `spec/hardware/*.toml` (measured [min, max] masses, referenced by id), `spec/materials.toml`.
 - **Config layering:** `spec/designs/_common.toml` ← `family.toml` ← variant ← CLI `--set a.b=c`. Every build writes `resolved.toml`.
-- **Package `src/luregen/`:** `config/`, `profile/`, `families/` (one module per bait family behind a Protocol), `geometry/`, `physics/`, `dfm/`, `fab/{printer,router}/`, `report/`, `cli.py`.
-- **Outputs** go to `builds/<family>/<variant>/<YYYYMMDD-HHMM>-<gitsha>/` (gitignored). `lure fab` reads only a build folder.
-- Lengths in mm, mass in g (reports also show oz), densities in g/cm³.
+- **Package `src/luregen/`:** `config/`, `profile/`, `families/` (one module per bait family behind a Protocol), `geometry/`, `physics/`, `dfm/`, `fab/{printer,router}/`, `report/`, `commands/`, `cli.py`.
+- **CLI subcommands self-register:** each is a module in `src/luregen/commands/` exposing `register(app)`. Add a module and never edit `cli.py`. Import heavy libraries inside the command function.
+- **Contracts:**
+  - `luregen.profile.table.StationTable`: nose and tail tips plus interior stations `x, center_z, v_radius, half_width`, with a CSV v1 format. Produced by F1, consumed by F2.
+  - `luregen.config.LureConfig`: a resolved config is self-contained (`resolved.toml` reloads without the catalogs).
+- **Coordinates:** x from the nose tip (0) toward the tail, z up (0 = horizontal axis through the nose tip), y lateral with the body symmetric about y = 0. Lengths in mm, mass in g (reports also show oz), densities in g/cm³.
+- **Outputs** go to `builds/<family>/<variant>/<YYYYMMDD-HHMMSS>-<gitsha>[-dirty]/` (gitignored), with a `latest` symlink. `lure fab` reads only a build folder.
 
 ## Commands
 
@@ -35,21 +39,43 @@ Python 3.13 via uv. System libs needed by the OCP wheel: `libgl1 libx11-6`. Slic
   gh api graphql -f query='mutation($p:ID!,$c:ID!){addSubIssue(input:{issueId:$p,subIssueId:$c}){issue{number}}}' -f p="$P" -f c="$C"
   ```
 - **The issue body is the current truth. Comments are history.** When a decision changes scope or design, edit the body (and the epic's decisions list if it's cross-cutting), then mention the change in a comment.
+- `gh` 2.23's `gh pr edit` fails (it queries the deprecated classic Projects API). Edit PR bodies with `gh api -X PATCH repos/lopezj1/lure-generator/pulls/<n> --input -` and a `{"body": …}` JSON payload. `gh pr create`, `gh issue …` and `gh api` work.
 
 ## Branch / worktree / PR workflow
 
-- Never commit to `main`. One branch + worktree per **feature**:
+- Never commit to `main`. One branch + worktree per **feature**, inside the project (gitignored, excluded from ruff) so it stays within Claude Code's working directory:
   ```
   git fetch origin
-  git worktree add ../lure-generator.wt/<feature#>-<slug> -b feat/<feature#>-<slug> origin/main
+  git worktree add .claude/worktrees/<feature#>-<slug> -b feat/<feature#>-<slug> origin/main
+  cd .claude/worktrees/<feature#>-<slug> && uv sync
   ```
+  Create worktrees by hand with this naming, not with the agent tool's auto-named worktree isolation; branch names tie work to issues.
 - Commits reference the task: `profile: fit EFD contour (#14)`.
-- When the feature is done, open one PR (template in `.github/`). It has `Closes #<feature>` and a `Closes #<task>` line per completed task, and gets squash-merged.
-- After merge: `git worktree remove ../lure-generator.wt/<feature#>-<slug>` and delete the branch.
+- When the feature is done, open one PR (template in `.github/`). It has `Closes #<feature>` and a `Closes #<task>` line per completed task, and gets squash-merged by the owner on GitHub.
+- **Cleanup after merge:** GitHub deletes the remote branch automatically (`delete_branch_on_merge` is on). Local worktrees and branches are removed by `tools/cleanup_worktrees.sh`, which runs at the start of every session (see Session protocol). It removes a worktree only when its PR is merged, the merged head equals the local branch tip, and there are no uncommitted changes; everything else is kept and reported. Use `--dry-run` to preview.
+
+## Parallel work (subagents + worktrees)
+
+- Features with no dependency between them run in parallel, one background agent per feature or feature part, each in its own worktree. Dependency waves:
+  1. F0
+  2. F1, F2, F6a (#31–#34), F7a (#36–#39)
+  3. F3, F7b
+  4. F4, then F5
+  5. F6b, F7 end-to-end, F8
+- The orchestrating session creates the worktrees (naming above) and gives each agent its absolute worktree path. Agents work only inside that path.
+- **Don't touch shared files on a feature branch:**
+  - `pyproject.toml`/`uv.lock`: all dependencies are pinned in F0. If one is truly missing, stop and report back instead of adding it.
+  - `cli.py`: add a `commands/` module instead.
+  - Another feature's modules.
+  - The contracts above: change those only in their own feature's PR, and announce it on the epic.
+- **A feature may land in several PRs** (e.g. F6a then F6b). Each PR closes only its own tasks, and the last one also closes the feature.
+- Before opening a PR, rebase on `origin/main` and rerun ruff and pytest. The owner merges PRs; agents never merge.
 
 ## Session protocol
 
-1. **Start:** identify the active feature/task (ask if unclear), then `gh issue view <n> --comments` for it and its parent feature.
+1. **Start:**
+   - From the main checkout, run `git pull --ff-only` on `main` and then `tools/cleanup_worktrees.sh` to clear merged feature worktrees. Mention anything it kept that looks stale.
+   - Identify the active feature/task (ask if unclear), then `gh issue view <n> --comments` for it and its parent feature.
 2. **During:** keep work inside that feature's worktree. If something affects another feature, comment on that issue.
 3. **End:** post a session log comment on each issue worked on:
    ```

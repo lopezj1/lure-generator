@@ -1,0 +1,5 @@
+[hinge_pin_1p6x30]
+name = "Hinge pin 1.6 mm × 30 mm"
+mass_g = [0.45, 0.50]
+material = "stainless"
+measured = false

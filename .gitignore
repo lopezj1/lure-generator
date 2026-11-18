@@ -23,3 +23,6 @@ CLAUDE.local.md
 .DS_Store
 .vscode/
 .idea/
+
+# Feature worktrees (see CLAUDE.md)
+.claude/worktrees/

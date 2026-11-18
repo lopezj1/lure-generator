@@ -8,7 +8,7 @@ The first lure family is a two-section jointed **glide bait** that hangs level a
 
 Hobby project, work in progress. The plan and progress are tracked in the issues, starting from the epic (#1).
 
-## Layout (planned)
+## Layout
 
 ```
 spec/      data only: designs/, printers/, routers/, hardware/, materials.toml
@@ -19,9 +19,18 @@ builds/    generated outputs (gitignored)
 field/     tank-test results used to calibrate targets
 ```
 
-## Usage (planned)
+## Setup
 
 ```
-uv run lure build spec/designs/glide/variants/<variant>.toml
-uv run lure fab builds/glide/<variant>/latest --format print   # or --format cnc
+sudo apt-get install -y libgl1 libx11-6 xvfb   # OCP wheel needs libGL/libX11; xvfb for slicer thumbnails
+uv sync
+uv run lure --help
+```
+
+## Usage
+
+```
+uv run lure build spec/designs/glide/variants/striper_175_petg.toml [--set buoyancy.target_sink=suspend]
+uv run lure check builds/glide/striper_175_petg
+uv run lure fab builds/glide/striper_175_petg/latest --format print   # or --format cnc (planned)
 ```

@@ -1,0 +1,6 @@
+# Through-wire harness (wood/CNC). Mass for a typical 175 mm body length run.
+[wire_19awg_harness_175]
+name = "19 AWG stainless through-wire harness (175 mm body)"
+mass_g = [0.9, 1.1]
+material = "stainless"
+measured = false

@@ -1,0 +1,14 @@
+# Hardware catalog: id → measured mass range [min, max] in grams.
+# `measured = false` entries are placeholders until weighed (issue #23).
+
+[treble_2]
+name = "Treble hook #2"
+mass_g = [1.1, 1.4]
+material = "steel"
+measured = false
+
+[treble_1]
+name = "Treble hook #1"
+mass_g = [1.5, 1.8]
+material = "steel"
+measured = false
