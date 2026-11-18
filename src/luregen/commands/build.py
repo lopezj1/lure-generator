@@ -89,6 +89,7 @@ def register(app: typer.Typer) -> None:
         Writes resolved.toml, report.json/md and model/body.step|stl|3mf. Joint, internals,
         mass properties and checks are added by later features (F3–F5).
         """
+        from luregen import progress
         from luregen.config import ConfigError, load_config
         from luregen.geometry.validate import GeometryError
         from luregen.report.build_dir import create_build_dir, update_report
@@ -115,3 +116,4 @@ def register(app: typer.Typer) -> None:
         if "roundover" in envelope:
             typer.echo(f"  {envelope['roundover']['note']}")
         typer.echo(f"  model: {', '.join(f['path'] for f in envelope['files'].values())}")
+        progress.result(build_dir=build_dir)

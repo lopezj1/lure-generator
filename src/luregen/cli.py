@@ -6,7 +6,9 @@ file. Keep heavy imports (build123d, OpenCV, …) inside command functions so `-
 """
 
 import importlib
+import os
 import pkgutil
+from enum import StrEnum
 from types import ModuleType
 
 import typer
@@ -26,12 +28,26 @@ def register_all(app: typer.Typer, package: ModuleType = commands) -> list[str]:
     return registered
 
 
+class ProgressFormat(StrEnum):
+    json = "json"
+
+
+def _root(
+    progress: ProgressFormat | None = typer.Option(
+        None, help="Emit @@progress/@@result lines on stderr (see luregen.progress)."
+    ),
+) -> None:
+    if progress is ProgressFormat.json:
+        os.environ["LUREGEN_PROGRESS"] = "1"
+
+
 def make_app() -> typer.Typer:
     app = typer.Typer(
         no_args_is_help=True,
         add_completion=False,
         help="Lure generator: profile image + TOML spec → balanced CAD → print/CNC G-code.",
     )
+    app.callback()(_root)
     register_all(app)
     return app
 
