@@ -45,6 +45,6 @@ def test_new_command_module_is_discovered_without_editing_cli(tmp_path: Path, mo
 
 
 def test_stub_command_exits_with_pointer_to_issue():
-    result = CliRunner().invoke(make_app(), ["sync-profiles", "snapmaker_u1"])
+    result = CliRunner().invoke(make_app(), ["fab", "builds/x", "--format", "print"])
     assert result.exit_code == 2
-    assert "#31" in result.output
+    assert "#25" in result.output

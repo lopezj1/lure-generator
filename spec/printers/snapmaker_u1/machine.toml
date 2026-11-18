@@ -1,0 +1,66 @@
+# Snapmaker U1 (4-tool changer, Klipper). Read by luregen.fab.printer (#31, #32, #33).
+name = "Snapmaker U1"
+type = "printer"
+# Slicer app used by `lure fab --format print`; the other app is the fallback.
+app = "orca"
+# Downloaded AppImages and their extracted trees live here, one folder per app and version.
+cache_dir = "~/.cache/luregen/slicers"
+# Inserted by the ballast-insert pause (gcode_post). The stock machine profile uses M600 too.
+pause_command = "M600"
+
+# Where the slicer runs. "auto" uses the host when its glibc is at least the app's
+# `min_glibc`, else the container image (build it from tools/orca-runtime/Dockerfile).
+[runtime]
+mode = "auto"  # auto | host | docker
+docker_image = "luregen/orca-runtime:24.04"
+timeout_s = 600
+
+# Upstream OrcaSlicer (primary). Its CLI resolves `inherits` and has no wipe-tower crash.
+[apps.orca]
+label = "OrcaSlicer"
+version = "2.5.1"
+repo = "OrcaSlicer/OrcaSlicer"
+tag = "v2.5.1"
+binary = "orca-slicer"
+min_glibc = "2.38"  # Ubuntu 24.04 build
+appimage_url = "https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v2.5.1/OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.5.1.AppImage"
+
+[apps.orca.profiles]
+vendor = "Snapmaker"
+library = "OrcaFilamentLibrary"
+machine = "Snapmaker U1 (0.4 nozzle)"
+process = "0.20 Standard @Snapmaker U1 (0.4 nozzle)"
+filament = "Generic PETG @U1 0.4 nozzle"
+
+# Snapmaker's Orca fork (fallback). Never mix its profiles with the upstream binary.
+[apps.snapmaker]
+label = "Snapmaker Orca"
+version = "2.4.1"
+repo = "Snapmaker/OrcaSlicer"
+tag = "v2.4.1"
+binary = "snapmaker-orca"
+min_glibc = "2.38"
+appimage_url = "https://github.com/Snapmaker/OrcaSlicer/releases/download/v2.4.1/Snapmaker_Orca_Linux_AppImage_Ubuntu2404_V2.4.1.AppImage"
+# Its CLI segfaults while loading a process that sets `wipe_tower_filament` (fork issue 689).
+drop_keys = ["wipe_tower_filament"]
+
+[apps.snapmaker.profiles]
+vendor = "Snapmaker"
+library = "OrcaFilamentLibrary"
+machine = "Snapmaker U1 (0.4 nozzle)"
+process = "0.20mm Standard @Snapmaker U1 (0.4 nozzle)"
+filament = "Generic PETG"
+
+# Lure overrides on top of the stock profiles, passed as `--<key>=<value>`.
+# Booleans become 1/0. The stock U1 process enables the prime tower (4 tools); a lure is
+# single-material, so it is turned off. Solid infill keeps the mass model honest.
+[overrides]
+enable-prime-tower = false
+sparse-infill-density = "100%"
+wall-loops = 4
+top-shell-layers = 6
+bottom-shell-layers = 4
+seam-position = "back"
+ironing-type = "no ironing"  # enum value, not "no"
+# The CLI defaults to Cool Plate (60 °C bed for PETG); the U1 ships with textured PEI.
+curr-bed-type = "Textured PEI Plate"
