@@ -64,9 +64,21 @@ class ProfileConfig(Strict):
 class JointConfig(Strict):
     joint_frac: float = Field(0.50, ge=0.45, le=0.55)
     gap_mm: float = Field(2.3, ge=1.5, le=3.5)
-    angle_deg: float = Field(37.0, ge=30, le=45)
+    angle_deg: float = Field(
+        37.0, ge=30, le=45, description="V arm angle from the lateral (y) axis."
+    )
     hinge_eye_z: tuple[float, float] = (-12.0, 6.0)
     line_tie_z: float = Field(-4.0, ge=-6, le=0)
+    pin_offset_mm: float = Field(
+        3.0, ge=1, le=10, description="Hinge pin axis behind the tail's V apex."
+    )
+    pin_bore_mm: float = Field(1.8, gt=0, le=4, description="Hinge pin bore diameter.")
+    eye_slot_w_mm: float = Field(
+        2.5, gt=0, le=6, description="Width (y) of the tail slots for the head hinge eyes."
+    )
+    eye_slot_h_mm: float = Field(
+        6.0, gt=0, le=12, description="Height (z) of the tail slots for the head hinge eyes."
+    )
 
 
 class BuoyancyConfig(Strict):
@@ -103,6 +115,41 @@ class HardwareItem(Strict):
     material: str | None = None
     density: float | None = None
     measured: bool | None = None
+
+
+class SectionInternals(Strict):
+    """Per-section print internals; these are the F4 solver knobs."""
+
+    wall_thk_mm: float = Field(
+        2.0, ge=0.8, le=10, description="Cavity wall: inset of v_radius and half_width."
+    )
+    keel_top_z_mm: float = Field(
+        -8.0, description="Body z below which the section is solid (the keel)."
+    )
+
+
+class InternalsConfig(Strict):
+    """Print internals: sealed cavities, ballast/trim pockets and screw-eye bosses."""
+
+    head: SectionInternals = SectionInternals()
+    tail: SectionInternals = SectionInternals(keel_top_z_mm=-12.0)
+    feature_clearance_mm: float = Field(
+        1.0, ge=0, description="Minimum solid between the cavity and any other feature."
+    )
+    boss_r_mm: float = Field(
+        6.0, gt=0, description="Solid sphere kept around each screw-eye position."
+    )
+    ballast_seed_g: float = Field(
+        8.0, gt=0, description="Ballast mass when ballast.mass_g is unset (F4 solves it)."
+    )
+    trim_x_from_tail_mm: float = Field(
+        35.0, gt=0, description="Tail trim pocket position, measured from the tail tip."
+    )
+    trim_capacity_g: float | None = Field(
+        None, gt=0, description="Trim putty capacity; default: hardware mass band + 1 g."
+    )
+    trim_material: str = "tungsten_putty"
+    trim_density: float | None = None  # filled by resolve()
 
 
 class ProcessConfig(Strict):
@@ -146,6 +193,7 @@ class LureConfig(Strict):
     buoyancy: BuoyancyConfig
     ballast: BallastConfig = BallastConfig()
     hardware: list[HardwareItem] = []
+    internals: InternalsConfig = InternalsConfig()
     process: ProcessConfig
     dfm: DfmConfig = DfmConfig()
     report: ReportConfig = ReportConfig()

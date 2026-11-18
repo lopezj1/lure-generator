@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from luregen import progress
@@ -45,13 +46,29 @@ def test_progress_json_flag_sets_env(monkeypatch, tmp_path: Path):
     assert bad.exit_code == 2
 
 
-def test_build_emits_result_via_python_m(sample_variant: Path, tmp_path: Path):
+@pytest.mark.slow
+def test_build_emits_stages_and_result_via_python_m(sample_variant: Path, tmp_path: Path):
     env = {k: v for k, v in os.environ.items() if k != progress.ENV}
     cmd = [sys.executable, "-m", "luregen", "--progress", "json", "build", str(sample_variant)]
+    cnc = ["--set", "process.method=cnc", "--set", "process.material=basswood"]  # faster
     proc = subprocess.run(
-        [*cmd, "--out-root", str(tmp_path)], capture_output=True, text=True, env=env
+        [*cmd, *cnc, "--out-root", str(tmp_path)], capture_output=True, text=True, env=env
     )
     assert proc.returncode == 0, proc.stderr
+    events = parse(proc.stderr, "@@progress ")
+    stages = list(dict.fromkeys(e["stage"] for e in events))
+    assert stages == [
+        "config",
+        "stations",
+        "envelope",
+        "joint",
+        "internals",
+        "massprops",
+        "export",
+        "report",
+    ]
+    fracs = [e["frac"] for e in events]
+    assert fracs == sorted(fracs) and fracs[0] == 0.0 and fracs[-1] == 1.0
     (res,) = parse(proc.stderr, "@@result ")
     latest = tmp_path / "glide" / "striper_175_petg" / "latest"
     assert Path(res["build_dir"]).resolve() == latest.resolve()

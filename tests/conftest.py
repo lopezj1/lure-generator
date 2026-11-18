@@ -7,6 +7,11 @@ SPEC = REPO / "spec"
 SAMPLE_VARIANT = SPEC / "designs" / "glide" / "variants" / "striper_175_petg.toml"
 
 
+def pytest_configure(config):
+    # Full `lure build` runs (10–40 s each); still run by default, skip with -m "not slow".
+    config.addinivalue_line("markers", "slow: runs a full lure build (deselect: -m 'not slow')")
+
+
 @pytest.fixture
 def sample_variant() -> Path:
     return SAMPLE_VARIANT

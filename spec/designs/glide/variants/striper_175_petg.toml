@@ -12,12 +12,13 @@ body_style = "loft3d"
 material = "PETG"
 rigging = "screw_eye"
 
-# Positions are placeholders until F3 places the bosses; masses come from spec/hardware.
+# Positions: joint hardware sits where F3 places it (report.json geometry.joint: line tie,
+# hinge eyes, pin); belly/tail positions are still placeholders. Masses: spec/hardware.
 [[hardware]]
 id = "screw_eye_210"
 name = "Line tie"
 section = "head"
-x_mm = 2
+x_mm = 1
 z_mm = -4
 
 [[hardware]]
@@ -43,17 +44,23 @@ z_mm = -25
 
 [[hardware]]
 id = "screw_eye_210"
-name = "Hinge eyes (head)"
+name = "Hinge eye (head, lower)"
 section = "head"
-x_mm = 86
-z_mm = -3
-qty = 2
+x_mm = 89
+z_mm = -12
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Hinge eye (head, upper)"
+section = "head"
+x_mm = 89
+z_mm = 6
 
 [[hardware]]
 id = "hinge_pin_1p6x30"
 name = "Hinge pin"
 section = "tail"
-x_mm = 90
+x_mm = 92
 z_mm = -3
 
 [[hardware]]
