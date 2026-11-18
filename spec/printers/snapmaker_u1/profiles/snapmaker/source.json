@@ -1,0 +1,30 @@
+{
+    "app": "snapmaker",
+    "label": "Snapmaker Orca",
+    "repo": "Snapmaker/OrcaSlicer",
+    "tag": "v2.4.1",
+    "dropped_keys": [
+        "wipe_tower_filament"
+    ],
+    "generated_by": "lure sync-profiles",
+    "chains": {
+        "machine": [
+            "Snapmaker/machine/Snapmaker U1 (0.4 nozzle).json",
+            "Snapmaker/machine/fdm_U1.json",
+            "Snapmaker/machine/fdm_toolchanger.json",
+            "Snapmaker/machine/fdm_klipper.json"
+        ],
+        "process": [
+            "Snapmaker/process/0.20mm Standard @Snapmaker U1 (0.4 nozzle).json",
+            "Snapmaker/process/fdm_process_U1_0.20.json",
+            "Snapmaker/process/fdm_process_U1_common.json",
+            "Snapmaker/process/fdm_process_U1.json"
+        ],
+        "filament": [
+            "Snapmaker/filament/Generic PETG.json",
+            "Snapmaker/filament/Generic PETG @U1 base.json",
+            "Snapmaker/filament/fdm_filament_petg_category.json",
+            "Snapmaker/filament/fdm_filament_common.json"
+        ]
+    }
+}
