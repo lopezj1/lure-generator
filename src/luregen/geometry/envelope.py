@@ -1,14 +1,17 @@
-"""Outer body envelope from a StationTable.
+"""Outer body envelope from a StationTable, in two styles.
 
 - `loft3d`: a section wire per station, lofted between nose and tail tip vertices.
+- `profile25d`: the side outline extruded symmetric about y = 0, with a roundover on both
+  outer edge loops (the CNC-friendly body).
 
 Coordinates follow the package convention: x from the nose tip, z up, y lateral.
 """
 
+from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
-from build123d import Edge, Solid, Vertex, Wire
+from build123d import Edge, Face, Solid, Vertex, Wire, extrude
 
 from luregen.geometry.validate import GeometryError, assert_valid
 from luregen.profile.table import StationTable
@@ -138,7 +141,155 @@ def loft3d(
     return solid
 
 
-# --- mass properties ------------------------------------------------------------------
+# --- profile25d -----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Roundover:
+    requested_mm: float
+    applied_mm: float
+    half_thickness_mm: float
+    min_curvature_radius_mm: float
+    max_fillet_mm: float | None  # None when the requested radius worked without a search
+    limited_by: str | None  # None, "half_thickness", "curvature" or "max_fillet"
+
+    @property
+    def clamped(self) -> bool:
+        return self.limited_by is not None
+
+    def describe(self) -> str:
+        if not self.clamped:
+            return f"roundover r = {self.applied_mm:.2f} mm"
+        return (
+            f"roundover clamped {self.requested_mm:.2f} → {self.applied_mm:.2f} mm "
+            f"(limited by {self.limited_by})"
+        )
+
+
+def outline_edges(table: StationTable) -> tuple[Edge, Edge]:
+    """Dorsal and ventral outline splines in the XZ plane, both running nose → tail."""
+    nose = (table.nose[0], 0.0, table.nose[1])
+    tail = (table.tail[0], 0.0, table.tail[1])
+    rows = list(zip(table.x, table.center_z, table.v_radius, strict=True))
+    dorsal = [(x, 0.0, cz + v) for x, cz, v in rows]
+    ventral = [(x, 0.0, cz - v) for x, cz, v in rows]
+    return Edge.make_spline([nose, *dorsal, tail]), Edge.make_spline([nose, *ventral, tail])
+
+
+def min_curvature_radius(edges: list[Edge], samples: int = 2000) -> float:
+    """Smallest radius of curvature along the edges (sampled)."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepLProp import BRepLProp_CLProps
+
+    k_max = 0.0
+    for edge in edges:
+        curve = BRepAdaptor_Curve(edge.wrapped)
+        for u in np.linspace(curve.FirstParameter(), curve.LastParameter(), samples):
+            k_max = max(k_max, BRepLProp_CLProps(curve, float(u), 2, 1e-9).Curvature())
+    return float("inf") if k_max == 0 else 1.0 / k_max
+
+
+def _try_fillet(solid: Solid, radius: float, edges: list[Edge]) -> Solid | None:
+    try:
+        result = solid.fillet(radius, edges)
+    except Exception:  # OCCT raises assorted types (StdFail_NotDone, TopOpeBRepDS…)
+        return None
+    if not result.is_valid or len(result.solids()) != 1:
+        return None
+    return result.solids()[0]
+
+
+def max_fillet(solid: Solid, edges: list[Edge], hi: float, tol: float = 0.05) -> float:
+    """Largest working fillet radius in (0, hi], by bounded bisection.
+
+    build123d's `Solid.max_fillet()` searches from 2× the bbox diagonal, runs out of
+    iterations before reaching 0.1 mm and lets some OCCT exception types escape.
+    """
+    lo = 0.0
+    if _try_fillet(solid, hi, edges) is not None:
+        return hi
+    while hi - lo > tol:
+        mid = 0.5 * (lo + hi)
+        if _try_fillet(solid, mid, edges) is not None:
+            lo = mid
+        else:
+            hi = mid
+    return lo
+
+
+def profile25d(
+    table: StationTable, roundover_r: float, curvature_margin: float = 0.98
+) -> tuple[Solid, Roundover]:
+    """Extrude the two-spline side outline to ±max half_width and round both outer loops.
+
+    The radius is clamped to the half-thickness, the outline's minimum curvature radius
+    (× `curvature_margin`) and, if the fillet still fails, to the largest working radius.
+    """
+    dorsal, ventral = outline_edges(table)
+    face = Face(Wire([dorsal, ventral]))
+    hw = float(table.half_width.max())
+    slab = extrude(face, amount=hw, both=True).solids()
+    if len(slab) != 1:
+        raise EnvelopeError(f"profile25d extrude produced {len(slab)} solids")
+    slab = slab[0]
+    assert_valid(slab, solids=1, shells=1, what="profile25d slab")
+
+    rho = min_curvature_radius([dorsal, ventral])
+    limits = {"half_thickness": hw, "curvature": curvature_margin * rho}
+    radius, limited_by = roundover_r, None
+    for name, limit in limits.items():
+        if limit < radius:
+            radius, limited_by = limit, name
+    if radius <= 0:
+        return slab, Roundover(roundover_r, 0.0, hw, rho, None, limited_by)
+
+    loops = [
+        e
+        for e in slab.edges()
+        if abs(e.bounding_box().min.Y - e.bounding_box().max.Y) < 1e-6
+        and abs(abs(e.center().Y) - hw) < 1e-6
+    ]
+    if len(loops) != 4:
+        raise EnvelopeError(f"expected 4 outer-loop edges (2 per side), found {len(loops)}")
+    body = _try_fillet(slab, radius, loops)
+    found = None
+    if body is None:
+        found = max_fillet(slab, loops, hi=radius)
+        if found <= 0:
+            raise EnvelopeError("profile25d: no roundover radius > 0 succeeded")
+        radius, limited_by = 0.98 * found, "max_fillet"
+        body = _try_fillet(slab, radius, loops)
+        if body is None:
+            raise EnvelopeError(f"profile25d: fillet failed at the clamped r = {radius:.3f}")
+    assert_valid(body, solids=1, shells=1, what="profile25d envelope")
+    return body, Roundover(roundover_r, radius, hw, rho, found, limited_by)
+
+
+# --- dispatch + mass properties -------------------------------------------------------
+
+
+@dataclass
+class Envelope:
+    solid: Solid
+    style: BodyStyle
+    section_shape: SectionShape | None = None
+    roundover: Roundover | None = None
+
+
+def build_envelope(
+    table: StationTable,
+    style: BodyStyle = "loft3d",
+    section_shape: SectionShape = "ellipse",
+    roundover_r: float = 4.0,
+    ruled: bool = False,
+) -> Envelope:
+    """Build the outer envelope in the requested body style."""
+    if style == "loft3d":
+        return Envelope(loft3d(table, section_shape, ruled=ruled), style, section_shape)
+    if style == "profile25d":
+        solid, roundover = profile25d(table, roundover_r)
+        return Envelope(solid, style, None, roundover)
+    raise EnvelopeError(f"unknown body style {style!r}")
 
 
 def mass_properties(solid: Solid) -> dict:
