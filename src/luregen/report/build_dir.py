@@ -65,6 +65,16 @@ def create_build_dir(cfg: LureConfig, out_root: Path, now: datetime | None = Non
     return build
 
 
+def update_report(build: Path, cfg: LureConfig, **fields) -> dict:
+    """Merge top-level `fields` into report.json and re-render report.md."""
+    path = build / "report.json"
+    report = json.loads(path.read_text())
+    report.update(fields)
+    path.write_text(json.dumps(report, indent=2) + "\n")
+    (build / "report.md").write_text(render_report_md(cfg, report))
+    return report
+
+
 def _config_warnings(cfg: LureConfig) -> list[str]:
     return [
         f"hardware {h.id!r} uses catalog placeholder masses (measured = false)"
@@ -92,9 +102,26 @@ def render_report_md(cfg: LureConfig, report: dict) -> str:
             f"| {h.name} | {h.section} | {h.qty} | {lo:.2f}–{hi:.2f} | "
             f"{g_to_oz(lo):.3f}–{g_to_oz(hi):.3f} | {'yes' if h.measured else 'no'} |"
         )
+    if env := report.get("envelope"):
+        lines += ["", "## Envelope", "", *_envelope_md(env)]
     if report["warnings"]:
         lines += ["", "## Warnings", "", *(f"- {w}" for w in report["warnings"])]
     return "\n".join(lines) + "\n"
+
+
+def _envelope_md(env: dict) -> list[str]:
+    bb, c = env["bbox_mm"]["size"], env["centroid_mm"]
+    lines = [
+        f"- Style: {env['style']}"
+        + (f" ({env['section_shape']} sections)" if env.get("section_shape") else ""),
+        f"- Volume: {env['volume_cm3']:.2f} cm³; solid mass at {env['material_density']} g/cm³: "
+        f"{env['solid_mass_g']:.1f} g ({g_to_oz(env['solid_mass_g']):.2f} oz)",
+        f"- Bounding box (x × y × z): {bb[0]:.1f} × {bb[1]:.1f} × {bb[2]:.1f} mm",
+        f"- Centroid: ({c[0]:.2f}, {c[1]:.2f}, {c[2]:.2f}) mm",
+    ]
+    if ro := env.get("roundover"):
+        lines.append(f"- {ro['note']}")
+    return lines
 
 
 def resolve_build_dir(path: Path) -> Path:
