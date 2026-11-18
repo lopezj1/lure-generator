@@ -1,7 +1,9 @@
 <script lang="ts">
   // Model tab: build picker, three-cad-viewer (lazy), section panel, report overlay.
-  // TODO(W4): follow the shared `currentBuild` store once it lands; the picker is local now.
+  // Follows the shared `currentBuild` store (set by the editor's Build action) and writes it
+  // back when the user picks another build here.
   import { api } from '../client';
+  import { currentBuild, setCurrentBuild } from '../stores/build';
   import CadView from './CadView.svelte';
   import ReportOverlay from './ReportOverlay.svelte';
   import SectionPanel from './SectionPanel.svelte';
@@ -39,6 +41,22 @@
     }
   }
   loadBuilds();
+
+  // A new current build (e.g. a finished build job): refresh the list and select it.
+  $effect(() => {
+    const cb = $currentBuild;
+    if (!cb) return;
+    const want = `${cb.family}/${cb.variant}/${cb.stamp}`;
+    if (want === selected) return;
+    loadBuilds().then(() => {
+      if (builds.some((b) => key(b) === want)) selected = want;
+    });
+  });
+
+  function pick(value: string) {
+    selected = value;
+    if (value) setCurrentBuild(`builds/${value}`);
+  }
 
   // Parts and bounds, then the (cached) tessellation.
   $effect(() => {
@@ -100,7 +118,11 @@
   <div class="bar">
     <label>
       Build
-      <select bind:value={selected} disabled={!builds.length}>
+      <select
+        value={selected}
+        onchange={(e) => pick(e.currentTarget.value)}
+        disabled={!builds.length}
+      >
         {#each builds as b (key(b))}
           <option value={key(b)}>
             {b.family}/{b.variant} · {b.stamp}{b.latest ? ' (latest)' : ''}
