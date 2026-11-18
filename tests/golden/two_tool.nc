@@ -1,0 +1,54 @@
+(Design File: golden two tool)
+(Setup: setup1, zero front-left corner, stock top)
+(stockMin:0.00mm, 0.00mm, -19.05mm)
+(stockMax:120.00mm, 60.00mm, 0.00mm)
+(STOCK/BLOCK,120.00, 60.00, 19.05, 0.00, 0.00, 19.05)
+G90
+G21
+G17
+(Move to safe Z to avoid workholding)
+G53G0Z-5.000
+(Ballast pocket)
+M05
+G53G0Z-5.000
+(TOOL/MILL,6.35, 0.00, 0.00, 0.00)
+M6T201
+M03S18000
+G4P3.00
+G0Z5.000
+X30.000Y20.000
+Z1.000
+G1Z-4.000F300.0
+X60.000F1200.0
+Y23.000
+X30.000
+Y26.000
+X60.000
+Y29.000
+X30.000
+Y32.000
+X60.000
+Y35.000
+X30.000
+Y38.000
+X60.000
+Y40.000
+X30.000
+G0Z5.000
+(Wire groove)
+M05
+G53G0Z-5.000
+(TOOL/MILL,3.17, 1.59, 0.00, 0.00)
+M6T101
+M03S24000
+G4P3.00
+(Check pocket floor)
+M0
+G0X10.000Y30.000
+Z1.000
+G1Z-1.587F200.0
+X110.000F800.0
+G0Z5.000
+M05
+G53G0Z-5.000
+M30
