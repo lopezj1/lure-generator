@@ -31,6 +31,9 @@ from luregen.geometry.validate import GeometryError
 from luregen.profile.table import StationTable
 
 QUAD_SEGS = 16  # arc resolution of shapely buffers (segments per quarter circle)
+# The sizer reads the body from linearly interpolated stations; the smooth loft can sit
+# ~0.1 mm inside that, so walls are checked with this much extra (F5 cnc.min_wall).
+WALL_MARGIN_MM = 0.15
 
 
 class CncGeometryError(GeometryError):
@@ -141,15 +144,28 @@ def _fits(body: _Body, p: GlueFacePocket, wall: float, x_min: float, x_max: floa
     z0, z1 = p.z - p.height / 2, p.z + p.height / 2
     if np.any(z0 < cz - v + wall) or np.any(z1 > cz + v - wall):
         return False
-    zs = np.array([z0, p.z, z1])
-    hw = body.half_width(xs[:, None], zs[None, :])
-    return bool(np.all(hw - wall >= p.depth - 1e-9))
+    return _max_depth(body, p.x, p.length, p.z, p.height, wall) >= p.depth - 1e-9
+
+
+# The wall is the true (Euclidean) distance to the outer surface: around the pocket's
+# top and bottom floor edges the body curves away, so the wall is checked on a quarter
+# circle of radius `wall` about each edge, not only straight out in y (F5 cnc.min_wall).
+_WALL_ANGLES = np.linspace(0.0, 0.5 * np.pi, 7)
 
 
 def _max_depth(body: _Body, x: float, length: float, z: float, height: float, wall: float):
+    wall = wall + WALL_MARGIN_MM
     xs = np.linspace(x - length / 2, x + length / 2, 25)
-    zs = np.array([z - height / 2, z, z + height / 2])
-    return float((body.half_width(xs[:, None], zs[None, :]) - wall).min())
+    out, dy = wall * np.sin(_WALL_ANGLES), wall * np.cos(_WALL_ANGLES)
+    # along the top and bottom floor edges
+    zs = np.concatenate([[z], z - height / 2 - out, z + height / 2 + out])
+    sub = np.concatenate([[wall], dy, dy])
+    depth = (body.half_width(xs[:, None], zs[None, :]) - sub[None, :]).min()
+    # around the end floor edges (the body tapers in x too)
+    xe = np.concatenate([x - length / 2 - out, x + length / 2 + out])
+    ze = np.array([z - height / 2, z, z + height / 2])
+    end = body.half_width(xe[:, None], ze[None, :]) - np.concatenate([dy, dy])[:, None]
+    return float(min(depth, end.min()))
 
 
 def size_glue_face_pocket(
