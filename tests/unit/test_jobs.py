@@ -342,9 +342,12 @@ def test_cli_args(root: Path):
         cli_args(root, ProfileJob(op="profile", args={"image": "uploads/side.jpg", "out": "a.txt"}))
 
 
-def test_real_build_then_fab_stub(tmp_path: Path, monkeypatch):
-    """One real `python -m luregen` build job on the sample variant, then `fab` (a stub)."""
+def test_real_build_then_fab_print(tmp_path: Path, monkeypatch):
+    """One real `python -m luregen` build job on the sample variant, then `fab` (fake slicer)."""
+    from print_jobs import install_fake_slicer
+
     monkeypatch.setenv("LUREGEN_GIT_SHA", "abc1234")
+    install_fake_slicer(tmp_path, monkeypatch)
     shutil.copytree(REPO / "spec", tmp_path / "spec")
     variant = "spec/designs/glide/variants/striper_175_petg.toml"
     with TestClient(create_app(tmp_path)) as client:
@@ -362,5 +365,6 @@ def test_real_build_then_fab_stub(tmp_path: Path, monkeypatch):
 
         res = client.post("/api/jobs", json={"op": "fab_print", "args": {"build": build_dir}})
         fab = wait(client, res.json()["id"])
-    assert fab["status"] == "failed" and fab["returncode"] == 2
-    assert "Not implemented yet" in fab["error"]
+    assert fab["status"] == "succeeded", fab["error"]
+    assert fab["result"]["files"] == ["fab/print/head.gcode", "fab/print/tail.gcode"]
+    assert (tmp_path / build_dir / "fab/print/print.json").is_file()

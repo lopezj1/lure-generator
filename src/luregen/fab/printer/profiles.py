@@ -165,14 +165,25 @@ def flatten_profile(
     return FlatProfile(kind=kind, name=data["name"], data=data, chain=[rel for rel, _ in chain])
 
 
+def extra_filament_key(material: str) -> str:
+    """Key (and file stem) of an extra filament profile: `filament-<material>`."""
+    return f"filament-{material}"
+
+
 def flatten_app(app: SlicerApp, fetch: Fetcher) -> dict[str, FlatProfile]:
-    """Flatten the machine, process and filament chains of one slicer app."""
+    """Flatten the machine, process and filament chains of one slicer app, plus the extra
+    filaments (`filament-<material>` keys)."""
     sets = app.profiles
     source = ProfileSource(fetch, [sets.vendor, sets.library])
-    return {
+    out = {
         kind: flatten_profile(source, kind, sets.name(kind), sets.vendor, app.drop_keys)
         for kind in PROFILE_KINDS
     }
+    for material, name in sets.filaments.items():
+        out[extra_filament_key(material)] = flatten_profile(
+            source, "filament", name, sets.vendor, app.drop_keys
+        )
+    return out
 
 
 def dump_profile(data: dict[str, Any]) -> str:
@@ -182,12 +193,15 @@ def dump_profile(data: dict[str, Any]) -> str:
 def write_profiles(
     machine: PrinterMachine, app_key: str, profiles: dict[str, FlatProfile]
 ) -> list[Path]:
-    """Write `<printer>/profiles/<app>/{machine,process,filament}.json` plus `source.json`."""
+    """Write `<printer>/profiles/<app>/{machine,process,filament}.json`, the extra
+    `filament-<material>.json` files and `source.json`."""
     app = machine.slicer(app_key)
     out = machine.profile_dir(app_key)
     out.mkdir(parents=True, exist_ok=True)
     written = []
-    for kind, path in machine.profile_paths(app_key).items():
+    paths = machine.profile_paths(app_key)
+    paths.update({k: out / f"{k}.json" for k in profiles if k not in PROFILE_KINDS})
+    for kind, path in paths.items():
         path.write_text(dump_profile(profiles[kind].data))
         written.append(path)
     source = {

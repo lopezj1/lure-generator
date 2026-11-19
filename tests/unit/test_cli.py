@@ -44,7 +44,7 @@ def test_new_command_module_is_discovered_without_editing_cli(tmp_path: Path, mo
     assert isinstance(fakecmds, types.ModuleType)
 
 
-def test_stub_command_exits_with_pointer_to_issue():
-    result = CliRunner().invoke(make_app(), ["fab", "builds/x", "--format", "print"])
-    assert result.exit_code == 2
-    assert "#25" in result.output
+def test_fab_print_without_a_build_fails_cleanly(tmp_path):
+    result = CliRunner().invoke(make_app(), ["fab", str(tmp_path / "x"), "--format", "print"])
+    assert result.exit_code == 1
+    assert "print error" in result.output

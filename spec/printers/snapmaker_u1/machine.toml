@@ -32,6 +32,10 @@ machine = "Snapmaker U1 (0.4 nozzle)"
 process = "0.20 Standard @Snapmaker U1 (0.4 nozzle)"
 filament = "Generic PETG @U1 0.4 nozzle"
 
+# Extra filament profiles by material, flattened to profiles/<app>/filament-<material>.json.
+[apps.orca.profiles.filaments]
+PLA = "Generic PLA @U1 0.4 nozzle"
+
 # Snapmaker's Orca fork (fallback). Never mix its profiles with the upstream binary.
 [apps.snapmaker]
 label = "Snapmaker Orca"
@@ -51,9 +55,58 @@ machine = "Snapmaker U1 (0.4 nozzle)"
 process = "0.20mm Standard @Snapmaker U1 (0.4 nozzle)"
 filament = "Generic PETG"
 
+[apps.snapmaker.profiles.filaments]
+PLA = "Generic PLA"
+
+# What is loaded in each tool (T0–T3). Every slot's filament profile is passed to the slicer,
+# in slot order, so tool numbers in the G-code match the machine. The variant picks the body
+# and support-interface slots ([print] body_slot / interface_slot); by default the first slot
+# holding process.material, and for supports the first slot holding its interface pair.
+# `material` is a key of spec/materials.toml with a filament profile (filament.json is PETG).
+[[filaments]]
+slot = 0
+material = "PLA"
+color = "#E8E8E8"
+
+[[filaments]]
+slot = 1
+material = "PETG"
+color = "#3C78D8"
+
+[[filaments]]
+slot = 2
+material = "PLA"
+color = "#E8E8E8"
+
+[[filaments]]
+slot = 3
+material = "PLA"
+color = "#E8E8E8"
+
+# Dissimilar-material support interface (#51): PLA and PETG don't bond, so a 0 mm top gap
+# still peels clean and leaves no support scarring on the body.
+[support_interface]
+pairs = { PETG = "PLA", PLA = "PETG" }
+
+# Added to [overrides] when a job has supports. Supports grow from the plate only: the sealed
+# cavity's roof is self-supporting, and support inside it could never come out. Bridges
+# (pocket ceilings) print unsupported.
+[support_overrides]
+enable-support = true
+support-type = "tree(auto)"
+support-on-build-plate-only = true
+bridge-no-support = true
+
+# Added on top of those when the interface is a dissimilar filament. `lure fab` also sets
+# support-filament (base = body slot), support-interface-filament and the prime tower.
+[interface_overrides]
+support-top-z-distance = 0
+support-interface-top-layers = 3
+
 # Lure overrides on top of the stock profiles, passed as `--<key>=<value>`.
-# Booleans become 1/0. The stock U1 process enables the prime tower (4 tools); a lure is
-# single-material, so it is turned off. Solid infill keeps the mass model honest.
+# Booleans become 1/0. The stock U1 process enables the prime tower (4 tools); it stays off
+# for single-filament jobs and is switched on by `lure fab` when the job uses two filaments.
+# Solid infill keeps the mass model honest.
 [overrides]
 enable-prime-tower = false
 sparse-infill-density = "100%"

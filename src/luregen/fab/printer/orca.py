@@ -183,8 +183,16 @@ def build_command(
     stl: Path,
     outdir: Path,
     xvfb: bool = True,
+    filaments: list[Path] | None = None,
+    filament_ids: str | None = None,
 ) -> list[str]:
-    """The slicer argv for one STL. `xvfb` wraps it in `xvfb-run -a` (needs an X display)."""
+    """The slicer argv for one STL. `xvfb` wraps it in `xvfb-run -a` (needs an X display).
+
+    `filaments` replaces the single `filament` profile (one per tool, in slot order) and
+    `filament_ids` assigns the object to one of them (1-based).
+    """
+    loaded = ";".join(str(p) for p in filaments) if filaments else str(profiles["filament"])
+    ids = ["--load-filament-ids", filament_ids] if filament_ids else []
     cmd = [
         str(slicer),
         "--slice",
@@ -192,7 +200,8 @@ def build_command(
         "--load-settings",
         f"{profiles['machine']};{profiles['process']}",
         "--load-filaments",
-        str(profiles["filament"]),
+        loaded,
+        *ids,
         *(format_override(k, v) for k, v in overrides.items()),
         "--outputdir",
         str(outdir),
@@ -208,8 +217,15 @@ def slice_stl(
     app_key: str | None = None,
     extra_overrides: dict[str, Any] | None = None,
     fetch: bool = True,
+    filaments: list[Path] | None = None,
+    filament_ids: str | None = None,
+    replace_overrides: bool = False,
 ) -> SliceResult:
-    """Slice one STL to `<outdir>/<stl stem>.gcode`; the slicer's output goes to `.slice.log`."""
+    """Slice one STL to `<outdir>/<stl stem>.gcode`; the slicer's output goes to `.slice.log`.
+
+    `extra_overrides` go on top of the machine's; with `replace_overrides` they are the whole
+    set (a job plan that already merged them).
+    """
     app = machine.slicer(app_key)
     stl = Path(stl).resolve()
     if stl.suffix.lower() != ".stl":
@@ -217,7 +233,8 @@ def slice_stl(
     if not stl.is_file():
         raise SlicerError(f"input not found: {stl}")
     profiles = {k: p.resolve() for k, p in machine.profile_paths(app.key).items()}
-    missing = [str(p) for p in profiles.values() if not p.is_file()]
+    filaments = [Path(p).resolve() for p in filaments] if filaments else None
+    missing = [str(p) for p in [*profiles.values(), *(filaments or [])] if not p.is_file()]
     if missing:
         raise SlicerError(f"flattened profiles missing ({missing}); run `lure sync-profiles`")
 
@@ -229,17 +246,20 @@ def slice_stl(
 
     slicer = find_slicer(machine, app, fetch=fetch).resolve()
     runtime = choose_runtime(machine, app, slicer)
-    overrides = {**machine.overrides, **(extra_overrides or {})}
+    base = {} if replace_overrides else machine.overrides
+    overrides = {**base, **(extra_overrides or {})}
+    fil = {"filaments": filaments, "filament_ids": filament_ids}
     if runtime == "docker":
         ensure_docker_image(machine.runtime.docker_image, _repo_root(machine))
         mounts = [slicer.parent, profiles["machine"].parent, stl.parent, work]
+        mounts += sorted({p.parent for p in filaments or []})
         argv = docker_prefix(machine.runtime.docker_image, mounts, work)
         # Time out inside the container too: killing the docker client leaves it running.
         argv += ["timeout", str(int(machine.runtime.timeout_s))]
-        argv += build_command(slicer, profiles, overrides, stl, work, xvfb=True)
+        argv += build_command(slicer, profiles, overrides, stl, work, xvfb=True, **fil)
     else:
         argv = build_command(
-            slicer, profiles, overrides, stl, work, xvfb=bool(shutil.which("xvfb-run"))
+            slicer, profiles, overrides, stl, work, xvfb=bool(shutil.which("xvfb-run")), **fil
         )
 
     log = outdir / f"{stl.stem}.slice.log"
