@@ -22,7 +22,7 @@ def test_shapeoko_specs_validate():
     assert post.word_separator == "" and post.units == "mm"
     assert {"G80", "G81", "G82", "G83", "G43", "G10", "G92"} <= set(post.forbid)
     assert machine.controller.kind == "carbide_motion"
-    assert machine.travel.z > 0 and not machine.travel.verified
+    assert machine.travel.z > 0 and machine.travel.verified
     assert lib.get("ball_3.175").corner == pytest.approx(3.175 / 2)
     assert lib.get("flat_6.35").corner == 0
 

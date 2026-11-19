@@ -53,7 +53,7 @@ def test_carbide_style_header_and_tool_change():
     assert {"G90", "G21", "G53G0Z-5.000"} <= set(lines)
     i = lines.index("M6T201")
     assert lines[i - 3 : i] == ["M05", "G53G0Z-5.000", "(TOOL/MILL,6.35, 0.00, 0.00, 0.00)"]
-    assert lines[i + 1 : i + 3] == ["M03S18000", "G4P3.00"]
+    assert lines[i + 1 : i + 4] == ["M03S18000", "(Router dial 2 = 18000 rpm)", "G4P3.00"]
     # Every tool, the first included, gets the full block so the BitSetter measures it.
     assert lines.count("M05") == 3 and "M6T101" in lines and lines[-1] == "M30"
     assert "M0" in lines

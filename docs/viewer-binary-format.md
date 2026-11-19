@@ -125,9 +125,10 @@ CNC only:
 ## CNC job timeline
 
 The `time` array gives each segment's start and end in seconds from the start of the file,
-for job-progress scrubbing. A feed or plunge takes length / F; a rapid takes its slowest axis
-at `params.rapid_rates` (default 5000/5000/2500 mm/min, the Shapeoko's `rapid_mm_min`); a
-jump takes no time. Waits sit *between* segments: each `M6` adds `params.tool_change_s`
+for job-progress scrubbing. A feed or plunge takes length / F, but no less than its slowest axis
+at `params.rapid_rates` allows (GRBL caps every move by the per-axis max rate); a rapid takes
+its slowest axis at `params.rapid_rates` (default 15000/15000/1300 mm/min, the Shapeoko's
+`rapid_mm_min`, GRBL `$110`-`$112`); a jump takes no time. Waits sit *between* segments: each `M6` adds `params.tool_change_s`
 (default 60 s: prompt, swap, BitSetter probe) and each `G4 P…` dwell its seconds, so the next
 segment starts later than the previous one ended. Acceleration is ignored, as in
 `fab.router.verify`'s runtime estimate.

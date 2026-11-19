@@ -234,14 +234,14 @@ def test_cnc_timeline_two_tool_golden():
     gap = time[change["segment"], 0] - time[change["segment"] - 1, 1]
     assert gap == pytest.approx(63, abs=1e-3)
     assert change["time_s"] == pytest.approx(float(time[change["segment"] - 1, 1]), abs=0.01)
-    # X1000 at F1200 takes 30 s; a rapid is limited by its slowest axis (Z at 2500 mm/min).
+    # X1000 at F1200 takes 30 s; a rapid is limited by its slowest axis (Z at 1300 mm/min).
     feed = np.flatnonzero((tp.seg_kind == FEED) & (tp.feed == 1200))[0]
     assert time[feed, 1] - time[feed, 0] == pytest.approx(30 / 1200 * 60, rel=1e-4)
     z_rapid = np.flatnonzero(
         (tp.seg_kind == RAPID) & (tp.points[:-1, :2] == tp.points[1:, :2]).all(axis=1)
     )[0]
     dz = abs(float(tp.points[z_rapid + 1, 2] - tp.points[z_rapid, 2]))
-    assert time[z_rapid, 1] - time[z_rapid, 0] == pytest.approx(dz / 2500 * 60, rel=1e-4)
+    assert time[z_rapid, 1] - time[z_rapid, 0] == pytest.approx(dz / 1300 * 60, rel=1e-4)
     assert [t["spindle_rpm"] for t in meta["tools"]] == [18000, 24000]
 
 

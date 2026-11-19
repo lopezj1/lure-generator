@@ -249,4 +249,8 @@ def _duration(mv: Motion, rates) -> float:
         return 0.0
     if mv.mode == "rapid":
         return max(abs(e - s) / r for s, e, r in zip(mv.start, mv.end, rates, strict=True)) * 60
-    return motion_length(mv) / mv.feed * 60 if mv.feed else 0.0
+    if not mv.feed:
+        return 0.0
+    # GRBL slows a feed move so no axis exceeds its max rate (the rapid rates, $110-$112).
+    capped = max(abs(e - s) / r for s, e, r in zip(mv.start, mv.end, rates, strict=True))
+    return max(motion_length(mv) / mv.feed, capped) * 60

@@ -39,7 +39,7 @@ SEEDED = [
     ("spindle_off", lambda t: _inject(t, "G0Z5.000", "M05")),
     ("below_stock", lambda t: _inject(t, "Y23.000", "Z-25.000")),
     ("outside_stock", lambda t: _inject(t, "Y23.000", "X200.000")),
-    ("travel", lambda t: _inject(t, "G21", "G53G0Z-150.000")),
+    ("travel", lambda t: _inject(t, "G21", "G53G0Z-160.000")),
     ("arc_radius", lambda t: _inject(t, "Y23.000", "G2X40.000Y23.000I-4.000J0.100")),
 ]
 
@@ -65,6 +65,15 @@ def test_runtime_estimate():
     report = verify(text, post, machine, stock=((0, 0, -5), (100, 10, 0)))
     # 2 s dwell + 5 mm and 100 mm at 600 mm/min; the first rapid starts from unknown XY.
     assert report.runtime_s == pytest.approx(2 + 105 / 10)
+
+
+def test_feed_move_capped_by_axis_max_rate():
+    post, machine, _ = shapeoko()
+    # A 13 mm Z plunge at F4000 is limited by Z's max rate (1300 mm/min, GRBL $112): 0.6 s.
+    text = "G21\nG0X0Y0Z5\nG1Z-8F4000\nM30\n"
+    report = verify(text, post, machine, stock=((0, 0, -10), (10, 10, 0)))
+    z_rapid = 0.0  # the first rapid starts from unknown position
+    assert report.runtime_s == pytest.approx(z_rapid + 13 / 1300 * 60)
 
 
 def _pocket_program(depth=-4.0) -> Program:

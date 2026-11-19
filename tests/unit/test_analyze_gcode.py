@@ -51,7 +51,8 @@ def test_own_post_output_round_trips_to_current_config():
     assert proposed.word_separator == current.word_separator
     assert proposed.decimals == current.decimals
     assert proposed.tool_change == ["M05", "G53 G0 Z-5.000", *current.tool_change[2:]]
-    assert proposed.spindle.on == current.spindle.on
+    # Operator comments (the router dial line) can't be inferred from G-code, only codes.
+    assert proposed.spindle.on == [ln for ln in current.spindle.on if not ln.startswith("(")]
     assert proposed.spindle.dwell_s == current.spindle.dwell_s
 
 
