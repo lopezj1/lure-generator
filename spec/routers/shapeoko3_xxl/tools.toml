@@ -26,3 +26,15 @@ shape = "ball"
 diameter = 3.175
 flutes = 2
 number_verified = false
+
+[tools."flat_0.794"]
+name = "1/32in flat end mill"
+number = 5          # T5 in the owner's Fusion finishing job; unverified for Carbide Motion
+shape = "flat"
+diameter = 0.794
+flutes = 2
+number_verified = false
+# Reach for 3D finishing: the shank can't go below the flutes' length into a deep wall.
+# Typical 1/32in stub tools: 1/8in shank, ~2.4 mm (3/32in) flutes. Unverified (#28).
+flute_length = 2.4
+shank_diameter = 3.175

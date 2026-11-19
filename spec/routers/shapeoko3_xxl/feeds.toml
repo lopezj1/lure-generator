@@ -93,6 +93,7 @@ shape = "flat"
 base_mode = "aggressive"
 feed_mm_min = 4572.0     # 180 IPM
 plunge_mm_min = 1016.0   # 40 IPM ramp
+doc_mm = 1.0             # main z-levels: the job stepped 0.5-1.0 mm (0.127 near the top)
 source = "owner Fusion 360 job, #27 comment 2026-11-18"
 
 [presets."owner_contour_flat_3.175"]

@@ -338,12 +338,45 @@ class FaceOp(CncOp):
     mode: Literal["conservative", "aggressive"] = "aggressive"
 
 
+class Rough3dOp(CncOp):
+    """Setup-2 z-level roughing of the outer face (#42)."""
+
+    tool: str = "flat_3.175"
+    preset: str | None = "owner_rough_flat_3.175"
+    enabled: bool = True
+    allowance_mm: float = Field(0.5, ge=0, description="Stock left for finishing.")
+    max_stair_mm: float = Field(
+        0.25, gt=0, description="Extra rest levels so shallow areas keep ≤ this stair."
+    )
+    resolution_mm: float = Field(0.15, gt=0.01, le=1.0, description="Heightmap cell size.")
+    boundary_mm: float = Field(
+        1.0, ge=0, description="Tool centres run this far past silhouette + r + allowance."
+    )
+
+
+class Finish3dOp(CncOp):
+    """Setup-2 parallel raster finishing of the outer face (#42). Default: the owner's
+    1/32in flat at 0.076 mm stepover; a ball nose uses the scallop stepover √(8·R·h)."""
+
+    tool: str = "flat_0.794"
+    preset: str | None = "owner_finish_flat_0.794"
+    enabled: bool = True
+    stepover_mm: float | None = Field(
+        None, gt=0, description="Override; default: the preset (flat) or the scallop (ball)."
+    )
+    scallop_mm: float = Field(0.01, gt=0, description="Ball-nose scallop height.")
+    resolution_mm: float = Field(0.05, gt=0.005, le=0.5, description="Heightmap cell size.")
+    tolerance_mm: float = Field(0.005, gt=0, description="Point decimation tolerance.")
+
+
 class CncOps(Strict):
     pocket: PocketOp = PocketOp()
     groove: GrooveOp = GrooveOp()
     drill: DrillOp = DrillOp()
     profile: ProfileOp = ProfileOp()
     face: FaceOp = FaceOp()
+    rough3d: Rough3dOp = Rough3dOp()
+    finish3d: Finish3dOp = Finish3dOp()
 
 
 class AirPocket(Strict):

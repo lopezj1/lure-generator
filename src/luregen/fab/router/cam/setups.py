@@ -11,14 +11,19 @@ its outer surface points down, so for side s (+1 right, −1 left):
 
 (a proper rotation: right halves keep the dorsal side at +Y, left halves are mirrored in Y).
 Ops: optional facing, glue-face pockets, flip-pin holes through the stock into the
-spoilboard, then the ball-nose wire groove.
+spoilboard, the ball-nose wire groove, then 3D roughing/finishing of any **overhang**: a
+part of the side view the glue face doesn't cover (the tail's V-notch faces lean over its
+glue face, so setup 2 can't reach them from above).
 
 **Flip.** Turn the blank over about the X axis, onto the pins: (X, Y, Z) → (X, W − Y, −T − Z)
 with the same XY zero (front-left corner) and Z re-zeroed on the new top. The pins sit on the
 flip axis Y = W/2, so their holes map onto themselves.
 
-**Setup 2, outer face up.** 3D roughing/finishing of the outer surface (#42, through
-`SETUP2_3D_OPS`), then the cut-out around each half's side-view silhouette with tabs.
+**Setup 2, outer face up.** 3D roughing of the outer surface down to the floor (the top of
+the tabs), the cut-out around each half's side-view silhouette with tabs (starting at the
+depth roughing left along its path), then 3D finishing (`ops3d`, #42). Ops are grouped by
+tool, so the roughing tool also cuts out before the finishing tool goes in, as in the
+owner's jobs. `SETUP2_3D_OPS` hooks still run first.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import numpy as np
+import shapely
 from shapely import affinity
 from shapely.geometry import LineString, Polygon
 from shapely.geometry import box as shp_box
@@ -51,6 +57,7 @@ class Half:
     silhouette: Polygon  # side view (x, z)
     half_width: float  # max |y|
     mesh: Any = None  # trimesh of the half, for 3D ops (#42)
+    glue_outline: Polygon | None = None  # glue face (y = 0) outline in (x, z), holes dropped
     ox: float = 0.0
     oy: float = 0.0
 
@@ -182,6 +189,18 @@ class OpCtx:
     tabs_width: float = 5.0
     tabs_height: float = 1.5
     overcut: float = 0.3
+    surface: Surface3D | None = None  # 3D outer-face ops in setup 2 (#42)
+    report: dict = field(default_factory=dict)  # filled by the planner (3D stats, notes)
+
+
+@dataclass
+class Surface3D:
+    """3D roughing/finishing of the outer face: settings and cutter geometry per op kind
+    (`rough3d`, `finish3d`; either may be None)."""
+
+    rough: Any = None  # ops3d.Rough3D
+    finish: Any = None  # ops3d.Finish3D
+    cutters: dict[str, Any] = field(default_factory=dict)  # kind -> heightmap.Cutter
 
 
 # Extension point for #42: functions (layout, ctx) → list[Operation] run in setup 2 before
@@ -219,22 +238,105 @@ def setup1_ops(layout: Layout, features: list[GlueFeature], ctx: OpCtx) -> list[
                 path = layout.to_work(h, f.geom, "setup1")
                 moves = ops2d.groove(path, glue, glue - f.depth, ctx.cuts["groove"])
                 ops.append(_op(f"{h.label}: {f.name} groove", "groove", ctx, moves))
+    if ctx.surface is not None:
+        regions = {h.label: r for h in layout.halves if (r := overhang(layout, h)) is not None}
+        if regions:
+            ops += surface_ops(layout, ctx, "setup1", regions)[0]
     return group_by_tool(ops)
+
+
+def overhang(layout: Layout, half: Half, min_area: float = 1.0):
+    """Setup-1 work region of a half that its outer face can't reach from setup 2: where
+    the silhouette sticks out past the glue face (e.g. the tail's V-notch faces, which lean
+    over the glue face). None if there's none."""
+    if half.glue_outline is None:
+        return None
+    rest = half.silhouette.difference(half.glue_outline.buffer(0.2))
+    parts = [p for p in ops2d._polys(rest) if p.area >= min_area and p.minimum_clearance > 0]
+    parts = [p for p in parts if p.buffer(-0.3).area > 0]
+    if not parts:
+        return None
+    return layout.to_work(half, shapely.union_all(parts), "setup1")
 
 
 def setup2_ops(layout: Layout, ctx: OpCtx) -> list[Operation]:
     ops: list[Operation] = []
     for fn in SETUP2_3D_OPS:
         ops += fn(layout, ctx)
+    tops: dict[str, float] = {}
+    if ctx.surface is not None and (ctx.surface.rough or ctx.surface.finish):
+        regions = {h.label: layout.to_work(h, h.silhouette, "setup2") for h in layout.halves}
+        more, tops = surface_ops(layout, ctx, "setup2", regions)
+        ops += more
     bottom = -layout.thickness - ctx.overcut
     tabs = None
     if ctx.tabs_count > 0:
         tabs = Tabs(ctx.tabs_count, ctx.tabs_width, -layout.thickness + ctx.tabs_height)
     for h in layout.halves:
         region = layout.to_work(h, h.silhouette, "setup2")
-        moves = ops2d.profile(region, 0.0, bottom, ctx.cuts["profile"], tabs)
+        moves = ops2d.profile(region, tops.get(h.label, 0.0), bottom, ctx.cuts["profile"], tabs)
         ops.append(_op(f"{h.label}: cut-out", "profile", ctx, moves))
     return group_by_tool(ops)
+
+
+def floor_z(layout: Layout, ctx: OpCtx) -> float:
+    """Lowest Z of the 3D ops: the tab band above the glue face is left for the cut-out."""
+    return -layout.thickness + (ctx.tabs_height if ctx.tabs_count > 0 else 0.5)
+
+
+def surface_ops(
+    layout: Layout, ctx: OpCtx, setup: str, regions: dict[str, Any]
+) -> tuple[list[Operation], dict[str, float]]:
+    """3D roughing and finishing over each half's work region (setup 2: its silhouette, the
+    whole outer face; setup 1: its overhang), and, in setup 2, the Z where each half's
+    cut-out can start (the material top left by roughing along its path)."""
+    from luregen.fab.router.cam import ops3d
+    from luregen.fab.router.cam.heightmap import dilate_flat
+
+    sf = ctx.surface
+    assert sf is not None
+    wm = ops3d.WorkMesh.of(layout, setup)
+    floor = floor_z(layout, ctx)
+    top = 0.0 if setup == "setup2" else layout.glue_z
+    ops: list[Operation] = []
+    tops: dict[str, float] = {}
+    stats = ctx.report.setdefault("surface3d", {"floor_z": round(floor, 3)})
+    stats = stats.setdefault(setup, {})
+    prof = ctx.cuts["profile"]
+    for h in layout.halves:
+        if h.label not in regions:
+            continue
+        region = regions[h.label]
+        what = "3D" if setup == "setup2" else "3D overhang"
+        info: dict[str, Any] = {}
+        if sf.rough is not None:
+            cut, cutter = ctx.cuts["rough3d"], sf.cutters["rough3d"]
+            boundary = region.buffer(cutter.r + sf.rough.allowance + sf.rough.boundary)
+            res = ops3d.rough(wm, boundary, floor, cut, cutter, sf.rough, top)
+            ops.append(_op(f"{h.label}: {what} rough", "rough3d", ctx, res.moves))
+            info["rough_levels"] = len(res.levels)
+            info["rough_main_levels"] = sum(1 for _, m in res.levels if m)
+            if setup == "setup2":
+                # Material top under the cut-out tool along its path, from the roughing sweep
+                sil = layout.to_work(h, h.silhouette, setup)
+                path = sil.buffer(prof.r, quad_segs=ops2d.QUAD_SEGS).exterior.segmentize(0.5)
+                mat = dilate_flat(res.swept, prof.r + res.grid.rx, res.grid)
+                i, j = res.grid.index(*np.asarray(path.coords).T)
+                ok = (i >= 0) & (i < res.grid.nx) & (j >= 0) & (j < res.grid.ny)
+                zmax = float(mat[j[ok], i[ok]].max()) if ok.all() else 0.0
+                tops[h.label] = min(0.0, zmax + 0.2)
+                info["cutout_start_z"] = round(tops[h.label], 3)
+        if sf.finish is not None:
+            cut, cutter = ctx.cuts["finish3d"], sf.cutters["finish3d"]
+            area = region.buffer(cutter.r + sf.finish.margin)
+            clear = (sf.rough.allowance + sf.rough.max_stair + 0.25) if sf.rough else 1.0
+            moves = ops3d.finish(wm, area, floor, cut, cutter, sf.finish, clear)
+            ops.append(_op(f"{h.label}: {what} finish", "finish3d", ctx, moves))
+            zs = [mv.z for mv in moves if getattr(mv, "z", None) is not None]
+            info["finish_moves"] = len(moves)
+            info["finish_min_z"] = round(min(zs), 3) if zs else None
+        stats[h.label] = info
+    return ops, tops
 
 
 def group_by_tool(ops: list[Operation]) -> list[Operation]:

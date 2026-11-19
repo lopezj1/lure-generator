@@ -4,7 +4,8 @@
   Each op returns IR moves (`luregen.fab.router.ir`) in work coordinates.
 - `setups`: stock layout of the CNC halves, part → setup transforms, the flip about X, and
   the two-setup plan (glue face, then outer face).
-- `job`: `lure fab --format cnc` from a build folder: plan, post, split by tool, verify.
-
-3D heightmap roughing/finishing (#42) plugs into `setups.plan` through `SETUP2_3D_OPS`.
+- `heightmap`: z-buffer heightmaps of the half meshes, flat/ball drop-cutter dilations.
+- `ops3d`: z-level roughing and parallel raster finishing on those heightmaps (#42).
+- `job`: `lure fab --format cnc` from a build folder: plan, post, split by tool, verify,
+  simulate against the halves and write the setup sheet (#43).
 """

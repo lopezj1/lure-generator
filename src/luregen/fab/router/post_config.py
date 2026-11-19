@@ -175,6 +175,8 @@ class ToolEntry(Strict):
     flutes: int | None = None
     name: str = ""
     number_verified: bool = False
+    flute_length: float | None = Field(None, gt=0, description="mm; 3D ops check reach.")
+    shank_diameter: float | None = Field(None, gt=0, description="mm; default = diameter.")
 
     def to_tool(self, tool_id: str) -> Tool:
         return Tool(
