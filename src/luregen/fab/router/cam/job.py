@@ -338,6 +338,7 @@ def run(build: Path, spec: Path, machine_name: str | None = None) -> CncResult:
 
 SIM_RES = 0.15  # mm
 SIM_TOL = 0.05  # mm
+WALL_JUMP = 1.0  # mm across a 3×3 neighbourhood: a vertical wall, not a slope
 
 
 def simulate_setups(layout, ctx, features, files: list[NcFile], build: Path, out: Path) -> dict:
@@ -367,8 +368,9 @@ def simulate_setups(layout, ctx, features, files: list[NcFile], build: Path, out
         part = np.isfinite(target)
         # Gouge against the target's 3×3 minimum, so a vertical wall falling between cell
         # centres (the cut-out, pocket walls) doesn't count as a gouge of the wall's height.
-        # Leftover is the plain difference (conservative).
-        from scipy.ndimage import minimum_filter
+        # Leftover is the plain difference, except on cells next to a vertical wall (the
+        # target jumps > WALL_JUMP within one cell), where the wall's cell edge decides.
+        from scipy.ndimage import maximum_filter, minimum_filter
 
         lo = minimum_filter(np.where(part, target, -1e3), 3, mode="nearest")
         cut_below = np.where(part, np.maximum(lo - stock.z, 0.0), 0.0)
@@ -396,7 +398,9 @@ def simulate_setups(layout, ctx, features, files: list[NcFile], build: Path, out
             surface = part & (target >= st.floor_z(layout, ctx) + 0.01)
         rim = part & ~surface
         gouge = np.where(check_gouge, cut_below, 0.0)
-        left = np.where(surface, left_above, 0.0)
+        hi = maximum_filter(np.where(part, target, 1e3), 3, mode="nearest")
+        wall = (hi - lo) > WALL_JUMP
+        left = np.where(surface & ~wall, left_above, 0.0)
         res = {
             "resolution_mm": SIM_RES,
             "tolerance_mm": SIM_TOL,
@@ -642,8 +646,8 @@ def setup_sheet(summary: dict) -> str:
             "",
             "Heightmap cut simulation of each setup's files against the halves "
             f"({next(iter(sims.values()))['resolution_mm']} mm cells). Gouge: cut below the "
-            "surface. Leftover: material above it on the machined surface. Rim: the tab band "
-            "under setup 2's floor.",
+            "surface. Leftover: material above it on the machined surface (cells on a vertical "
+            "wall's edge excluded). Rim: the tab band under setup 2's floor.",
             "",
             "| Setup | Gouge max mm | Leftover max mm | Leftover p95 mm | "
             "Leftover > tol | Rim leftover max mm | Plot |",
