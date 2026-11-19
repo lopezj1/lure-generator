@@ -6,16 +6,20 @@ router's spec folder (post, machine, tools, feeds). Writes `<build>/fab/cnc/`:
 - `<setup>_<nn>_<tool>.nc` per tool (default, `output.split_by_tool`), else `<setup>.nc`
 - `halves/<section>_<side>.stl`: the centerplane halves, in lure coordinates
 - `cnc.json`: layout, files in run order, tools, feeds (with chipload status), runtimes,
-  verify results and warnings
-- `setup.md`: a first setup sheet (#43 extends it)
+  verify results, 3D op stats, the simulation result and warnings
+- `sim_<setup>.png`: heightmap simulation of each setup vs the halves (gouge/leftover)
+- `setup.md`: the setup sheet: stock, zero, files in run order with the tool to load, the
+  flip, what goes in before glue-up and what's left after it, the simulation, feeds
 """
 
 from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+
+import numpy as np
 
 from luregen import progress
 from luregen.config import LureConfig, load_resolved
@@ -36,7 +40,7 @@ from luregen.fab.router.post_config import (
 from luregen.fab.router.verify import verify
 
 OUT_DIR = "fab/cnc"  # web viewer and archive groups expect this path
-OP_KINDS = ("pocket", "groove", "drill", "profile", "face")
+OP_KINDS = ("pocket", "groove", "drill", "profile", "face", "rough3d", "finish3d")
 
 
 class CncJobError(RuntimeError):
@@ -96,6 +100,13 @@ def make_cut(
         feeds = fd.calculate(
             table, tool.diameter, material, op.mode, flutes, cfg.cnc.rpm, tool.shape
         )
+    if kind == "finish3d":
+        if op.stepover_mm is not None:
+            feeds = replace(feeds, stepover=op.stepover_mm)
+        elif tool.shape == "ball":
+            from luregen.fab.router.cam.ops3d import scallop_stepover
+
+            feeds = replace(feeds, stepover=scallop_stepover(tool.diameter, op.scallop_mm))
     return Cut(
         tool=tool,
         feeds=feeds,
@@ -103,6 +114,34 @@ def make_cut(
         ramp_angle_deg=cfg.cnc.ramp_angle_deg,
         climb=cfg.cnc.climb,
     )
+
+
+def surface_settings(cfg: LureConfig, lib: ToolLibrary) -> st.Surface3D | None:
+    """3D outer-face ops from `cnc.ops.rough3d` / `finish3d` (None when both are off)."""
+    from luregen.fab.router.cam import ops3d
+    from luregen.fab.router.cam.heightmap import Cutter
+
+    r, f = cfg.cnc.ops.rough3d, cfg.cnc.ops.finish3d
+    if not (r.enabled or f.enabled):
+        return None
+
+    def cutter(tool_id: str) -> Cutter:
+        e = lib.tools[tool_id]
+        return Cutter(e.shape, e.diameter, e.flute_length, e.shank_diameter)
+
+    sf = st.Surface3D()
+    if r.enabled:
+        sf.rough = ops3d.Rough3D(
+            allowance=r.allowance_mm,
+            max_stair=r.max_stair_mm,
+            res=r.resolution_mm,
+            boundary=r.boundary_mm,
+        )
+        sf.cutters["rough3d"] = cutter(r.tool)
+    if f.enabled:
+        sf.finish = ops3d.Finish3D(res=f.resolution_mm, tolerance=f.tolerance_mm)
+        sf.cutters["finish3d"] = cutter(f.tool)
+    return sf
 
 
 def load_halves(build: Path, sections: list[str]) -> list[st.Half]:
@@ -117,8 +156,12 @@ def load_halves(build: Path, sections: list[str]) -> list[st.Half]:
             raise CncJobError(f"missing {path}: run `lure build` first")
         right, left = ch.split_halves(trimesh.load(path, force="mesh"))
         sil = ch.silhouette_xz(right)
+        glue = ch.glue_face_xz(right)
+        outline = max(getattr(glue, "geoms", [glue]), key=lambda g: g.area)
+        outline = type(outline)(outline.exterior)
         for side, mesh in (("right", right), ("left", left)):
-            halves.append(st.Half(name, side, sil, ch.max_half_width(mesh), mesh))
+            half = st.Half(name, side, sil, ch.max_half_width(mesh), mesh, glue_outline=outline)
+            halves.append(half)
     return halves
 
 
@@ -256,6 +299,7 @@ def run(build: Path, spec: Path, machine_name: str | None = None) -> CncResult:
     safe_z = 5.0
     cuts = {k: make_cut(k, cfg, lib, table, safe_z) for k in OP_KINDS}
     ctx = st.OpCtx(cuts, c.tabs.count, c.tabs.width_mm, c.tabs.height_mm, c.cutout_overcut_mm)
+    ctx.surface = surface_settings(cfg, lib)
     features = glue_features(cfg, report, halves, warnings)
 
     progress.emit("cnc", 0.35, "toolpaths")
@@ -266,11 +310,190 @@ def run(build: Path, spec: Path, machine_name: str | None = None) -> CncResult:
     below = max(c.cutout_overcut_mm, reg.into_spoilboard_mm if reg.enabled else 0.0) + 0.05
     files = write_programs(programs, out, build, post, machine, below)
     warnings += dfm_warnings(cfg, lib, layout, cuts)
+    warnings += surface_warnings(ctx, lib, cfg)
+    progress.emit("cnc", 0.85, "simulate")
+    sims = simulate_setups(layout, ctx, features, files, build, out)
     summary = summarize(cfg, machine_name, layout, cuts, features, files, post, warnings)
+    summary["surface3d"] = ctx.report.get("surface3d")
+    summary["sim"] = sims
+    summary["post_glue_up"] = post_glue_up_steps(report)
+    summary["glue_up"] = glue_up_items(cfg, report)
+    used = {t for f in files for t in f.tools}
+    summary["tools"] = {
+        cut.tool.id: {
+            "name": cut.tool.name,
+            "number": cut.tool.number,
+            "diameter_mm": cut.tool.diameter,
+            "shape": cut.tool.shape,
+            "number_verified": lib.tools[cut.tool.id].number_verified,
+        }
+        for cut in cuts.values()
+        if cut.tool.id in used
+    }
     (out / "cnc.json").write_text(json.dumps(summary, indent=2) + "\n")
     (out / "setup.md").write_text(setup_sheet(summary))
     progress.emit("cnc", 1.0, "done")
     return CncResult(out, files, summary, warnings)
+
+
+SIM_RES = 0.15  # mm
+SIM_TOL = 0.05  # mm
+
+
+def simulate_setups(layout, ctx, features, files: list[NcFile], build: Path, out: Path) -> dict:
+    """Heightmap-simulate each setup's files in run order and diff against the halves.
+
+    Gouge: material cut below a half's surface. Leftover: material above it, on the
+    surface the 3D ops machine (setup 2: above the floor; setup 1: the glue face and its
+    pockets). Setup 2's `rim` is the tab band under the floor, left for the cut-out's
+    vertical wall (sanded after the tabs are cut). The wire groove isn't in the meshes, so
+    setup 1's gouge check skips it.
+    """
+    from luregen.fab.router.cam import ops3d
+    from luregen.fab.router.cam.heightmap import Grid, raster_top
+    from luregen.fab.router.sim import Comparison, Heightmap, save_png, simulate_fast
+
+    results: dict[str, dict] = {}
+    for setup in st.SETUP_NAMES:
+        texts = [(build / f.path).read_text() for f in files if f.setup == setup]
+        if not texts:
+            continue
+        stock = Heightmap.block((0.0, 0.0), (layout.length, layout.width), 0.0, SIM_RES)
+        simulate_fast(texts, stock)
+        ny, nx = stock.z.shape
+        grid = Grid(0.0, 0.0, SIM_RES, SIM_RES, nx, ny)
+        wm = ops3d.WorkMesh.of(layout, setup)
+        target = raster_top(wm.vertices, wm.faces, grid, fill=-np.inf)
+        part = np.isfinite(target)
+        # Gouge against the target's 3×3 minimum, so a vertical wall falling between cell
+        # centres (the cut-out, pocket walls) doesn't count as a gouge of the wall's height.
+        # Leftover is the plain difference (conservative).
+        from scipy.ndimage import minimum_filter
+
+        lo = minimum_filter(np.where(part, target, -1e3), 3, mode="nearest")
+        cut_below = np.where(part, np.maximum(lo - stock.z, 0.0), 0.0)
+        left_above = np.where(part, np.maximum(stock.z - np.where(part, target, 0.0), 0.0), 0.0)
+        check_gouge = part.copy()
+        if setup == "setup1":
+            surface = part
+            grooves = [f for f in features if f.kind == "groove"]
+            if grooves:
+                import shapely
+
+                r = ctx.cuts["groove"].r + 2 * SIM_RES
+                zones = shapely.union_all(
+                    [
+                        layout.to_work(h, f.geom, "setup1").buffer(r)
+                        for h in layout.halves
+                        for f in grooves
+                        if f.section == h.section
+                    ]
+                )
+                xs, ys = np.meshgrid(stock.xs, stock.ys)
+                inside = shapely.contains_xy(zones, xs, ys)
+                check_gouge &= ~inside
+        else:
+            surface = part & (target >= st.floor_z(layout, ctx) + 0.01)
+        rim = part & ~surface
+        gouge = np.where(check_gouge, cut_below, 0.0)
+        left = np.where(surface, left_above, 0.0)
+        res = {
+            "resolution_mm": SIM_RES,
+            "tolerance_mm": SIM_TOL,
+            "gouge_max_mm": round(float(max(gouge.max(), 0.0)), 3),
+            "gouge_area_frac": round(float((gouge > SIM_TOL).sum() / max(part.sum(), 1)), 5),
+            "leftover_max_mm": round(float(max(left.max(), 0.0)), 3),
+            "leftover_p95_mm": round(float(np.percentile(left[surface], 95)), 3)
+            if surface.any()
+            else 0.0,
+            "leftover_area_frac": round(float((left > SIM_TOL).sum() / max(surface.sum(), 1)), 5),
+        }
+        if rim.any():
+            res["rim_leftover_max_mm"] = round(float(left_above[rim].max()), 3)
+        png = out / f"sim_{setup}.png"
+        shown = np.where(check_gouge, -gouge, 0.0) + np.where(surface, left, 0.0)
+        cmp = Comparison(shown, SIM_TOL, res["gouge_max_mm"], res["leftover_max_mm"], 0.0, 0.0)
+        save_png(png, stock, cmp, f"{setup}: simulated cut vs the halves")
+        res["png"] = png.relative_to(build).as_posix()
+        results[setup] = res
+    return results
+
+
+def surface_warnings(ctx: st.OpCtx, lib: ToolLibrary, cfg: LureConfig) -> list[str]:
+    out = []
+    sf = ctx.surface
+    s3 = ctx.report.get("surface3d") or {}
+    stats = {f"{k} {lab}": v for k in st.SETUP_NAMES for lab, v in (s3.get(k) or {}).items()}
+    if sf is not None and sf.finish is not None:
+        tool = cfg.cnc.ops.finish3d.tool
+        entry = lib.tools[tool]
+        if entry.flute_length is None:
+            out.append(
+                f"finish3d: no flute_length for {tool} in tools.toml; the shank isn't "
+                "checked against deep walls"
+            )
+        deepest = min((v.get("finish_min_z") or 0.0) for v in stats.values()) if stats else 0
+        if entry.flute_length and -deepest > entry.flute_length:
+            out.append(
+                f"finish3d: {tool} reaches {-deepest:.1f} mm below the stock top with "
+                f"{entry.flute_length:g} mm flutes (assumed, #28): the shank limits deep "
+                "walls (see sim leftover)"
+            )
+    return out
+
+
+def glue_up_items(cfg: LureConfig, report: dict) -> list[str]:
+    """What goes between the halves before they're glued."""
+    geo = report.get("geometry", {})
+    items = []
+    b = geo.get("ballast") or {}
+    if b.get("glue_face_pocket"):
+        p = b["glue_face_pocket"]
+        items.append(
+            f"Ballast: {b['mass_g']} g of {b['material']} in the {b['section']} pocket "
+            f"({p['length']:.1f} × {p['height']:.1f} mm, {p['depth']:.2f} mm deep per half), "
+            "split between the halves; bed it in epoxy flush with the glue face."
+        )
+    for p in geo.get("cnc_air_pockets") or []:
+        items.append(f"Air pocket ({p['kind']}): keep glue out of it; seal its rim.")
+    if cfg.process.rigging == "through_wire":
+        w = cfg.cnc.wire
+        items.append(
+            f"Through-wire: ⌀{w.diameter_mm} mm wire in the groove of both sections, with the "
+            "line tie, hinge and hook loops formed before glue-up."
+        )
+    items.append("Glue matching right and left halves on the flip-pin dowels, then clamp.")
+    return items
+
+
+def post_glue_up_steps(report: dict) -> list[str]:
+    """Steps after glue-up: the joint and trim features stay in the sections (#40) but
+    aren't glue-face 2.5D ops, so they're drilled or cut on the glued sections."""
+    geo = report.get("geometry", {})
+    j = geo.get("joint") or {}
+    steps = ["Cut the tabs and sand the tab band (the rim under the 3D floor) and the seam."]
+    if j:
+        steps.append(
+            f"Tail: drill the ⌀{j['pin_bore_mm']} mm hinge-pin bore vertically (along z) "
+            f"through the glue seam at x = {j['pin_x_mm']} mm from the nose."
+        )
+        zs = ", ".join(f"{e[1]:g}" for e in j.get("hinge_eyes_mm", []))
+        steps.append(
+            f"Tail: cut the eye slots into the notch face at z = {zs} mm; head: screw the "
+            f"hinge eyes into the V face at x = {j['head_apex_x_mm']} mm, the same heights."
+        )
+        if j.get("line_tie_mm"):
+            x, z = j["line_tie_mm"]
+            steps.append(f"Head: line tie at x = {x:g}, z = {z:g} mm.")
+    tp = geo.get("trim_pocket")
+    if tp:
+        steps.append(
+            f"Tail: drill the trim pocket ⌀{2 * tp['r_mm']:.1f} mm up from the belly at "
+            f"x = {tp['x_mm']} mm to z = {tp['z_top_mm']} mm, fill it with "
+            f"{tp.get('fill_g', 0)} g of {tp.get('material', 'putty')}."
+        )
+    steps.append("Seal, fit the hinge pin, hooks and hardware, then check the float/sink trim.")
+    return steps
 
 
 def dfm_warnings(cfg: LureConfig, lib: ToolLibrary, layout: st.Layout, cuts: dict) -> list[str]:
@@ -350,39 +573,96 @@ def _hms(seconds: float) -> str:
 
 def setup_sheet(summary: dict) -> str:
     s = summary["stock_mm"]
+    tools = summary.get("tools", {})
+
+    def tool_cell(tid: str) -> str:
+        t = tools.get(tid)
+        if not t:
+            return tid
+        mark = "" if t["number_verified"] else " (T unverified)"
+        return f"T{t['number']} {t['name'] or tid}{mark}"
+
     lines = [
         f"# CNC setup sheet: {summary['variant']}",
         "",
         f"Machine: {summary['machine']}. Material: {summary['material']}.",
         f"Stock: {s['length']} × {s['width']} × {s['thickness']} mm (X × Y × Z); "
         f"zero: {summary['zero']}.",
+        f"Output: {'one file per tool' if summary['split_by_tool'] else 'one file per setup'}"
+        "; each file starts with its own M6 tool change (the BitSetter measures every tool).",
         "",
         "## Run order",
         "",
-        "| # | File | Setup | Tool | Est. time | Verify |",
-        "|---|---|---|---|---|---|",
+        "| # | File | Setup | Load tool | Operations | Est. time | Verify |",
+        "|---|---|---|---|---|---|---|",
     ]
     for i, f in enumerate(summary["files"], 1):
         ok = "ok" if f["ok"] else f"{len(f['issues'])} issue(s)"
+        ops = _ops_brief(f["operations"])
         lines.append(
-            f"| {i} | `{f['path']}` | {f['setup']} | {', '.join(f['tools'])} | "
-            f"{_hms(f['runtime_s'])} | {ok} |"
+            f"| {i} | `{f['path']}` | {f['setup']} | {', '.join(map(tool_cell, f['tools']))} "
+            f"| {ops} | {_hms(f['runtime_s'])} | {ok} |"
         )
     lines += [
         "",
-        f"Total estimated runtime: {_hms(summary['runtime_s'])}.",
+        f"Total estimated runtime: {_hms(summary['runtime_s'])} (tool changes included).",
         "",
-        "## Setups",
+        "## Steps",
         "",
         "1. **Setup 1, glue face up.** Clamp the blank, zero XY on the front-left corner and Z "
-        "on the top. Cut the glue-face pockets, the flip-pin holes (through, into the "
-        "spoilboard) and the wire groove.",
-        f"2. **Flip.** Put pins of ⌀{summary['pins']['diameter_mm']} mm in the holes and turn "
-        "the blank over about X onto them, (X, Y, Z) → (X, W − Y, −T − Z). Keep the XY zero "
-        "on the (new) front-left corner and re-zero Z on the new top.",
-        "3. **Setup 2, outer face up.** Cut out the halves (tabs hold them).",
-        "4. **Glue-up.** Set the ballast in its pocket and the wire in its groove, then glue "
-        "the matching right and left halves.",
+        "on the top. Run the setup1 files in order: glue-face pockets, the flip-pin holes "
+        "(through, into the spoilboard), the wire groove"
+        + (
+            ", and the 3D overhang (faces that lean over the glue face)."
+            if (summary.get("surface3d") or {}).get("setup1")
+            else "."
+        ),
+        f"2. **Flip.** Put ⌀{summary['pins']['diameter_mm']} mm dowel pins in the holes and "
+        "turn the blank over about X onto them, (X, Y, Z) → (X, W − Y, −T − Z). Keep the XY "
+        "zero on the (new) front-left corner and re-zero Z on the new top.",
+    ]
+    sf = summary.get("surface3d")
+    if sf:
+        lines.append(
+            "3. **Setup 2, outer face up.** Run the setup2 files in order: 3D roughing and the "
+            "cut-out with tabs (same tool), then 3D finishing. The 3D ops stop at the floor "
+            f"Z {sf['floor_z']} mm, the top of the tabs."
+        )
+    else:
+        lines.append("3. **Setup 2, outer face up.** Cut out the halves (tabs hold them).")
+    lines += ["4. **Before glue-up.**", ""]
+    lines += [f"   - {item}" for item in summary.get("glue_up", [])]
+    lines += ["", "5. **After glue-up.**", ""]
+    lines += [f"   - {item}" for item in summary.get("post_glue_up", [])]
+    sims = summary.get("sim") or {}
+    if sims:
+        lines += [
+            "",
+            "## Simulation",
+            "",
+            "Heightmap cut simulation of each setup's files against the halves "
+            f"({next(iter(sims.values()))['resolution_mm']} mm cells). Gouge: cut below the "
+            "surface. Leftover: material above it on the machined surface. Rim: the tab band "
+            "under setup 2's floor.",
+            "",
+            "| Setup | Gouge max mm | Leftover max mm | Leftover p95 mm | "
+            "Leftover > tol | Rim leftover max mm | Plot |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for name, r in sims.items():
+            rim = r.get("rim_leftover_max_mm", "")
+            lines.append(
+                f"| {name} | {r['gouge_max_mm']} | {r['leftover_max_mm']} | "
+                f"{r['leftover_p95_mm']} | {100 * r['leftover_area_frac']:.1f}% | {rim} | "
+                f"`{r['png']}` |"
+            )
+        if "setup1" in sims:
+            lines += [
+                "",
+                "Setup 1 leftover includes the hinge-pin bore and eye slots on the glue face, "
+                "which are cut after glue-up.",
+            ]
+    lines += [
         "",
         "## Feeds",
         "",
@@ -401,3 +681,12 @@ def setup_sheet(summary: dict) -> str:
     if summary["warnings"]:
         lines += ["", "## Warnings", ""] + [f"- {w}" for w in summary["warnings"]]
     return "\n".join(lines) + "\n"
+
+
+def _ops_brief(names: list[str]) -> str:
+    """Operation names grouped by what follows the half label: `cut-out ×4`."""
+    counts: dict[str, int] = {}
+    for n in names:
+        key = n.split(": ", 1)[-1]
+        counts[key] = counts.get(key, 0) + 1
+    return ", ".join(k if c == 1 else f"{k} ×{c}" for k, c in counts.items())
