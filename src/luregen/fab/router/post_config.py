@@ -162,6 +162,7 @@ class MachineConfig(Strict):
     safe_z_machine: float = Field(-5.0, le=0, description="G53 Z used for retracts.")
     rapid_mm_min: tuple[float, float, float] = (5000.0, 5000.0, 2500.0)
     rapid_verified: bool = False
+    accel_mm_s2: tuple[float, float, float] | None = None
     tool_change_s: float = Field(60.0, ge=0, description="Runtime estimate per M6.")
     bitsetter: bool | None = Field(None, description="Tool-length probe present; None = unknown.")
     spindle: RouterSpindle = RouterSpindle()

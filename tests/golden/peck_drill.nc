@@ -14,6 +14,7 @@ G53G0Z-5.000
 (TOOL/MILL,3.17, 0.00, 0.00, 0.00)
 M6T102
 M03S20000
+(Router dial 3 = 20000 rpm)
 G4P3.00
 (Registration pins _waste area_)
 G0X10.000Y10.000

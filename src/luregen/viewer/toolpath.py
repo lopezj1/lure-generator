@@ -54,7 +54,7 @@ DEFAULT_TOLERANCE = 0.02  # mm chord sagitta for arc tessellation
 DEFAULT_MAX_ARC_SEGMENTS = 512
 # CNC time estimate only: per-axis rapid rates (mm/min) and the wait per M6 (prompt, swap,
 # BitSetter probe), as in `spec/routers/shapeoko3_xxl/machine.toml` and `fab.router.verify`.
-DEFAULT_RAPID_RATES = (5000.0, 5000.0, 2500.0)
+DEFAULT_RAPID_RATES = (15000.0, 15000.0, 1300.0)
 DEFAULT_TOOL_CHANGE_S = 60.0
 DEFAULT_PAUSE_COMMANDS = ("M600", "PAUSE", "M601")
 CLEARANCE_MARGIN = 5.0  # mm above the highest known Z for machine-coordinate retracts
@@ -689,7 +689,9 @@ def _cnc_timeline(
     with np.errstate(divide="ignore", invalid="ignore"):
         dur[rapid] = (delta[rapid] / np.asarray(rapid_rates)).max(axis=1) * 60.0
         cut = cutting & (feed > 0)
-        dur[cut] = seg_len[cut] / feed[cut] * 60.0
+        # GRBL slows a feed move so no axis exceeds its max rate.
+        axis_cap = (delta[cut] / np.asarray(rapid_rates)).max(axis=1)
+        dur[cut] = np.maximum(seg_len[cut] / feed[cut], axis_cap) * 60.0
     wait = np.zeros(n + 1)
     if waits:
         idx, sec = zip(*waits, strict=True)

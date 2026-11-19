@@ -2,8 +2,11 @@
 name = "Shapeoko 3 XXL"
 homing_corner = "back_right"  # GRBL machine coordinates are negative from home
 safe_z_machine = -5.0          # G53 Z for retracts and tool changes
-rapid_mm_min = [5000.0, 5000.0, 2500.0]  # runtime estimate only
-rapid_verified = false
+# GRBL $110-$112 (owner's controller, 2026-11-19). GRBL also caps every feed move so no axis
+# exceeds its max rate, so these bound cutting moves too (the Z cap slows steep 3D moves).
+rapid_mm_min = [15000.0, 15000.0, 1300.0]
+rapid_verified = true
+accel_mm_s2 = [1000.0, 1000.0, 100.0]  # GRBL $120-$122; not used by the estimates yet
 tool_change_s = 60.0           # runtime estimate per M6 (prompt, swap, probe)
 bitsetter = true               # confirmed by the owner
 
@@ -17,15 +20,17 @@ supported = ["G0", "G1", "G2", "G3", "G4", "G17", "G18", "G19", "G20", "G21", "G
              "G53", "G90", "G91", "G94", "M0", "M1", "M2", "M3", "M5", "M6", "M30"]
 
 [travel]
-x = 838.0
-y = 838.0
-z = 95.0
-verified = false  # Z depends on the Z axis (belt vs HDZ) and spoilboard
+# GRBL $130-$132 soft-limit travel. Usable Z depends on the spoilboard and stock.
+x = 845.0
+y = 850.0
+z = 150.0
+verified = true
 
 [spindle]
-kind = "unknown"  # router model unknown
-min_rpm = 10000
-max_rpm = 30000
-# rpm at dial settings 1, 2, ...: unknown until the owner reads the router's dial.
-dial_rpm = []
-verified = false
+# Hand-set router: GRBL has $30=1000 and laser mode $32=1, so the G-code S word has no
+# effect on the machine. Speed comes only from the dial; the post prints the dial setting.
+kind = "dewalt_611"
+min_rpm = 16500
+max_rpm = 27000
+dial_rpm = [16500, 18000, 19800, 21500, 24200, 27000]  # dial 1-6, Carbide 3D chart
+verified = true

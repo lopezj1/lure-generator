@@ -14,6 +14,7 @@ G53G0Z-5.000
 (TOOL/MILL,6.35, 0.00, 0.00, 0.00)
 M6T201
 M03S18000
+(Router dial 2 = 18000 rpm)
 G4P3.00
 G0Z5.000
 X30.000Y20.000
@@ -41,6 +42,7 @@ G53G0Z-5.000
 (TOOL/MILL,3.17, 1.59, 0.00, 0.00)
 M6T101
 M03S24000
+(Router dial 5 = 24000 rpm)
 G4P3.00
 (Check pocket floor)
 M0

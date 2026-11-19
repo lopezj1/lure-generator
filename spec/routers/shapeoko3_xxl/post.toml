@@ -43,10 +43,10 @@ axes = true
 feed = true
 
 [spindle]
-# A hand-set router: S is advisory (the dial-to-rpm mapping is still unknown). Add
-# "(Router dial {dial})" here once machine.toml has a dial table.
+# A hand-set router: S has no effect on the machine (GRBL $30=1000, laser mode). The comment
+# tells the operator which dial setting matches the rpm (machine.toml dial_rpm).
 type = "router_dial"
-on = ["M03 S{rpm}"]
+on = ["M03 S{rpm}", "(Router dial {dial} = {rpm} rpm)"]
 dwell_s = 3.0
 
 [arcs]
