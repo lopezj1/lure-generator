@@ -184,7 +184,9 @@ def solve(
                 trust *= 0.5  # keep the Broyden-updated Jacobian; shorter steps
                 rec.note = "worse than the best pass: back to it with half the step limit"
 
-        if all(r.ok for r in res):
+        # stop early only once the hard targets sit in their dead band: a mid that is
+        # merely inside the band can leave it at a hardware band end
+        if all(r.settled for r in res):
             converged, reason = True, "all targets met"
             break
         if J is None and n == max_passes:
@@ -225,7 +227,11 @@ def solve(
     # only means the soft compromise may not be fully polished.
     if not converged and best is not None and hard_ok(best[2]):
         converged = True
-        reason = f"hard targets met; soft targets at their compromise after {len(passes)} passes"
+        reason = (
+            f"all targets met after {len(passes)} passes"
+            if all(r.ok for r in best[2])
+            else f"hard targets met; soft targets at their compromise after {len(passes)} passes"
+        )
     bx, bstate, bres = best
     return SolveResult(bx, bstate, bres, passes, converged, reason, jac_evals, warnings)
 

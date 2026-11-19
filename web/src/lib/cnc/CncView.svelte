@@ -3,9 +3,12 @@
    * CNC toolpath preview (W7, #68): a build's `fab/cnc/*.nc` (one file, or all of them as
    * one job) or uploaded files, colored by tool, with a job-time scrubber that recolors
    * done vs remaining, a tool marker, stock and bounding box, view presets and tool stats.
+   * Follows the shared `currentBuild` (#97): picking a build in the drawer loads all of its
+   * NC files as one job; the source picker and uploads still choose anything else.
    */
   import { onDestroy, onMount } from 'svelte';
   import { api } from '../client';
+  import { currentBuild } from '../stores/build';
   import RangeSlider, { type Tick } from '../print/RangeSlider.svelte';
   import { fetchToolpath, type CncToolpath } from '../toolpath/reader';
   import {
@@ -21,32 +24,30 @@
   } from './model';
   import { BBOX_COLOR, MARKER_COLOR, STOCK_COLOR, cncToolColor } from './palette';
   import { CncScene, type ViewPreset } from './scene';
+  import {
+    cncSources,
+    sourceForBuild,
+    type BuildListing,
+    type FileRef,
+    type Source,
+  } from './sources';
 
   let { active = true }: { active?: boolean } = $props();
 
-  interface FileRef {
-    label: string;
-    url: string;
-  }
-  interface Source {
-    id: string;
-    label: string;
-    files: FileRef[];
-  }
-
-  const CNC_FILE = /^fab\/cnc\/(.+\.(?:nc|ngc|tap|cnc|gcode))$/i;
   const STEP = 10; // slider units per second
   const SPEEDS = [1, 10, 60, 300];
   const VIEWS: ViewPreset[] = ['top', 'front', 'side', 'iso'];
 
   let host: HTMLDivElement | undefined = $state();
   let scene = $state.raw<CncScene | null>(null);
+  let builds: BuildListing[] = $state.raw([]);
   let buildSources: Source[] = $state([]);
   let uploadSources: Source[] = $state([]);
   let selected = $state('');
   let loadedId = $state('');
   let status = $state('');
   let error = $state('');
+  let notice = $state('');
   let job = $state.raw<CncJob | null>(null);
   let timing = $state({ fetch: 0, build: 0 });
 
@@ -135,6 +136,31 @@
     return () => cancelAnimationFrame(raf);
   });
 
+  // Follow the shared current build (W9): list its NC files and, once the tab is visible,
+  // load them all as one job. `listSources` resolves after this effect has run, so the state
+  // it reads and writes there is not tracked (no reload loop).
+  let follow = $state('');
+  $effect(() => {
+    const cb = $currentBuild;
+    if (!cb) return;
+    void listSources().then(() => {
+      const source = sourceForBuild(buildSources, builds, cb);
+      notice = source
+        ? ''
+        : `${cb.family}/${cb.variant} ${cb.stamp} has no CNC G-code (lure fab --format cnc)`;
+      if (source && source.id !== loadedId) {
+        selected = source.id;
+        follow = source.id;
+      }
+    });
+  });
+  $effect(() => {
+    if (!active || !scene || !follow) return;
+    const id = follow;
+    follow = '';
+    void load(id);
+  });
+
   onMount(() => {
     scene = new CncScene(host!);
     statsOpen = host!.clientWidth > 1000;
@@ -144,36 +170,15 @@
 
   async function listSources() {
     const { data } = await api.GET('/api/builds');
-    const found: Source[] = [];
-    for (const b of data ?? []) {
-      const parts = [b.family, b.variant, b.stamp].map(encodeURIComponent).join('/');
-      const files: FileRef[] = [];
-      for (const f of b.files) {
-        const m = CNC_FILE.exec(f.name);
-        if (!m) continue;
-        const name = f.name.split('/').map(encodeURIComponent).join('/');
-        files.push({ label: m[1], url: `/api/builds/${parts}/toolpath/${name}?kind=cnc` });
-      }
-      files.sort((a, z) => compareNames(a.label, z.label));
-      const base = `${b.family}/${b.variant} ${b.stamp}`;
-      if (files.length > 1) {
-        found.push({
-          id: `build:${b.path}:*`,
-          label: `${base} · all ${files.length} files`,
-          files,
-        });
-      }
-      for (const f of files) {
-        found.push({ id: `build:${b.path}:${f.label}`, label: `${base} · ${f.label}`, files: [f] });
-      }
-    }
-    buildSources = found;
+    builds = data ?? [];
+    buildSources = cncSources(builds);
   }
 
   async function load(id: string) {
     const source = sources.find((s) => s.id === id);
     if (!source) return;
     error = '';
+    notice = '';
     playing = false;
     status = `Loading ${source.files.length > 1 ? `${source.files.length} toolpaths` : 'toolpath'}…`;
     try {
@@ -304,6 +309,7 @@
       title="Upload one or more NC files (several play as one job)"
       onchange={upload}
     />
+    {#if notice && job}<small class="notice">{notice}</small>{/if}
     <label><input type="checkbox" bind:checked={showRapids} disabled={!job} /> Rapids</label>
     <select bind:value={remaining} aria-label="Remaining moves" disabled={!job}>
       <option value="dim">Remaining: dim</option>
@@ -332,6 +338,8 @@
           <p aria-busy="true">{status}</p>
         {:else if error}
           <p class="error">{error}</p>
+        {:else if notice}
+          <p>{notice}</p>
         {:else}
           <p>Pick a build's NC files or upload some.</p>
         {/if}
@@ -535,6 +543,9 @@
   }
   .error {
     color: #ff8a80;
+  }
+  .notice {
+    color: var(--pico-muted-color);
   }
   .side {
     top: 0.5rem;

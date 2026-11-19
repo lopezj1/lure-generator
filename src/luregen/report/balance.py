@@ -84,14 +84,6 @@ def verdict(cfg: LureConfig, table: StationTable, props: dict[Band, LureProps]) 
             "mm",
         ),
         _check(
-            "head_density",
-            "Head density",
-            head_d,
-            list(b.head_density),
-            {k: inside(v, b.head_density) for k, v in head_d.items()},
-            "g/cm³",
-        ),
-        _check(
             "tail_density",
             "Tail density",
             tail_d,
@@ -116,7 +108,16 @@ def verdict(cfg: LureConfig, table: StationTable, props: dict[Band, LureProps]) 
         else f"{len(failed)} of {len(checks)} targets missed ({', '.join(failed)}); "
         "see the balance solver and feasibility notes"
     )
-    return {"status": status, "label": label, "failed": failed, "checks": checks}
+    # The head density is derived from the targets above (#96): shown, never judged.
+    info = [
+        {
+            "id": "head_density",
+            "label": "Head density (derived)",
+            "unit": "g/cm³",
+            "values": {k: round(v, 4) for k, v in head_d.items()},
+        }
+    ]
+    return {"status": status, "label": label, "failed": failed, "checks": checks, "info": info}
 
 
 def balance_blocks(
@@ -205,6 +206,11 @@ def balance_md(report: dict) -> list[str]:
             lines.append(
                 f"| {c['label']} | {c['values']['min']:.3f} | {c['values']['max']:.3f} "
                 f"| {tgt} {c['unit']} | {'yes' if c['ok'] else 'no'} |"
+            )
+        for c in v.get("info", []):
+            lines.append(
+                f"| {c['label']} | {c['values']['min']:.3f} | {c['values']['max']:.3f} "
+                f"| derived ({c['unit']}) | info |"
             )
     if geo := report.get("geometry"):
         j = geo["joint"]

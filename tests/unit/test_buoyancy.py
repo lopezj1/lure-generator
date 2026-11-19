@@ -23,7 +23,6 @@ def targets(**kw) -> Targets:
         water_density=1.025,
         sink_mode="slow_sink",
         sink=(1.03, 1.06),
-        head_density=(1.00, 1.05),
         tail_density=(0.70, 0.80),
         ratio=2.4,
         level_tol=1.0,
@@ -103,7 +102,6 @@ def test_residuals_cover_targets():
     assert ids == [
         "sink",
         "level",
-        "head_density",
         "tail_density",
         "head_tail_ratio",
         "self_righting",
@@ -134,16 +132,33 @@ def test_band_evaluation_clamps_to_capacity():
     assert out["ends"]["max"]["trim"]["fill_g"] == pytest.approx(0.0)
 
 
-def test_feasibility_flags_the_sample_conflict():
+def test_feasibility_derives_the_head_density():
     # sample-like volumes: head 42.8 cm³, tail 28.2 cm³
     head = SectionInput("head", [Part("body", 42_800.0, (50, 0, 0), 1.0)])
     tail = SectionInput("tail", [Part("body", 28_200.0, (115, 0, 0), 0.75)])
     out = {f["id"]: f for f in feasibility(lure_props([head, tail], "mid"), targets())}
-    assert not out["section_densities_vs_sink"]["ok"]
-    assert out["section_densities_vs_sink"]["values"]["overall_range"][1] < 1.03
+    derived = out["head_density_derived"]
+    assert derived["ok"]
+    lo, hi = derived["values"]["head_density_range"]
+    assert 1.15 < lo < hi < 1.30  # slow sink with a buoyant tail needs a dense head
     ratio = out["ratio_vs_sink"]
-    assert not ratio["ok"] and ratio["values"]["head_density"] > 1.05
+    assert ratio["ok"] and lo <= ratio["values"]["head_density"] <= hi
     assert 0.70 <= ratio["values"]["tail_density"] <= 0.80
+    # a ratio that pushes the tail out of its band is flagged
+    assert not {
+        f["id"]: f for f in feasibility(lure_props([head, tail], "mid"), targets(ratio=1.2))
+    }["ratio_vs_sink"]["ok"]
+
+
+def test_old_configs_with_head_density_still_load():
+    from luregen.config.models import BuoyancyConfig, SolverConfig
+
+    with pytest.warns(DeprecationWarning):
+        b = BuoyancyConfig(sink_bands={"slow_sink": (1.03, 1.06)}, head_density=(1.0, 1.05))
+    assert not hasattr(b, "head_density")
+    with pytest.warns(DeprecationWarning):
+        s = SolverConfig(weights={"head_density": 0.2, "sink": 10.0})
+    assert s.weights == {"sink": 10.0}
 
 
 def test_length_for_weight():

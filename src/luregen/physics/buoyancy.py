@@ -8,8 +8,12 @@ Targets (salt water 1.025 by default) come from `[buoyancy]`:
 
 - **hard**: overall density inside the sink band, level hang (fore/aft CG − CB within the
   tolerance). A build fails if either hardware band end misses one of them.
-- **soft**: head and tail density bands, head:tail mass ratio (±10 %), self-righting
-  (CB above CG). They are solved for in a weighted least-squares sense and reported.
+- **soft**: tail density band, head:tail mass ratio (±10 %), self-righting (CB above CG).
+  They are solved for in a weighted least-squares sense and reported.
+
+The head density is not a target: the head is the ballasted section, and with the section
+volumes fixed by the envelope its density follows from the sink band, the tail density and
+the head:tail ratio (#96). It is reported as information.
 
 The **hardware band**: the solver works at the band midpoint. Each end (all items at their
 min or max mass) is then evaluated as built; if the tail trim pocket exists, the putty
@@ -46,15 +50,11 @@ HARD_DEADBAND = 0.25
 EDGE_BANDS: tuple[Band, ...] = ("min", "max")
 
 # Default least-squares weights (scaled residuals: 1.0 = at the edge of the target band).
-# With the section volumes fixed by the envelope, the head density follows from the sink
-# band, the tail density and the head:tail ratio, so it is redundant; when the targets
-# conflict (see `feasibility`) it gives way and the ratio and the buoyant tail hold.
 # Override per variant with `solver.weights`.
 DEFAULT_WEIGHTS: dict[str, float] = {
     "sink": 30.0,
     "level": 30.0,
     "ballast_clearance": 30.0,
-    "head_density": 0.2,
     "tail_density": 1.0,
     "head_tail_ratio": 1.0,
     "self_righting": 1.0,
@@ -199,7 +199,6 @@ class Targets:
     water_density: float
     sink_mode: str
     sink: tuple[float, float]
-    head_density: tuple[float, float]
     tail_density: tuple[float, float]
     ratio: float
     level_tol: float
@@ -222,7 +221,6 @@ class Targets:
             water_density=float(b.water_density or 1.025),
             sink_mode=b.target_sink,
             sink=tuple(b.sink_bands[b.target_sink]),
-            head_density=tuple(b.head_density),
             tail_density=tuple(b.tail_density),
             ratio=b.head_tail_mass_ratio,
             level_tol=b.level_tolerance_mm,
@@ -284,6 +282,12 @@ class Residual:
             return self.value <= self.target + 1e-9
         return abs(self.scaled) <= 1.0 + 1e-9
 
+    @property
+    def settled(self) -> bool:
+        """Met with the solver's margin: hard targets inside their dead band (so the hardware
+        band ends stay in the band), soft targets inside their band."""
+        return self.ok and (not self.hard or abs(self.penalty) < 1e-3)
+
     def as_dict(self) -> dict:
         return {
             "id": self.id,
@@ -305,7 +309,6 @@ def residuals(props: LureProps, t: Targets, extra: Iterable[Residual] = ()) -> l
     w = t.weights
     lure = props.lure
     sink_mid, sink_half = _band(t.sink)
-    hd_mid, hd_half = _band(t.head_density)
     td_mid, td_half = _band(t.tail_density)
     out = [
         Residual(
@@ -332,18 +335,8 @@ def residuals(props: LureProps, t: Targets, extra: Iterable[Residual] = ()) -> l
         ),
     ]
     if {"head", "tail"} <= props.sections.keys():
-        head, tail = props.sections["head"], props.sections["tail"]
+        tail = props.sections["tail"]
         out += [
-            Residual(
-                "head_density",
-                "Head density",
-                head.density,
-                hd_mid,
-                hd_half,
-                w["head_density"],
-                False,
-                unit="g/cm³",
-            ),
             Residual(
                 "tail_density",
                 "Tail density",
@@ -476,47 +469,46 @@ def _putty_action(delta: float, material: str) -> str:
 
 
 def feasibility(props: LureProps, t: Targets) -> list[dict]:
-    """Whether the targets can hold together for these section volumes (masses free).
+    """Whether the targets hold together for these section volumes (masses free).
 
-    With V_h, V_t fixed by the envelope, section densities fix the section masses, and so
-    the overall density and the head:tail ratio. Reports each conflict with numbers.
+    With V_h, V_t fixed by the envelope, the sink band and the tail density band leave a
+    range for the (derived) head density; the sink band and the head:tail ratio fix both
+    section densities. Reports each with numbers; the head density is information only.
     """
     if not {"head", "tail"} <= props.sections.keys():
         return []
     vh = props.sections["head"].volume_mm3 / 1000.0
     vt = props.sections["tail"].volume_mm3 / 1000.0
     v = vh + vt
-    out = []
-    lo = (t.head_density[0] * vh + t.tail_density[0] * vt) / v
-    hi = (t.head_density[1] * vh + t.tail_density[1] * vt) / v
-    overlap = hi >= t.sink[0] and lo <= t.sink[1]
-    out.append(
+    # head density that puts the lure in the sink band with the tail inside its band
+    lo = (t.sink[0] * v - t.tail_density[1] * vt) / vh
+    hi = (t.sink[1] * v - t.tail_density[0] * vt) / vh
+    out = [
         {
-            "id": "section_densities_vs_sink",
-            "ok": overlap,
+            "id": "head_density_derived",
+            "ok": True,
             "message": (
-                f"head {t.head_density[0]}–{t.head_density[1]} and tail "
-                f"{t.tail_density[0]}–{t.tail_density[1]} g/cm³ over V_head {vh:.2f} + "
-                f"V_tail {vt:.2f} cm³ give an overall {lo:.3f}–{hi:.3f} g/cm³"
-                + ("" if overlap else f", outside the {t.sink_mode} band {t.sink[0]}–{t.sink[1]}")
+                f"{t.sink_mode} {t.sink[0]}–{t.sink[1]} g/cm³ with the tail at "
+                f"{t.tail_density[0]}–{t.tail_density[1]} g/cm³ (V_head {vh:.2f} + "
+                f"V_tail {vt:.2f} cm³) needs a head density of {lo:.3f}–{hi:.3f} g/cm³ "
+                "(derived, not a target)"
             ),
-            "values": {"overall_range": [round(lo, 4), round(hi, 4)], "v_head_cm3": vh},
+            "values": {"head_density_range": [round(lo, 4), round(hi, 4)], "v_head_cm3": vh},
         }
-    )
+    ]
     m = t.sink_mid * v
     mh = m * t.ratio / (1 + t.ratio)
     mt = m - mh
     rh, rt = mh / vh, mt / vt
-    ok_h = t.head_density[0] <= rh <= t.head_density[1]
     ok_t = t.tail_density[0] <= rt <= t.tail_density[1]
     out.append(
         {
             "id": "ratio_vs_sink",
-            "ok": ok_h and ok_t,
+            "ok": ok_t,
             "message": (
                 f"at {t.sink_mid:.3f} g/cm³ overall and head:tail {t.ratio}, the head is "
-                f"{mh:.1f} g ({rh:.3f} g/cm³{'' if ok_h else ', outside its band'}) and the tail "
-                f"{mt:.1f} g ({rt:.3f} g/cm³{'' if ok_t else ', outside its band'})"
+                f"{mh:.1f} g ({rh:.3f} g/cm³, derived) and the tail {mt:.1f} g "
+                f"({rt:.3f} g/cm³{'' if ok_t else ', outside its band'})"
             ),
             "values": {
                 "head_g": round(mh, 2),

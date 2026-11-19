@@ -21,7 +21,7 @@ eye_slot_w_mm = 2.5         # tail slots that take the head's hinge eyes
 eye_slot_h_mm = 6.0
 
 [buoyancy]
-head_density = [1.00, 1.05]
+# The head density is derived from the sink band, tail density and ratio (not a target).
 tail_density = [0.70, 0.80]
 head_tail_mass_ratio = 2.4
 level_tolerance_mm = 1.0

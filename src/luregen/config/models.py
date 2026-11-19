@@ -5,8 +5,9 @@ A variant TOML (after `extends` merging and `--set` overrides) validates into `L
 config is self-contained: `resolved.toml` reloads without the spec catalogs.
 """
 
+import warnings
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -92,12 +93,26 @@ class BuoyancyConfig(Strict):
     water_density: float | None = None  # filled by resolve()
     target_sink: Literal["float", "suspend", "slow_sink"] = "slow_sink"
     sink_bands: dict[Literal["float", "suspend", "slow_sink"], Range]
-    head_density: Range = (1.00, 1.05)
+    # The head density is derived (sink band, tail density and head:tail ratio fix it), not
+    # a target (#96). Configs and resolved.toml files from before that still load.
     tail_density: Range = (0.70, 0.80)
     head_tail_mass_ratio: float = Field(2.4, gt=0)
     level_tolerance_mm: float = Field(1.0, gt=0)
     cb_above_cg_frac: float = Field(0.08, ge=0)
     trim_pocket: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_head_density(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "head_density" in data:
+            warnings.warn(
+                "buoyancy.head_density is no longer a target (the head density is derived); "
+                "the key is ignored",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            data = {k: v for k, v in data.items() if k != "head_density"}
+        return data
 
 
 class BallastConfig(Strict):
@@ -175,8 +190,21 @@ class SolverConfig(Strict):
         [], description="Knobs the solver set (they are not user pins on a re-solve)."
     )
     weights: dict[str, float] = Field(
-        {}, description="Least-squares weight overrides by target id (e.g. head_density)."
+        {}, description="Least-squares weight overrides by target id (e.g. tail_density)."
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_head_density_weight(cls, data: Any) -> Any:
+        w = data.get("weights") if isinstance(data, dict) else None
+        if isinstance(w, dict) and "head_density" in w:
+            warnings.warn(
+                "solver.weights.head_density is ignored: the head density is not a target",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            data = {**data, "weights": {k: v for k, v in w.items() if k != "head_density"}}
+        return data
 
 
 class ProcessConfig(Strict):

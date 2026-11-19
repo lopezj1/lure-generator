@@ -61,7 +61,8 @@ def test_build_writes_sections_and_report(builds, case):
     assert lure["band"]["min"]["mass_g"] < lure["band"]["max"]["mass_g"]
     assert lure["head_tail_mass_ratio"] == pytest.approx(h["mass_g"] / t["mass_g"], rel=1e-3)
     assert report["verdict"]["status"] in {"pass", "fail"}
-    assert len(report["verdict"]["checks"]) == 6
+    assert len(report["verdict"]["checks"]) == 5  # head density is info only (#96)
+    assert report["verdict"]["info"][0]["id"] == "head_density"
     assert report["summary"]["verdict"]["status"] == report["verdict"]["status"]
     assert report["summary"]["cg_mm"] == lure["cg_mm"]
     assert (build / report["diagram"]).stat().st_size > 0
