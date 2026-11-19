@@ -20,10 +20,11 @@ def run_build(variant: Path, out: Path, *sets: str):
 
 @pytest.fixture(scope="module")
 def builds(tmp_path_factory) -> dict[str, Path]:
-    """Two full builds: the print sample (loft3d) and a CNC wood profile25d body."""
+    """Two full builds: the print sample (loft3d) and a CNC wood profile25d body. The
+    balance solver is off here (F3 geometry checks); test_balance_build covers it."""
     out = {}
     cases = {
-        "print": [],
+        "print": ["solver.enabled=false"],
         "cnc": ["process.method=cnc", "process.material=basswood", "process.body_style=profile25d"],
     }
     for name, sets in cases.items():
@@ -104,8 +105,9 @@ def test_station_table_errors(sample_variant: Path, tmp_path: Path):
         station_table_for(image)
     weight = cfg.model_copy(deep=True)
     weight.size.length_mm, weight.size.target_weight_oz = None, 2.0
-    with pytest.raises(BuildError, match="F4"):
-        station_table_for(weight)
+    assert station_table_for(weight).length == pytest.approx(175.0)  # scaled in build_lure
+    weight.size.solved_length_mm = 150.0
+    assert station_table_for(weight).length == pytest.approx(150.0)
     missing = cfg.model_copy(deep=True)
     missing.profile.preset = tmp_path / "nope.csv"
     with pytest.raises(BuildError, match="not found"):

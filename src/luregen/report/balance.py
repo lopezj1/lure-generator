@@ -1,7 +1,8 @@
 """Balance report: per-section and whole-lure mass properties, verdict and CG/CB diagram.
 
-The verdict only compares the built lure with the targets; solving the internals to meet
-them is F4. Every check is evaluated at both ends of the hardware mass band.
+The verdict compares the built (solved) lure with the targets at both ends of the hardware
+mass band, without trim corrections; the `balance` block (F4 solver, band ends with trim
+putty, feasibility) is rendered by `solver_md`.
 """
 
 from __future__ import annotations
@@ -113,7 +114,7 @@ def verdict(cfg: LureConfig, table: StationTable, props: dict[Band, LureProps]) 
         "meets all balance targets at both hardware band ends"
         if not failed
         else f"{len(failed)} of {len(checks)} targets missed ({', '.join(failed)}); "
-        "the F4 solver tunes the internals"
+        "see the balance solver and feasibility notes"
     )
     return {"status": status, "label": label, "failed": failed, "checks": checks}
 
@@ -233,8 +234,84 @@ def balance_md(report: dict) -> list[str]:
                 f"keel top z = {s['keel_top_z_mm']} mm, {s['roof']} roof, ceiling z = "
                 f"{s['cavity_ceiling_z_mm']:.1f} mm, min skin {s['min_skin_mm']:.2f} mm"
             )
+    if bal := report.get("balance"):
+        lines += ["", *solver_md(bal)]
     if report.get("diagram"):
         lines += ["", f"![CG/CB side view]({report['diagram']})"]
+    return lines
+
+
+def solver_md(bal: dict) -> list[str]:
+    """Solver passes, residuals, solved knobs, band ends with trim, feasibility."""
+    sol = bal["solver"]
+    lines = ["## Balance solver", ""]
+    if sc := bal.get("scaling"):
+        lines += [
+            f"- Weight → length: {sc['target_mass_g']:.1f} g at {sc['target_density']:.3f} "
+            f"g/cm³ → L = {sc['length_mm']:.1f} mm (×{sc['scale']:.3f} from "
+            f"{sc['reference_length_mm']:.1f} mm)",
+            "",
+        ]
+    if sol["status"] == "skipped":
+        lines.append(f"Skipped: {sol['reason']}.")
+    else:
+        lines += [
+            f"**{sol['status']}** after {sol['n_passes']} passes ({sol['reason']}); "
+            f"{sol['builds']} family builds, {sol['jacobians']} Jacobian(s), "
+            f"{sol['seconds']:.0f} s.",
+            "",
+        ]
+        ids = list(sol["final"])
+        lines += [
+            "| Pass | Cost | " + " | ".join(ids) + " |",
+            "|---|---|" + "---|" * len(ids),
+        ]
+        for p in sol["passes"]:
+            vals = " | ".join(
+                f"{p['residuals'][i]['value']:.3f}" + ("" if p["residuals"][i]["ok"] else " ✗")
+                for i in ids
+            )
+            lines.append(f"| {p['pass']} | {p['cost']:.2f} | {vals} |")
+        lines += ["", "| Knob | Start | Solved | Bounds |", "|---|---|---|---|"]
+        for path, k in sol["knobs"].items():
+            lo, hi = k["bounds"]
+            lines.append(
+                f"| `{path}` | {k['start']:.3f} | {k['solved']:.3f}"
+                + (" (at bound)" if k["at_bound"] else "")
+                + f" | {lo} – {hi} {k['unit']} |"
+            )
+        if sol.get("pinned"):
+            lines += ["", "Pinned by the config: " + ", ".join(f"`{p}`" for p in sol["pinned"])]
+    hb = bal["hardware_band"]
+    lines += ["", f"### Hardware band ends: {hb['status'].upper()}", ""]
+    if t := hb.get("trim"):
+        lines.append(
+            f"Trim pocket at x = {t['x_mm']:.1f} mm: nominal {t['nominal_fill_g']:.2f} g of "
+            f"{t['material'].replace('_', ' ')} (capacity {t['capacity_g']:.2f} g)."
+        )
+        lines.append("")
+    lines += [
+        "| End | As built: density, CG − CB | Status | Trim | Trimmed: density, CG − CB |",
+        "|---|---|---|---|---|",
+    ]
+    for end, e in hb["ends"].items():
+        b = e["as_built"]
+        tr = e.get("trim")
+        lines.append(
+            f"| {end} | {b['density']:.4f}, {b['cg_minus_cb_x_mm']:+.2f} mm | {e['status']} | "
+            + (tr["action"] if tr else "no trim pocket")
+            + " | "
+            + (
+                f"{tr['checks']['density']:.4f}, {tr['checks']['cg_minus_cb_x_mm']:+.2f} mm"
+                if tr
+                else "–"
+            )
+            + " |"
+        )
+    if feas := bal.get("feasibility"):
+        lines += ["", "### Target feasibility", ""]
+        for f in feas:
+            lines.append(f"- {'ok' if f['ok'] else 'conflict'}: {f['message']}")
     return lines
 
 
