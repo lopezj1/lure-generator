@@ -77,6 +77,14 @@ def default_machine(spec: Path) -> str:
     return folders[0]
 
 
+def auto_thickness(need_mm: float, step_mm: float) -> float:
+    """Smallest board of `step_mm` increments (e.g. 1/4in) at least `need_mm` thick."""
+    if step_mm <= 0:
+        return math.ceil(need_mm * 10) / 10
+    # The tolerance keeps an exact fit (12.7 mm needed on a 6.35 step) from rounding up.
+    return round(math.ceil(need_mm / step_mm - 1e-9) * step_mm, 4)
+
+
 def make_cut(
     kind: str,
     cfg: LureConfig,
@@ -283,7 +291,9 @@ def run(build: Path, spec: Path, machine_name: str | None = None) -> CncResult:
     c = cfg.cnc
     hw = max(h.half_width for h in halves)
     need = c.stock.face_mm + hw
-    thickness = c.stock.thickness_mm or math.ceil((need + c.stock.top_allowance_mm) * 10) / 10
+    thickness = c.stock.thickness_mm or auto_thickness(
+        need + c.stock.top_allowance_mm, c.stock.thickness_step_mm
+    )
     if thickness < need:
         raise CncJobError(f"stock {thickness} mm is thinner than face + half width {need:.2f} mm")
     reg = c.registration

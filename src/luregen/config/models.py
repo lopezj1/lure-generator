@@ -270,7 +270,13 @@ class CncStock(Strict):
     """Blank for the CNC halves; zero is the front-left corner of the stock top."""
 
     thickness_mm: float | None = Field(
-        None, gt=0, description="Measured board thickness; default: face + half width + top."
+        None,
+        gt=0,
+        description="Measured board thickness; default: face + half width + top, rounded up "
+        "to the next thickness_step_mm.",
+    )
+    thickness_step_mm: float = Field(
+        6.35, ge=0, description="Auto thickness rounds up to this increment (1/4in); 0 = exact."
     )
     top_allowance_mm: float = Field(
         1.0, ge=0, description="Auto thickness: stock left above the outer apex."
@@ -286,7 +292,7 @@ class CncRegistration(Strict):
     """Flip pins: through holes on the flip axis, in the end waste, into the spoilboard."""
 
     enabled: bool = True
-    pin_d_mm: float = Field(6.35, gt=0)
+    pin_d_mm: float = Field(6.35, gt=0, description="Flip-pin dowel diameter (1/4in).")
     into_spoilboard_mm: float = Field(3.0, ge=0)
 
 

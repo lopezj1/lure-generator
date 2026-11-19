@@ -194,3 +194,18 @@ def test_wire_paths_and_groove_size():
     d = st.groove_depth(1.04, 0.15)
     assert d == pytest.approx(0.67)
     assert st.ball_groove_width(1.5875, d) > 1.04  # the wire fits the channel
+
+
+@pytest.mark.parametrize(
+    ("need", "step", "want"),
+    [
+        (9.63, 6.35, 12.7),  # the sample: half width 8.63 + 1 mm top -> a 1/2in board
+        (12.7, 6.35, 12.7),  # an exact fit doesn't round up
+        (12.71, 6.35, 19.05),
+        (9.63, 0.0, 9.7),  # step 0: next 0.1 mm, as before
+    ],
+)
+def test_auto_stock_thickness_rounds_up_to_board_increment(need, step, want):
+    from luregen.fab.router.cam.job import auto_thickness
+
+    assert auto_thickness(need, step) == pytest.approx(want)
