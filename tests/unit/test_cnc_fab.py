@@ -90,3 +90,26 @@ def test_fab_cnc_rejects_a_print_build(tmp_path):
     res = invoke("fab", str(build), "--format", "cnc")
     assert res.exit_code == 1
     assert "process.method = 'print'" in res.output
+
+
+@pytest.mark.slow
+def test_cnc_sample_passes_dfm_and_check(cnc_build):
+    report = json.loads((cnc_build / "report.json").read_text())
+    assert report["status"] == "built"
+    assert report["dfm"]["status"] == "pass", report["dfm"]["violations"]
+    assert "cnc.no_undercuts" in report["dfm"]["checked"]
+    res = invoke("check", str(cnc_build))
+    assert res.exit_code == 0, res.output
+    assert "DFM: pass" in res.output
+
+
+@pytest.mark.slow
+def test_dfm_error_fails_the_build(tmp_path):
+    sets = [a for s in [*CNC, "dfm.cnc.max_pocket_depth_x_dia=0.1"] for a in ("--set", s)]
+    res = invoke("build", str(SAMPLE), "--out-root", str(tmp_path), *sets)
+    assert res.exit_code == 1
+    build = (tmp_path / "glide" / "striper_175_petg" / "latest").resolve()
+    report = json.loads((build / "report.json").read_text())
+    assert report["status"] == "dfm_failed"
+    assert [v["rule"] for v in report["dfm"]["violations"]] == ["cnc.pocket_depth"]
+    assert "## DFM" in (build / "report.md").read_text()

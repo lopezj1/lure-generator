@@ -56,6 +56,9 @@ def test_sample_converges_with_level_hang_at_both_band_ends(solved):
     # report.md renders the solver section
     md = (solved / "report.md").read_text()
     assert "## Balance solver" in md and "### Hardware band ends" in md
+    # F5: the solved print sample passes every print DFM rule
+    assert report["dfm"]["status"] == "pass", report["dfm"]["violations"]
+    assert "print.cavity_overhang" in report["dfm"]["checked"] and "## DFM" in md
 
 
 @pytest.mark.slow
