@@ -15,9 +15,24 @@ source = "lopezj1/cnc-feeds-speeds-calculator@cb0ad50 (Shapeoko A to Z feeds & s
 units = "inch"
 
 [rpm]
-default = 18000
+default = 18000          # body materials without a dial setting below
 range = [10000, 30000]
-# The router dial ↔ rpm mapping is still owner input (#28); rpm stays a config value.
+
+# Router speed per body material: DeWalt 611 dial settings from Carbide 3D's "Shapeoko 3 Feeds
+# & Speeds" chart (owner's choice, #28). Only the spindle speed comes from the chart; feeds,
+# DOC and stepover stay with the calculator and presets. The rpm is the dial interpolated on
+# machine.toml spindle.dial_rpm. Materials the chart lacks use its nearest row (in comments).
+# `cnc.rpm` in the lure config overrides this.
+[rpm.dial]
+pine = 3.5
+basswood = 3.5           # Pine row
+cedar = 3.5              # Pine row
+balsa = 3.5              # Pine row
+pvc_board = 1            # PVC row
+maple = 3                # Mahogany row (the chart's hardwood)
+oak = 3                  # Mahogany row
+walnut = 3               # Mahogany row
+cherry = 3               # Mahogany row
 
 # Chipload per tooth (in), [conservative, aggressive], by endmill diameter (in) and material.
 [chipload."0.0625"]
@@ -84,7 +99,7 @@ walnut = "hard-wood"
 cherry = "hard-wood"
 
 # Owner-proven presets (#27, 2026-11-18): settings that ran on the owner's Shapeoko 3 XXL in a
-# Fusion 360 3D job (material not recorded). Units here are mm and mm/min, as measured from
+# Fusion 360 3D job, cut in red oak. Units here are mm and mm/min, as measured from
 # the G-code. Fields a preset leaves out come from the calculator in `base_mode`.
 [presets."owner_rough_flat_3.175"]
 description = "1/8in flat 3D pocket roughing (ramped entries)"

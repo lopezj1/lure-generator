@@ -91,6 +91,7 @@ def make_cut(
     lib: ToolLibrary,
     table: fd.FeedsTable,
     safe_z: float,
+    rpm: float,
 ) -> Cut:
     op = getattr(cfg.cnc.ops, kind)
     if op.tool not in lib.tools:
@@ -103,11 +104,9 @@ def make_cut(
         p = table.presets.get(op.preset)
         if p is not None and abs(p.tool_diameter_in * fd.IN - tool.diameter) > 0.05:
             raise CncJobError(f"preset {op.preset!r} is for a different tool than {op.tool!r}")
-        feeds = fd.preset(table, op.preset, material, flutes, cfg.cnc.rpm)
+        feeds = fd.preset(table, op.preset, material, flutes, rpm)
     else:
-        feeds = fd.calculate(
-            table, tool.diameter, material, op.mode, flutes, cfg.cnc.rpm, tool.shape
-        )
+        feeds = fd.calculate(table, tool.diameter, material, op.mode, flutes, rpm, tool.shape)
     if kind == "finish3d":
         if op.stepover_mm is not None:
             feeds = replace(feeds, stepover=op.stepover_mm)
@@ -307,7 +306,8 @@ def run(build: Path, spec: Path, machine_name: str | None = None) -> CncResult:
         reg.into_spoilboard_mm,
     )
     safe_z = 5.0
-    cuts = {k: make_cut(k, cfg, lib, table, safe_z) for k in OP_KINDS}
+    rpm = c.rpm or table.default_rpm(cfg.process.material, machine.spindle.dial_rpm)
+    cuts = {k: make_cut(k, cfg, lib, table, safe_z, rpm) for k in OP_KINDS}
     ctx = st.OpCtx(cuts, c.tabs.count, c.tabs.width_mm, c.tabs.height_mm, c.cutout_overcut_mm)
     ctx.surface = surface_settings(cfg, lib)
     features = glue_features(cfg, report, halves, warnings)
