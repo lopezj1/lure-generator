@@ -54,16 +54,19 @@ def test_fab_cnc_writes_verified_files_per_tool(cnc_build):
     assert res.exit_code == 0, res.output
     out = cnc_build / "fab" / "cnc"
     names = sorted(p.name for p in out.glob("*.nc"))
+    # the tail's V-notch leans over its glue face: setup 1 cuts that overhang in 3D
     assert names == [
         "setup1_01_flat_3.175.nc",
         "setup1_02_ball_3.175.nc",
+        "setup1_03_flat_0.794.nc",
         "setup2_01_flat_3.175.nc",
+        "setup2_02_flat_0.794.nc",
     ]
     post, machine, _ = shapeoko()
     for name in names:
         text = (out / name).read_text()
         assert len(re.findall(r"^M6T\d+$", text, re.M)) == 1
-        assert not re.search(r"G8[0-3]\D|G10|G92", text)
+        assert not re.search(r"G8[0-3]\D|G10|G92|G19", text)
         assert verify(text, post, machine, below_stock_mm=3.1).ok
     summary = json.loads((out / "cnc.json").read_text())
     assert summary["ok"] and summary["split_by_tool"]
@@ -82,6 +85,16 @@ def test_fab_cnc_writes_verified_files_per_tool(cnc_build):
     ]
     sheet = (out / "setup.md").read_text()
     assert "setup1_01_flat_3.175.nc" in sheet and "Chipload" in sheet
+    assert "## Simulation" in sheet and "After glue-up" in sheet and "Ballast" in sheet
+    # the outer face is roughed and finished; the sim finds no gouge into the halves
+    s2 = summary["surface3d"]["setup2"]
+    assert set(s2) == {"head R", "head L", "tail R", "tail L"}
+    assert set(summary["surface3d"]["setup1"]) == {"tail R", "tail L"}
+    for setup in ("setup1", "setup2"):
+        sim = summary["sim"][setup]
+        assert sim["gouge_max_mm"] < 0.05, sim
+        assert (cnc_build / sim["png"]).is_file()
+    assert summary["sim"]["setup2"]["leftover_p95_mm"] < 0.1
 
 
 def test_fab_cnc_rejects_a_print_build(tmp_path):

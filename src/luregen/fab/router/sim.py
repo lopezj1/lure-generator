@@ -122,6 +122,55 @@ def simulate(
     return stock
 
 
+def simulate_fast(
+    texts: list[str] | str,
+    stock: Heightmap,
+    tools: Mapping[int, ToolShape] | None = None,
+    default_tool: ToolShape | None = None,
+) -> Heightmap:
+    """Same result as `simulate` (to the grid), vectorized for long 3D programs.
+
+    Every move is sampled at ≤ half a cell; per tool, the lowest tip Z lands in its cell,
+    then a grey erosion with the tool's kernel (flat disc or ball) gives the cut surface.
+    Several files (one setup split by tool) cut the same stock in order.
+    """
+    from luregen.fab.router.cam.heightmap import Cutter, Grid, sweep_surface
+    from luregen.fab.router.cam.ops3d import tipmin_grid
+
+    grid = Grid(stock.x0, stock.y0, stock.res, stock.res, stock.z.shape[1], stock.z.shape[0])
+    paths: dict[ToolShape, list[np.ndarray]] = {}
+    for text in [texts] if isinstance(texts, str) else texts:
+        known = dict(tools or {})
+        pending: ToolShape | None = None
+        cur: list = []
+        cur_tool: ToolShape | None = None
+
+        def flush(cur: list, cur_tool: ToolShape | None) -> None:
+            if cur_tool is not None and len(cur) > 1:
+                paths.setdefault(cur_tool, []).append(np.asarray(cur, float))
+
+        for ev in interpret(parse(text)):
+            if isinstance(ev, Comment):
+                pending = tool_from_comment(ev.text) or pending
+            elif isinstance(ev, ToolChange):
+                if ev.tool is not None and ev.tool not in known and pending is not None:
+                    known[ev.tool] = pending
+            elif isinstance(ev, Motion) and not ev.machine:
+                tool = (known.get(ev.tool) if ev.tool is not None else None) or default_tool
+                if tool is None or not all(map(math.isfinite, (*ev.start, *ev.end))):
+                    continue
+                if tool != cur_tool or not cur or cur[-1] != ev.start:
+                    flush(cur, cur_tool)
+                    cur, cur_tool = [ev.start], tool
+                cur += arc_points(ev, stock.res / 4) if ev.is_arc else [ev.end]
+        flush(cur, cur_tool)
+    for tool, pls in paths.items():
+        tip = tipmin_grid(pls, grid)
+        cut = sweep_surface(tip, Cutter(tool.shape, tool.diameter), grid)
+        np.minimum(stock.z, cut, out=stock.z)
+    return stock
+
+
 @dataclass(frozen=True)
 class Comparison:
     delta: np.ndarray  # simulated − target; < 0 gouge, > 0 leftover

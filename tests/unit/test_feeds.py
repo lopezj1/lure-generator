@@ -90,7 +90,8 @@ def test_owner_presets(table):
     # 180 IPM / (2 × 18000) = 0.005 in: above the soft-wood range (0.001–0.0025).
     assert rough.chipload_in == pytest.approx(0.005)
     assert rough.status == "above"
-    assert rough.doc == pytest.approx(0.5 * 3.175)  # from the calculator, aggressive
+    assert rough.doc == 1.0  # owner job: 0.5–1.0 mm main levels (#42)
+    assert rough.stepover == pytest.approx(0.7 * 3.175)  # from the calculator, aggressive
     contour = preset(table, "owner_contour_flat_3.175", "basswood")
     assert (contour.feed, contour.doc) == (2540.0, 1.016)
     finish = preset(table, "owner_finish_flat_0.794", "basswood")

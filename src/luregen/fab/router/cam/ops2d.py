@@ -231,17 +231,17 @@ def pocket(region: Polygon, z_top: float, z_bottom: float, cut: Cut) -> list[Mov
             sx, sy = ring.at(start)
             if i == 0:
                 moves += _approach(sx, sy, z_prev, cut)
-                pass_moves, _ = ring_pass(ring, start, z_prev, z, cut)
+                pass_moves, s_end = ring_pass(ring, start, z_prev, z, cut)
             else:
                 link = LineString([tuple(pos), (sx, sy)])
                 if reach.contains(link) or link.length < 1e-3:
                     moves.append(Feed(x=sx, y=sy, f=cut.feeds.feed))
-                    pass_moves, _ = ring_pass(ring, start, z, z, cut)
+                    pass_moves, s_end = ring_pass(ring, start, z, z, cut)
                 else:  # leaving the cleared area: retract and ramp in again
                     moves += _approach(sx, sy, z_prev, cut)
-                    pass_moves, _ = ring_pass(ring, start, z_prev, z, cut)
+                    pass_moves, s_end = ring_pass(ring, start, z_prev, z, cut)
             moves += pass_moves
-            pos = np.array(ring.at(start))
+            pos = np.array(ring.at(s_end))  # a ramped pass ends past its start
         z_prev = z
     return [*moves, *_retract(cut)]
 
