@@ -72,10 +72,27 @@ cd web && npm ci && npm run dev                # Vite on :5173, proxies /api
 
 Deployment is one Docker image with compose; see [docs/deploy.md](docs/deploy.md). The app has no authentication, so keep it on the LAN.
 
+**Model:** config editor on the left, the built lure with a live section plane, and the balance report.
+
+![Model tab: config editor, 3D model with an X section through the joint, section stats and balance report](docs/images/model.png)
+
+**Print preview:** sliced G-code by feature, with layer and move scrubbing, the prime tower and the pause plane.
+
+![Print tab: head section sliced upright with belly supports, colored by feature](docs/images/print.png)
+
+**CNC preview:** all per-tool files of a build as one job, colored by tool, with stock, bounds, work zero and a time scrubber.
+
+![CNC tab: four halves on one blank with roughing, groove and finishing toolpaths](docs/images/cnc.png)
+
+**Jobs and builds:** build history with balance numbers and verdicts, compare, and downloads (STEP, STL, 3MF, GLB, G-code, NC, zip).
+
+![Jobs and builds drawer: two builds with their mass, density, CG/CB offsets and verdicts, and the download list](docs/images/drawer.png)
+
 ## Status
 
 The v1 pipeline and web app are complete. Still open:
 
+- CNC builds aren't balanced yet: the solver only tunes print builds (#107).
 - Measured hardware weights (#23) and machine/tool details (#28) replace the current placeholders.
 - A real profile photo (#9); builds use a preset station table until then.
 - Field calibration from tank tests (#29), multi-color zones (#52), a smaller deploy image (#82).
