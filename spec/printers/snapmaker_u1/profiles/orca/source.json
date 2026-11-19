@@ -23,6 +23,12 @@
             "OrcaFilamentLibrary/filament/Generic PETG @System.json",
             "OrcaFilamentLibrary/filament/base/fdm_filament_pet.json",
             "OrcaFilamentLibrary/filament/base/fdm_filament_common.json"
+        ],
+        "filament-PLA": [
+            "Snapmaker/filament/Generic PLA @U1 0.4 nozzle.json",
+            "OrcaFilamentLibrary/filament/Generic PLA @System.json",
+            "OrcaFilamentLibrary/filament/base/fdm_filament_pla.json",
+            "OrcaFilamentLibrary/filament/base/fdm_filament_common.json"
         ]
     }
 }

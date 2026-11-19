@@ -25,6 +25,12 @@
             "Snapmaker/filament/Generic PETG @U1 base.json",
             "Snapmaker/filament/fdm_filament_petg_category.json",
             "Snapmaker/filament/fdm_filament_common.json"
+        ],
+        "filament-PLA": [
+            "Snapmaker/filament/Generic PLA.json",
+            "Snapmaker/filament/Generic PLA @U1 base.json",
+            "Snapmaker/filament/fdm_filament_pla_category.json",
+            "Snapmaker/filament/fdm_filament_common.json"
         ]
     }
 }

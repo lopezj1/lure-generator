@@ -200,6 +200,22 @@ def test_sync_profiles_writes_files(profile_tree: Path, mini_printer: Path):
     assert source["chains"]["filament"][-1] == "Lib/filament/base/fil_base.json"
 
 
+def test_sync_profiles_extra_filaments(profile_tree: Path, mini_printer: Path):
+    toml = mini_printer / "machine.toml"
+    toml.write_text(
+        toml.read_text().replace(
+            "[overrides]", '[apps.a.profiles.filaments]\nPLA = "fil_base"\n[overrides]'
+        )
+    )
+    machine = load_machine(mini_printer)
+    written = sync_profiles(machine, fetch=dir_fetcher(profile_tree))
+    assert "filament-PLA.json" in {p.name for p in written}
+    assert machine.filament_profile("PLA").name == "filament-PLA.json"
+    assert machine.filament_profile("PETG").name == "filament.json"
+    source = json.loads((mini_printer / "profiles" / "a" / "source.json").read_text())
+    assert source["chains"]["filament-PLA"] == ["Lib/filament/base/fil_base.json"]
+
+
 def test_load_machine_validates(mini_printer: Path):
     machine = load_machine(mini_printer)
     assert machine.slicer().appimage_name == "A_V1.0.AppImage"
@@ -248,5 +264,8 @@ def test_github_sync_matches_committed(app: str):
     machine = load_machine(U1)
     slicer = machine.slicer(app)
     flat = flatten_app(slicer, github_fetcher(slicer.repo, slicer.tag))
-    for kind, path in machine.profile_paths(app).items():
+    paths = machine.profile_paths(app)
+    for material in slicer.profiles.filaments:
+        paths[f"filament-{material}"] = machine.filament_profile(material, app)
+    for kind, path in paths.items():
         assert flat[kind].data == json.loads(path.read_text()), kind

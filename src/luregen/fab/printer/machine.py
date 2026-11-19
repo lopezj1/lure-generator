@@ -1,5 +1,6 @@
 """Printer machine config: `spec/printers/<machine>/machine.toml`."""
 
+import json
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,6 +22,9 @@ class ProfileSet:
     machine: str
     process: str
     filament: str
+    # More filament profiles by material (`PLA = "Generic PLA @…"`), flattened next to
+    # `filament.json` as `filament-<material>.json`; used by the filament slots (#51).
+    filaments: dict[str, str] = field(default_factory=dict)
 
     def name(self, kind: str) -> str:
         if kind not in PROFILE_KINDS:
@@ -60,6 +64,19 @@ class Runtime:
 
 
 @dataclass(frozen=True)
+class FilamentSlot:
+    """A loaded tool (`T<slot>`): its material (a key in spec/materials.toml) and color."""
+
+    slot: int
+    material: str
+    color: str = "#808080"
+
+    @property
+    def tool(self) -> str:
+        return f"T{self.slot}"
+
+
+@dataclass(frozen=True)
 class PrinterMachine:
     """A printer folder under `spec/printers/`, with its slicer apps and overrides."""
 
@@ -71,6 +88,37 @@ class PrinterMachine:
     apps: dict[str, SlicerApp]
     overrides: dict[str, Any] = field(default_factory=dict)
     runtime: Runtime = field(default_factory=Runtime)
+    # What is loaded in each tool, by slot; the slicer gets one filament profile per slot.
+    filaments: tuple[FilamentSlot, ...] = ()
+    # Dissimilar support-interface material per body material (PLA↔PETG don't bond).
+    interface_pairs: dict[str, str] = field(default_factory=dict)
+    # Overrides added when a job has supports, and on top when the interface is dissimilar.
+    support_overrides: dict[str, Any] = field(default_factory=dict)
+    interface_overrides: dict[str, Any] = field(default_factory=dict)
+
+    def slot(self, n: int) -> FilamentSlot:
+        for s in self.filaments:
+            if s.slot == n:
+                return s
+        raise MachineConfigError(f"{self.name}: no filament slot T{n} in machine.toml")
+
+    def filament_profile(self, material: str, key: str | None = None) -> Path:
+        """The flattened filament profile for `material`: `filament-<material>.json`, or
+        `filament.json` when that one's `filament_type` is `material`."""
+        folder = self.profile_dir(key)
+        extra = folder / f"filament-{material}.json"
+        if extra.is_file():
+            return extra
+        default = folder / "filament.json"
+        if default.is_file():
+            ftype = json.loads(default.read_text()).get("filament_type")
+            types = ftype if isinstance(ftype, list) else [ftype]
+            if material in types:
+                return default
+        raise MachineConfigError(
+            f"{self.name}: no {material} filament profile in {folder}; add it under "
+            f"[apps.{self.slicer(key).key}.profiles.filaments] and run `lure sync-profiles`"
+        )
 
     def slicer(self, key: str | None = None) -> SlicerApp:
         key = key or self.app
@@ -118,10 +166,24 @@ def load_machine(path: Path) -> PrinterMachine:
             apps=apps,
             overrides=dict(data.get("overrides", {})),
             runtime=Runtime(**data.get("runtime", {})),
+            filaments=tuple(
+                FilamentSlot(
+                    slot=int(f["slot"]),
+                    material=str(f["material"]),
+                    color=str(f.get("color", "#808080")),
+                )
+                for f in data.get("filaments", [])
+            ),
+            interface_pairs=dict(data.get("support_interface", {}).get("pairs", {})),
+            support_overrides=dict(data.get("support_overrides", {})),
+            interface_overrides=dict(data.get("interface_overrides", {})),
         )
     except (KeyError, TypeError) as exc:
         raise MachineConfigError(f"{toml_path}: missing or bad key: {exc}") from exc
     machine.slicer()  # validates `app`
+    slots = [f.slot for f in machine.filaments]
+    if len(set(slots)) != len(slots):
+        raise MachineConfigError(f"{toml_path}: duplicate filament slots {slots}")
     if machine.runtime.mode not in ("auto", "host", "docker"):
         raise MachineConfigError(f"{toml_path}: runtime.mode must be auto, host or docker")
     return machine

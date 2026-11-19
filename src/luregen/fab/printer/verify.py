@@ -22,6 +22,7 @@ _THUMB_RE = re.compile(r"^; (?:thumbnail|thumbnail_(\w+)) begin (\d+)x(\d+) (\d+
 _CONFIG_RE = re.compile(r"^; ([A-Za-z0-9_]+) = ?(.*)$")
 _MACRO_RE = re.compile(r"^([A-Z][A-Z0-9_]*[A-Z0-9])(?:\s|$)")
 _GCODE_WORD_RE = re.compile(r"^[GMT]\d")
+_TOOL_RE = re.compile(r"^T(\d+)\s*(?:;|$)")
 _EXTRUDE_RE = re.compile(r"^G[123]\b[^;]*\bE\.?\d")  # positive E: printing, not retracting
 # Per-object bookkeeping, not start/end macros.
 _SKIP_MACROS = ("EXCLUDE_OBJECT",)
@@ -49,6 +50,12 @@ class GcodeSummary:
     filament_mm: float | None = None
     filament_g: float | None = None
     filament_cm3: float | None = None
+    # Per filament slot (T0, T1, …), from the comma-separated stats.
+    filament_g_by_slot: list[float] = field(default_factory=list)
+    filament_mm_by_slot: list[float] = field(default_factory=list)
+    # Tool changes after the start G-code (switches to a different T<n>).
+    tool_changes: int = 0
+    tools_used: list[int] = field(default_factory=list)
     layer_count: int = 0
     header_layer_count: int | None = None
     max_z: float | None = None
@@ -143,9 +150,12 @@ def parse_gcode(path: Path) -> GcodeSummary:
         elif m := _GENERATED_RE.match(line):
             summary.generator, summary.generator_version = m.group(1), m.group(2)
         elif m := _STAT_RE.match(line):
-            # One value per filament slot, comma-separated; a lure uses one.
-            value = sum(float(v) for v in m.group(3).split(",") if v.strip())
-            setattr(summary, _STAT_FIELD[m.group(2) or "g"], round(value, 4))
+            # One value per filament slot, comma-separated.
+            values = [float(v) for v in m.group(3).split(",") if v.strip()]
+            field_name = _STAT_FIELD[m.group(2) or "g"]
+            setattr(summary, field_name, round(sum(values), 4))
+            if m.group(2) and field_name in ("filament_g", "filament_mm"):
+                setattr(summary, f"{field_name}_by_slot", [round(v, 4) for v in values])
         elif m := _TIME_RE.match(line):
             summary.estimated_time_s = parse_duration(m.group(1))
         elif m := _TOTAL_LAYERS_RE.match(line):
@@ -158,8 +168,28 @@ def parse_gcode(path: Path) -> GcodeSummary:
                 Thumbnail(int(m.group(2)), int(m.group(3)), fmt, int(m.group(4)))
             )
 
-    summary.start_gcode, summary.end_gcode = _split_start_end(_executable_lines(lines))
+    body = _executable_lines(lines)
+    summary.start_gcode, summary.end_gcode = _split_start_end(body)
+    summary.tool_changes, summary.tools_used = count_tool_changes(body)
     return summary
+
+
+def count_tool_changes(body: list[str]) -> tuple[int, list[int]]:
+    """(changes, tools) from `T<n>` lines: the first selection is the start tool, every later
+    switch to a different tool is a change. Tools are listed in order of first use."""
+    current: int | None = None
+    changes = 0
+    tools: list[int] = []
+    for line in body:
+        if not line.startswith("T") or not (m := _TOOL_RE.match(line)):
+            continue
+        tool = int(m.group(1))
+        if tool not in tools:
+            tools.append(tool)
+        if current is not None and tool != current:
+            changes += 1
+        current = tool
+    return changes, tools
 
 
 @dataclass

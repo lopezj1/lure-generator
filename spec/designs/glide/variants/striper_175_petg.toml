@@ -83,3 +83,8 @@ name = "Tail split ring"
 section = "tail"
 x_mm = 162
 z_mm = -10
+
+# Print fab (#51): PETG body on T1 with a PLA support interface on T0 (machine.toml slots).
+[print]
+body_slot = 1
+interface_slot = 0

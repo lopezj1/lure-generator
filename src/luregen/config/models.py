@@ -348,6 +348,40 @@ class CncConfig(Strict):
     ops: CncOps = CncOps()
 
 
+class PrintConfig(Strict):
+    """Print fab (`lure fab --format print`): filament slots, supports, pause (#35, #51).
+
+    Slots are the tools of spec/printers/<machine>/machine.toml `[[filaments]]`.
+    """
+
+    body_slot: int | None = Field(
+        None,
+        ge=0,
+        le=15,
+        description="Tool (T<n>) for the body; default: first slot with process.material.",
+    )
+    interface_slot: int | None = Field(
+        None,
+        ge=0,
+        le=15,
+        description="Tool for the support interface; default: first slot with the machine's "
+        "dissimilar pair (PETG↔PLA).",
+    )
+    supports: Literal["auto", "on", "off"] = Field(
+        "auto", description="auto: loft3d always; profile25d by the belly roundover."
+    )
+    support_min_roundover_mm: float = Field(
+        3.0, ge=0, description="profile25d auto: supports from this roundover radius up."
+    )
+    pause: Literal["cavity_ceiling", "none"] = Field(
+        "cavity_ceiling",
+        description="Insert the machine's pause before the layer that closes the cavity.",
+    )
+    overrides: dict[str, str | int | float | bool] = Field(
+        {}, description="Extra slicer overrides (`key = value`, Orca CLI names), applied last."
+    )
+
+
 class ReportConfig(Strict):
     show_oz: bool = True
 
@@ -365,6 +399,7 @@ class LureConfig(Strict):
     process: ProcessConfig
     dfm: DfmConfig = DfmConfig()
     cnc: CncConfig = CncConfig()
+    print: PrintConfig = PrintConfig()
     report: ReportConfig = ReportConfig()
     solver: SolverConfig = SolverConfig()
 
