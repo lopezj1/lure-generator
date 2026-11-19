@@ -218,9 +218,30 @@ class ProcessConfig(Strict):
 
 
 class PrintDfm(Strict):
+    """Print DFM thresholds (F5); the part is printed upright, z up."""
+
     min_wall_mm: float = 1.6
     cavity_roof: Literal["gable45", "teardrop"] = "gable45"
     min_skin_to_cavity_mm: float = 1.2
+    max_overhang_deg: float = Field(
+        45.0, gt=0, lt=90, description="Steepest cavity ceiling, measured from vertical."
+    )
+    overhang_tol_deg: float = Field(1.0, ge=0, description="Mesh noise allowance on the angle.")
+    max_bridge_mm: float = Field(
+        8.0, ge=0, description="Widest flatter-than-allowed ceiling patch printed as a bridge."
+    )
+    layer_height_mm: float = Field(0.2, gt=0, description="Layer height for the boss rule.")
+    boss_min_layers: int = Field(
+        20, ge=1, description="Warn when solid along a vertical hook pull is fewer layers."
+    )
+    boss_pull_axis_deg: float = Field(
+        45.0, ge=0, le=90, description="Screw eyes within this of z pull across layers."
+    )
+    screw_eye_shank_mm: float = Field(5.0, gt=0, description="Screw-eye thread length.")
+    screw_eye_shank_d_mm: float = Field(1.6, gt=0, description="Screw-eye thread diameter.")
+    screw_eye_min_solid_mm: float = Field(
+        0.8, ge=0, description="Solid between the screw-eye thread and any void."
+    )
 
 
 class CncDfm(Strict):
@@ -228,6 +249,13 @@ class CncDfm(Strict):
     min_wood_wall_mm: float = 3.5
     max_pocket_depth_x_dia: float = 3.0
     roundover_r_mm: float = 4.0
+    corner_margin_mm: float = Field(
+        0.1, ge=0, description="Inside corner radius ≥ tool radius + this."
+    )
+    undercut_tol_deg: float = Field(
+        1.0, ge=0, description="Faces this far past vertical still count as reachable."
+    )
+    mesh_tol_mm: float = Field(0.05, ge=0, description="Mesh allowance on distance rules.")
 
 
 class DfmConfig(Strict):

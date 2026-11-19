@@ -9,16 +9,31 @@ sink_bands = { float = [0.90, 0.98], suspend = [1.020, 1.030], slow_sink = [1.03
 [ballast]
 material = "tungsten"
 
+# DFM rule thresholds (F5, `luregen.dfm`). Errors fail `lure build`; warnings go in the
+# report's `dfm` block. Values marked "owner" are first guesses awaiting confirmation.
 [dfm.print]
+# Printed upright: z up, belly on supports.
 min_wall_mm = 1.6
 cavity_roof = "gable45"
 min_skin_to_cavity_mm = 1.2
+max_overhang_deg = 45.0         # cavity ceiling, from vertical
+overhang_tol_deg = 1.0          # mesh noise on the 45° gable
+max_bridge_mm = 8.0             # owner: flatter ceiling patches printed as bridges up to this span
+layer_height_mm = 0.2           # matches the U1 process profile
+boss_min_layers = 20            # owner: warn below this many layers along a vertical hook pull
+boss_pull_axis_deg = 45.0       # screw eyes within this of z pull across layers
+screw_eye_shank_mm = 5.0        # owner: measure the #210 thread length
+screw_eye_shank_d_mm = 1.6      # owner: measure the #210 thread diameter
+screw_eye_min_solid_mm = 0.8    # solid between the thread and any void (2 perimeters)
 
 [dfm.cnc]
 tools = ["flat_6.35", "flat_3.175", "ball_3.175"]
 min_wood_wall_mm = 3.5
 max_pocket_depth_x_dia = 3.0
 roundover_r_mm = 4.0
+corner_margin_mm = 0.1          # inside corner radius ≥ tool radius + this
+undercut_tol_deg = 1.0
+mesh_tol_mm = 0.05              # mesh allowance on distance rules
 
 [report]
 show_oz = true

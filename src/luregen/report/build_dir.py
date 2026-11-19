@@ -113,6 +113,10 @@ def render_report_md(cfg: LureConfig, report: dict) -> str:
         from luregen.report.balance import balance_md
 
         lines += ["", *balance_md(report)]
+    if dfm := report.get("dfm"):
+        from luregen.dfm.report import dfm_md
+
+        lines += ["", *dfm_md(dfm)]
     if report["warnings"]:
         lines += ["", "## Warnings", "", *(f"- {w}" for w in report["warnings"])]
     return "\n".join(lines) + "\n"

@@ -45,6 +45,7 @@ STAGES = {
     "internals": 0.74,
     "massprops": 0.84,
     "export": 0.86,
+    "dfm": 0.93,
     "report": 0.97,
 }
 
@@ -141,6 +142,9 @@ def build_lure(cfg: "LureConfig", table: "StationTable", build_dir: Path) -> dic
         stage_emit("export", i / len(parts), f"model/{name}.*")
         files[name] = export_model(solid, model_dir, name)
 
+    env_block = envelope_report(cfg, table, env, files["body"])
+    dfm = run_dfm(cfg, model_dir, built.report, env_block)
+
     stage_emit("report", 0.0, "report and CG/CB diagram")
     render_diagram(build_dir / DIAGRAM_PATH, built.diagram, props, f"{cfg.name}: side view")
     sections = blocks["sections"]
@@ -150,14 +154,26 @@ def build_lure(cfg: "LureConfig", table: "StationTable", build_dir: Path) -> dic
     if scaling is not None:
         balance["scaling"] = scaling
     return {
-        "envelope": envelope_report(cfg, table, env, files["body"]),
+        "envelope": env_block,
         "geometry": built.report,
         **blocks,
         "balance": balance,
         "diagram": DIAGRAM_PATH,
+        "dfm": dfm,
         "family_warnings": built.warnings + balance["solver"].get("warnings", []),
         "_config": cfg,
     }
+
+
+def run_dfm(cfg: "LureConfig", model_dir: Path, geometry: dict, envelope: dict) -> dict:
+    """F5: evaluate the DFM rules on the exported sections; the report's `dfm` block."""
+    from luregen.dfm import evaluate
+    from luregen.dfm.model import DfmModel
+
+    stage_emit("dfm", 0.0, "design-for-manufacture rules")
+    model = DfmModel.load(model_dir, geometry, envelope)
+    result = evaluate(model, cfg, emit=lambda f, msg: stage_emit("dfm", f, msg))
+    return result.as_dict()
 
 
 def scale_to_weight(cfg: "LureConfig", table: "StationTable", env):
@@ -224,10 +240,14 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=1) from exc
         cfg = result.pop("_config")
         warnings = json_warnings(build_dir) + result.pop("family_warnings")
-        report = update_report(build_dir, cfg, status="built", warnings=warnings, **result)
+        status = "dfm_failed" if result["dfm"]["n_errors"] else "built"
+        report = update_report(build_dir, cfg, status=status, warnings=warnings, **result)
         stage_emit("report", 1.0, "done")
         echo_summary(report)
-        progress.result(build_dir=build_dir)
+        progress.result(build_dir=build_dir, dfm=report["dfm"]["status"])
+        if status == "dfm_failed":
+            typer.echo(f"DFM: {report['dfm']['n_errors']} error(s); build failed", err=True)
+            raise typer.Exit(code=1)
 
 
 def json_warnings(build_dir: Path) -> list[str]:
@@ -264,5 +284,9 @@ def echo_summary(report: dict) -> None:
         ends = ", ".join(f"{k} {v['status']}" for k, v in hb["ends"].items())
         typer.echo(f"hardware band: {hb['status']} ({ends})")
     typer.echo(f"verdict: {report['verdict']['status']} ({report['verdict']['label']})")
+    if dfm := report.get("dfm"):
+        from luregen.dfm.report import echo_dfm
+
+        echo_dfm(dfm, typer.echo)
     parts = ", ".join([*report["sections"], "body"])
     typer.echo(f"  model: {parts}; diagram: {report['diagram']}")
