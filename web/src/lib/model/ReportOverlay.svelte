@@ -52,7 +52,7 @@
       const v = num(env.volume_cm3);
       if (v != null) out.push(['Envelope volume', `${v.toFixed(2)} cm³`]);
       const m = mass(num(env.solid_mass_g));
-      if (m) out.push(['Solid mass', `${m} @ ${num(env.material_density) ?? '?'} g/cm³`]);
+      if (m) out.push(['If solid (no cavity)', `${m} @ ${num(env.material_density) ?? '?'} g/cm³`]);
     }
     const total = mass(num(pick(['mass_g', 'total_mass_g'])));
     if (total) out.push(['Total mass', total]);
