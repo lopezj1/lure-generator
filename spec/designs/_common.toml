@@ -33,6 +33,7 @@ max_pocket_depth_x_dia = 3.0
 roundover_r_mm = 4.0
 corner_margin_mm = 0.1          # inside corner radius ≥ tool radius + this
 undercut_tol_deg = 1.0
+undercut_min_area_mm2 = 1.0     # smaller patches are mesh noise at the pointed tips
 mesh_tol_mm = 0.05              # mesh allowance on distance rules
 
 [report]

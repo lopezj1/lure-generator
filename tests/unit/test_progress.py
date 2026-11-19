@@ -65,6 +65,7 @@ def test_build_emits_stages_and_result_via_python_m(sample_variant: Path, tmp_pa
         "internals",
         "massprops",
         "export",
+        "dfm",
         "report",
     ]
     fracs = [e["frac"] for e in events]

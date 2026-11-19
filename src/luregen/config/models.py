@@ -256,6 +256,9 @@ class CncDfm(Strict):
         1.0, ge=0, description="Faces this far past vertical still count as reachable."
     )
     mesh_tol_mm: float = Field(0.05, ge=0, description="Mesh allowance on distance rules.")
+    undercut_min_area_mm2: float = Field(
+        1.0, ge=0, description="Ignore undercut patches smaller than this (tip mesh noise)."
+    )
 
 
 class DfmConfig(Strict):

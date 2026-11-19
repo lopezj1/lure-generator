@@ -194,11 +194,16 @@ def no_undercuts(model: DfmModel, cfg: LureConfig) -> list[Violation]:
         return [Violation("no body mesh (model/body.stl) to check")]
     mesh = trimesh.Trimesh(mesh.vertices, mesh.faces, process=False)  # normals from winding
     bad = undercut_faces(mesh, cfg.dfm.cnc.undercut_tol_deg)
+    regions = [(float(mesh.area_faces[f].sum()), f) for f in face_regions(mesh, bad)]
+    regions = sorted(
+        [r for r in regions if r[0] >= cfg.dfm.cnc.undercut_min_area_mm2],
+        key=lambda r: r[0],
+        reverse=True,
+    )
     out = []
-    for faces in face_regions(mesh, bad)[:5]:
+    for area, faces in regions[:5]:
         v = mesh.triangles[faces].reshape(-1, 3)
         lo, hi = v.min(axis=0), v.max(axis=0)
-        area = float(mesh.area_faces[faces].sum())
         out.append(
             Violation(
                 f"undercut on the outer surface at x {lo[0]:.1f}–{hi[0]:.1f}, "
