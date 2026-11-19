@@ -9,6 +9,9 @@ The solver is generic over a `Problem`:
 - `jacobian(x, state)` returns d vector / d x. A problem fills columns analytically where it
   can (ballast mass and position need no geometry) and by finite differences elsewhere.
 
+The solve **converges** when the returned pass meets every hard target (inside its band);
+soft targets are minimized but may be infeasible together.
+
 Each **pass** evaluates the model once, reports residuals, and takes a step: the state is
 modelled as linear in the knobs (`vector + J·dx`), the residuals stay nonlinear, and a
 bounded least-squares problem (`scipy.optimize.least_squares`) picks `dx` within the knob
@@ -215,8 +218,14 @@ def solve(
         state, x_new = _evaluate_backtracking(problem, x, x_new, warnings)
         x = x_new
 
-    if not converged and best is not None and hard_ok(best[2]) and reason == "max passes":
-        reason = "max passes; hard targets met"
+    # Convergence is judged on the residuals, not on the step: the solve has converged when
+    # the returned pass meets every hard target inside its band. Soft targets are a
+    # least-squares objective; when they conflict (see the feasibility notes) their residual
+    # floor is not a convergence failure. Running out of passes with the hard targets met
+    # only means the soft compromise may not be fully polished.
+    if not converged and best is not None and hard_ok(best[2]):
+        converged = True
+        reason = f"hard targets met; soft targets at their compromise after {len(passes)} passes"
     bx, bstate, bres = best
     return SolveResult(bx, bstate, bres, passes, converged, reason, jac_evals, warnings)
 

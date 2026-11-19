@@ -34,7 +34,11 @@ def solved(tmp_path_factory) -> Path:
 def test_sample_converges_with_level_hang_at_both_band_ends(solved):
     report = json.loads((solved / "report.json").read_text())
     sol = report["balance"]["solver"]
-    assert sol["status"] == "converged", sol["reason"]
+    trace = [
+        (p["pass"], p["hard_ok"], {k: r["value"] for k, r in p["residuals"].items()})
+        for p in sol["passes"]
+    ]
+    assert sol["status"] == "converged", (sol["reason"], trace)
     assert sol["n_passes"] <= 5
     assert all(r["ok"] for r in sol["final"].values() if r["hard"])
     band = report["balance"]["hardware_band"]
