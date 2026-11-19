@@ -7,8 +7,10 @@ from luregen.fab.router.feeds import (
     calculate,
     chipload_status,
     compare_presets,
+    dial_to_rpm,
     load_feeds,
     preset,
+    rpm_to_dial,
     special,
 )
 
@@ -104,3 +106,29 @@ def test_source_cited():
     text = (ROUTER / "feeds.toml").read_text()
     assert "lopezj1/cnc-feeds-speeds-calculator" in text
     assert "A to Z" in text
+
+
+DIAL_611 = [16500, 18000, 19800, 21500, 24200, 27000]
+
+
+@pytest.mark.parametrize(
+    ("dial", "rpm"), [(1, 16500), (3, 19800), (3.5, 20650), (6, 27000), (0.5, 16500)]
+)
+def test_dial_to_rpm_interpolates_marks(dial, rpm):
+    assert dial_to_rpm(dial, DIAL_611) == pytest.approx(rpm)
+
+
+@pytest.mark.parametrize(
+    ("rpm", "dial"), [(18000, 2), (20650, 3.5), (24000, 5), (17000, 1.25), (30000, 6)]
+)
+def test_rpm_to_dial_rounds_to_quarter(rpm, dial):
+    assert rpm_to_dial(rpm, DIAL_611) == dial
+
+
+def test_default_rpm_follows_chart_dial(table):
+    # Chart: hardwood (Mahogany row) dial 3, pine dial 3.5, PVC dial 1.
+    assert table.default_rpm("oak", DIAL_611) == pytest.approx(19800)
+    assert table.default_rpm("basswood", DIAL_611) == pytest.approx(20650)
+    assert table.default_rpm("pvc_board", DIAL_611) == pytest.approx(16500)
+    assert table.default_rpm("PETG", DIAL_611) == table.rpm.default
+    assert table.default_rpm("oak", []) == table.rpm.default

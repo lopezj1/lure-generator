@@ -38,6 +38,28 @@ class _Strict(BaseModel):
 class RpmCfg(_Strict):
     default: float = Field(18000, gt=0)
     range: tuple[float, float] = (10000, 30000)
+    dial: dict[str, float] = {}  # body material → router speed dial setting
+
+
+def _interp(x: float, xs: list[float], ys: list[float]) -> float:
+    """Piecewise-linear y(x) on increasing `xs`, clamped to the ends."""
+    if x <= xs[0]:
+        return ys[0]
+    for x0, x1, y0, y1 in zip(xs, xs[1:], ys, ys[1:], strict=False):
+        if x <= x1:
+            return y0 + (x - x0) / (x1 - x0) * (y1 - y0)
+    return ys[-1]
+
+
+def dial_to_rpm(dial: float, dial_rpm: list[float]) -> float:
+    """Rpm at a (fractional) speed dial setting; `dial_rpm[i]` is the rpm at mark i + 1."""
+    return _interp(dial, [float(i + 1) for i in range(len(dial_rpm))], dial_rpm)
+
+
+def rpm_to_dial(rpm: float, dial_rpm: list[float], step: float = 0.25) -> float:
+    """Speed dial setting for `rpm`, rounded to `step` (inverse of `dial_to_rpm`)."""
+    dial = _interp(rpm, dial_rpm, [float(i + 1) for i in range(len(dial_rpm))])
+    return round(dial / step) * step
 
 
 class VbitRow(_Strict):
@@ -84,6 +106,12 @@ class FeedsTable(_Strict):
             known = ", ".join(sorted(self.materials))
             raise FeedsError(f"no feeds material mapping for {material!r} (known: {known})")
         return self.materials[material]
+
+    def default_rpm(self, material: str, dial_rpm: list[float]) -> float:
+        """The material's speed dial setting as rpm, else `rpm.default`."""
+        if material in self.rpm.dial and dial_rpm:
+            return dial_to_rpm(self.rpm.dial[material], dial_rpm)
+        return self.rpm.default
 
     def chipload_row(self, diameter_mm: float) -> tuple[str, dict[Category, tuple[float, float]]]:
         d_in = diameter_mm / IN

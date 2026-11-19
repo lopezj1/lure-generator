@@ -399,7 +399,12 @@ class AirPocket(Strict):
 class CncConfig(Strict):
     """CNC halves (process.method = "cnc"): glue-face pockets, wire groove, setups, CAM."""
 
-    rpm: float = Field(18000, gt=0, description="Router rpm used for the feeds (advisory).")
+    rpm: float | None = Field(
+        None,
+        gt=0,
+        description="Router rpm for the feeds; default: the body material's dial setting in "
+        "the router's feeds.toml [rpm.dial] (Carbide 3D chart).",
+    )
     corner_clearance_mm: float = Field(
         0.25, ge=0, description="Pocket corner radius = pocket tool radius + this."
     )

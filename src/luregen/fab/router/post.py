@@ -14,6 +14,7 @@ import math
 import re
 
 from luregen.fab.gcode import format_code_number, tokenize_line
+from luregen.fab.router.feeds import rpm_to_dial
 from luregen.fab.router.ir import (
     Arc,
     Comment,
@@ -294,8 +295,7 @@ def _dial(rpm: float, machine: MachineConfig | None) -> str:
     table = machine.spindle.dial_rpm if machine else []
     if not table:
         return "?"
-    best = min(range(len(table)), key=lambda i: abs(table[i] - rpm))
-    return str(best + 1)
+    return f"{rpm_to_dial(rpm, table):g}"
 
 
 def _tool_tokens(base: dict[str, str], tool: Tool, op: Operation, cfg: PostConfig) -> dict:
