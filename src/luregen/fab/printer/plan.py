@@ -9,9 +9,12 @@ tower is switched on. Single-filament jobs keep the prime tower off.
 Every slot's filament profile is loaded in slot order, so tool numbers in the G-code match
 the machine (T0–T3), and `--load-filament-ids` puts the object on the body slot.
 
-Override precedence (later wins): machine `[overrides]` ← `[support_overrides]` ←
-`[interface_overrides]` ← computed filament/prime-tower keys ← the variant's
-`print.overrides`.
+Each part is planned on its own (#123): head and tail print in `process.material`, a
+separate tail fin in `fin.material` (TPU), flat on its side and without supports.
+
+Override precedence (later wins): machine `[overrides]` ← `[material_overrides.<material>]`
+← `[support_overrides]` ← `[interface_overrides]` ← computed filament/prime-tower keys ← the
+variant's `print.overrides`.
 """
 
 from __future__ import annotations
@@ -65,8 +68,26 @@ class JobPlan:
         }
 
 
-def supports_needed(cfg: LureConfig, roundover_mm: float | None) -> tuple[bool, str]:
-    """`print.supports`: on/off, or auto (loft3d always; profile25d by belly roundover)."""
+# Parts that are not balance sections and print flat on their side (no supports).
+FLAT_PARTS = ("fin",)
+
+
+def part_material(cfg: LureConfig, part: str) -> str:
+    """Material a part prints in: the fin's own (#123), else `process.material`."""
+    if part == "fin":
+        if cfg.fin is None:
+            raise PlanError("this build has no fin ([fin] is unset)")
+        return cfg.fin.material
+    return cfg.process.material
+
+
+def supports_needed(
+    cfg: LureConfig, roundover_mm: float | None, part: str = "head"
+) -> tuple[bool, str]:
+    """`print.supports`: on/off, or auto (loft3d always; profile25d by belly roundover).
+    A flat part (the fin) never gets supports."""
+    if part in FLAT_PARTS:
+        return False, f"{part} prints flat on its side"
     mode = cfg.print.supports
     if mode != "auto":
         return mode == "on", f"print.supports = {mode}"
@@ -90,17 +111,18 @@ def plan_job(
     machine: PrinterMachine,
     roundover_mm: float | None = None,
     app_key: str | None = None,
+    part: str = "head",
 ) -> JobPlan:
-    """Choose slots, supports and the slicer overrides for a print build."""
+    """Choose slots, supports and the slicer overrides for one part of a print build."""
     if not machine.filaments:
         raise PlanError(f"{machine.name}: no [[filaments]] slots in machine.toml")
     slots = sorted(machine.filaments, key=lambda s: s.slot)
     if [s.slot for s in slots] != list(range(len(slots))):
         raise PlanError(f"{machine.name}: filament slots must be T0..T{len(slots) - 1}")
     warnings: list[str] = []
-    material = cfg.process.material
+    material = part_material(cfg, part)
 
-    if cfg.print.body_slot is not None:
+    if cfg.print.body_slot is not None and material == cfg.process.material:
         body = machine.slot(cfg.print.body_slot)
         if body.material != material:
             warnings.append(
@@ -111,14 +133,15 @@ def plan_job(
         body = _default_slot(machine, material)
         if body is None:
             raise PlanError(
-                f"no filament slot holds {material} (process.material); load it in "
-                f"machine.toml [[filaments]] or set print.body_slot"
+                f"no filament slot holds {material} ({part}); load it in "
+                f"machine.toml [[filaments]]"
+                + (" or set print.body_slot" if material == cfg.process.material else "")
             )
 
-    supports, reason = supports_needed(cfg, roundover_mm)
+    supports, reason = supports_needed(cfg, roundover_mm, part)
     interface: FilamentSlot | None = None
     if supports:
-        if cfg.print.interface_slot is not None:
+        if cfg.print.interface_slot is not None and material == cfg.process.material:
             interface = machine.slot(cfg.print.interface_slot)
         elif pair := machine.interface_pairs.get(body.material):
             interface = _default_slot(machine, pair)
@@ -137,6 +160,7 @@ def plan_job(
             )
 
     overrides: dict[str, Any] = dict(machine.overrides)
+    overrides.update(machine.material_overrides.get(material, {}))
     body_id = body.slot + 1
     if supports:
         overrides.update(machine.support_overrides)

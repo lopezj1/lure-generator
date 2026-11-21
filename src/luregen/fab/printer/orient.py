@@ -6,6 +6,9 @@ all, only a translation: the lowest point goes to Z = 0 and the footprint is cen
 bed. The slicer drops objects onto the plate the same way, so a lure Z maps to a print Z by
 `z - z_min`, which is how the cavity-ceiling pause height is computed.
 
+A separate tail fin (#123) prints **flat**: lying on its side (lure y up), so its flat face
+is on the plate and it needs no supports.
+
 The section mesh is the build's `model/<section>.stl`, written by
 `luregen.geometry.export.tessellate`: one mesh with the outer skin and the sealed cavity as an
 inner shell (normals pointing into the void), which the slicer prints as a closed hollow.
@@ -19,6 +22,7 @@ from pathlib import Path
 import numpy as np
 
 ORIENTATION = "upright"
+ORIENTATIONS = ("upright", "flat")
 
 
 class OrientError(ValueError):
@@ -31,6 +35,7 @@ class OrientedSection:
     mesh: object  # trimesh.Trimesh, in print coordinates
     transform: np.ndarray  # 4x4, lure → print coordinates
     shells: int  # connected components: 1 outer skin + one per sealed void
+    orientation: str = ORIENTATION
 
     @property
     def z_offset(self) -> float:
@@ -47,7 +52,7 @@ class OrientedSection:
     def as_dict(self) -> dict:
         lo, hi = (np.round(b, 3).tolist() for b in self.mesh.bounds)
         return {
-            "orientation": ORIENTATION,
+            "orientation": self.orientation,
             "transform": np.round(self.transform, 6).tolist(),
             "z_offset_mm": round(self.z_offset, 3),
             "bounds_mm": [lo, hi],
@@ -75,27 +80,44 @@ def upright_transform(bounds: np.ndarray, center_xy: tuple[float, float]) -> np.
     return t
 
 
-def orient_mesh(name: str, mesh, center_xy: tuple[float, float]) -> OrientedSection:
-    """Orient a closed section mesh upright; it must be watertight with consistent winding."""
+# Lure → print rotation for a flat part: +90° about x, so lure y becomes print Z.
+FLAT_ROTATION = np.array(
+    [[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, -1.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+)
+
+
+def orient_mesh(
+    name: str, mesh, center_xy: tuple[float, float], orientation: str = ORIENTATION
+) -> OrientedSection:
+    """Orient a closed mesh upright (or flat, lying on its side); it must be watertight
+    with consistent winding."""
+    if orientation not in ORIENTATIONS:
+        raise OrientError(f"{name}: unknown orientation {orientation!r}")
     if not (mesh.is_watertight and mesh.is_winding_consistent):
         raise OrientError(f"{name}: mesh is not closed (watertight/winding); rebuild the model")
     shells = len(mesh.split(only_watertight=False))
-    t = upright_transform(mesh.bounds, center_xy)
+    rot = FLAT_ROTATION if orientation == "flat" else np.eye(4)
     out = mesh.copy()
+    out.apply_transform(rot)
+    t = upright_transform(out.bounds, center_xy)
     out.apply_transform(t)
-    return OrientedSection(name, out, t, shells)
+    return OrientedSection(name, out, t @ rot, shells, orientation)
 
 
 def orient_section(
-    name: str, stl: Path, center_xy: tuple[float, float], out_stl: Path | None = None
+    name: str,
+    stl: Path,
+    center_xy: tuple[float, float],
+    out_stl: Path | None = None,
+    orientation: str = ORIENTATION,
 ) -> OrientedSection:
-    """Load `model/<section>.stl`, orient it upright and optionally write the print STL."""
+    """Load `model/<part>.stl`, orient it and optionally write the print STL."""
     import trimesh
 
     if not Path(stl).is_file():
         raise OrientError(f"{name}: {stl} not found; is this a print build?")
     mesh = trimesh.load_mesh(stl, process=True)
-    section = orient_mesh(name, mesh, center_xy)
+    section = orient_mesh(name, mesh, center_xy, orientation)
     if out_stl is not None:
         Path(out_stl).parent.mkdir(parents=True, exist_ok=True)
         section.mesh.export(out_stl)

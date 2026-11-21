@@ -95,6 +95,8 @@ class PrinterMachine:
     # Overrides added when a job has supports, and on top when the interface is dissimilar.
     support_overrides: dict[str, Any] = field(default_factory=dict)
     interface_overrides: dict[str, Any] = field(default_factory=dict)
+    # Overrides added when a part prints in a given material (e.g. TPU for the fin, #123).
+    material_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def slot(self, n: int) -> FilamentSlot:
         for s in self.filaments:
@@ -177,6 +179,7 @@ def load_machine(path: Path) -> PrinterMachine:
             interface_pairs=dict(data.get("support_interface", {}).get("pairs", {})),
             support_overrides=dict(data.get("support_overrides", {})),
             interface_overrides=dict(data.get("interface_overrides", {})),
+            material_overrides={k: dict(v) for k, v in data.get("material_overrides", {}).items()},
         )
     except (KeyError, TypeError) as exc:
         raise MachineConfigError(f"{toml_path}: missing or bad key: {exc}") from exc

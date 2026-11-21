@@ -78,7 +78,7 @@ def test_plan_loft3d_dissimilar_interface(u1):
         "filament-PLA.json",
         "filament.json",
         "filament-PLA.json",
-        "filament-PLA.json",
+        "filament-TPU.json",  # T3 holds TPU for the separate tail fin (#123)
     ]
     assert not plan.warnings
 
@@ -273,7 +273,7 @@ def test_job_with_fake_slicer(print_build: Path, fake_slicer: Path, monkeypatch)
     assert payload["totals"]["tool_changes"] == 40
     assert payload["plan"]["prime_tower"] is True
     md = (out / "print.md").read_text()
-    assert "| head | 12m 30s |" in md and "T0 PLA" in md
+    assert "| head | T1 PETG | 12m 30s |" in md and "T0 PLA" in md
     log = (out / "head.slice.log").read_text()
     assert "--load-filament-ids 2" in log and "--enable-prime-tower=1" in log
     assert "filament-PLA.json" in log and "--support-top-z-distance=0" in log

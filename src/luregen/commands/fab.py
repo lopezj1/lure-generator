@@ -19,12 +19,22 @@ def register(app: typer.Typer) -> None:
         machine: str | None = typer.Option(
             None, help="Machine folder name; defaults to the only one."
         ),
+        parts: list[str] = typer.Option(
+            [],
+            "--parts",
+            help="Print only these parts (head, tail, fin; repeatable or comma-separated). "
+            "A CNC build prints its printed parts (the TPU fin).",
+        ),
     ) -> None:
         """Generate manufacturing output (G-code) for a build."""
         if format == Format.cnc:
+            if parts:
+                typer.echo("--parts applies to --format print", err=True)
+                raise typer.Exit(code=2)
             fab_cnc(build, machine)
             return
-        fab_print(build, machine)
+        names = [p.strip() for item in parts for p in item.split(",") if p.strip()]
+        fab_print(build, machine, names or None)
 
 
 def fab_cnc(build: Path, machine: str | None) -> None:
@@ -59,7 +69,7 @@ def fab_cnc(build: Path, machine: str | None) -> None:
         raise typer.Exit(code=1)
 
 
-def fab_print(build: Path, machine: str | None) -> None:
+def fab_print(build: Path, machine: str | None, parts: list[str] | None = None) -> None:
     """Print sections: oriented upright, sliced, paused, verified into <build>/fab/print/."""
     from luregen import progress
     from luregen.fab.printer.job import PrintJobError, fmt_time, run
@@ -71,7 +81,7 @@ def fab_print(build: Path, machine: str | None) -> None:
 
     try:
         folder = resolve_build_dir(build)
-        result = run(folder, Path("spec"), machine)
+        result = run(folder, Path("spec"), machine, parts=parts)
     except (
         PrintJobError,
         PlanError,
@@ -96,7 +106,8 @@ def fab_print(build: Path, machine: str | None) -> None:
         status = "ok" if s.ok else "FAILED"
         pause = f"pause layer {s.pause['layer']} Z {s.pause['layer_z_mm']}" if s.pause else ""
         typer.echo(
-            f"  {s.gcode or s.name}  {fmt_time(st.get('time_s'))}  {st.get('filament_g')} g "
+            f"  {s.gcode or s.name}  {s.tool} {s.material}  {fmt_time(st.get('time_s'))}  "
+            f"{st.get('filament_g')} g "
             f"(interface {st.get('interface_g')} g)  {st.get('tool_changes')} tool changes  "
             f"{st.get('layers')} layers  {pause}  {status}"
         )

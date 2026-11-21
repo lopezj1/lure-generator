@@ -29,6 +29,12 @@
             "OrcaFilamentLibrary/filament/Generic PLA @System.json",
             "OrcaFilamentLibrary/filament/base/fdm_filament_pla.json",
             "OrcaFilamentLibrary/filament/base/fdm_filament_common.json"
+        ],
+        "filament-TPU": [
+            "Snapmaker/filament/Generic TPU @U1 0.4 nozzle.json",
+            "OrcaFilamentLibrary/filament/Generic TPU @System.json",
+            "OrcaFilamentLibrary/filament/base/fdm_filament_tpu.json",
+            "OrcaFilamentLibrary/filament/base/fdm_filament_common.json"
         ]
     }
 }

@@ -1,13 +1,19 @@
 """`lure fab --format print`: a print build folder → sliced, paused, verified G-code (#35, #51).
 
-Reads only the build folder (resolved.toml, report.json, model/<section>.stl) plus the
+Reads only the build folder (resolved.toml, report.json, model/<part>.stl) plus the
 printer's spec folder (machine.toml, flattened profiles, reference/). Writes `<build>/fab/print/`:
 
-- `<section>.stl`: the section oriented upright (print coordinates), as sliced
-- `<section>.gcode`: sliced on its own, with the cavity-ceiling pause and the thumbnails
+- `<part>.stl`: the part oriented for printing (print coordinates), as sliced: head and
+  tail upright, a separate tail fin (#123) flat on its side
+- `<part>.gcode`: sliced on its own in the part's material (fin: TPU), with the
+  cavity-ceiling pause (sections with a cavity) and the thumbnails
 - `<section>.slice.log`: the slicer command and output
-- `print.json` / `print.md`: plan (slots, supports, overrides), per-section time, grams,
+- `print.json` / `print.md`: plan (slots, supports, overrides), per-part time, grams,
   interface grams, tool changes, layers, pause layer/Z, thumbnails and the reference diff
+
+Parts: a print build prints head, tail and (if any) the fin; a CNC build only its printed
+parts (the fin), so `lure fab <cnc build> --format print` makes the fin's G-code. `parts`
+(`--parts`) picks a subset.
 """
 
 from __future__ import annotations
@@ -24,11 +30,12 @@ from luregen.fab.printer import gcode_post, orca
 from luregen.fab.printer import thumbnails as th
 from luregen.fab.printer.machine import PrinterMachine, load_machine
 from luregen.fab.printer.orient import OrientedSection, bed_center, orient_section
-from luregen.fab.printer.plan import JobPlan, plan_job
+from luregen.fab.printer.plan import FLAT_PARTS, JobPlan, part_material, plan_job
 from luregen.fab.printer.verify import VerifyReport, verify_against_references
 
 OUT_DIR = "fab/print"  # web PrintView and archive groups expect this path
 SECTIONS = ("head", "tail")
+PRINTED_PARTS = ("fin",)  # separately printed parts, also for CNC builds (#123)
 # Progress: `plan` at 0, then each section gets an equal share of [SECTIONS_START, REPORT_AT],
 # split by the per-section stage offsets below (slicing takes most of the time).
 SECTIONS_START, REPORT_AT = 0.02, 0.98
@@ -61,6 +68,8 @@ class SectionResult:
     slice_log: str
     stats: dict[str, Any] = field(default_factory=dict)
     pause: dict[str, Any] | None = None
+    material: str | None = None
+    tool: str | None = None
     thumbnails: list[str] = field(default_factory=list)
     verify: dict[str, Any] | None = None
     issues: list[str] = field(default_factory=list)
@@ -169,20 +178,46 @@ def verify_dict(report: VerifyReport) -> dict[str, Any]:
     return out
 
 
+def printable_parts(cfg: LureConfig, report: dict, parts: list[str] | None = None) -> list[str]:
+    """Parts this build prints: head, tail (print builds) and the separate printed parts
+    (the fin) of any build; `parts` narrows them."""
+    geometry = report.get("geometry") or {}
+    extra = [p for p in PRINTED_PARTS if geometry.get(p)]
+    if cfg.process.method == "print":
+        names = [n for n in SECTIONS if n in report["sections"]] or list(report["sections"])
+        available = names + extra
+    else:
+        available = extra
+        if not available:
+            raise PrintJobError(
+                f"this is a {cfg.process.method} build with no printed parts; use --format "
+                f"{cfg.process.method}"
+            )
+    if parts:
+        unknown = [p for p in parts if p not in available]
+        if unknown:
+            raise PrintJobError(
+                f"cannot print {', '.join(unknown)} from this {cfg.process.method} build "
+                f"(printable: {', '.join(available)})"
+            )
+        return [p for p in available if p in parts]
+    return available
+
+
 def run(
     build: Path,
     spec: Path,
     machine_name: str | None = None,
     app_key: str | None = None,
     fetch: bool = True,
+    parts: list[str] | None = None,
 ) -> PrintResult:
     build = Path(build)
     cfg: LureConfig = load_resolved(build / "resolved.toml")
-    if cfg.process.method != "print":
-        raise PrintJobError(f"{build} is a {cfg.process.method} build; use --format cnc")
     report = json.loads((build / "report.json").read_text())
     if report.get("status") == "config_only" or not report.get("sections"):
         raise PrintJobError(f"{build} has no model (status {report.get('status')!r})")
+    names = printable_parts(cfg, report, parts)
 
     emit("plan", msg="filament slots and supports")
     machine: PrinterMachine = load_machine(
@@ -190,20 +225,24 @@ def run(
     )
     app = machine.slicer(app_key)
     roundover = ((report.get("envelope") or {}).get("roundover") or {}).get("applied_mm")
-    plan = plan_job(cfg, machine, roundover, app.key)
-    warnings = list(plan.warnings)
+    plans = {name: plan_job(cfg, machine, roundover, app.key, part=name) for name in names}
+    plan = plans[names[0]]
+    warnings = list(dict.fromkeys(w for p in plans.values() for w in p.warnings))
     profile = json.loads(machine.profile_paths(app.key)["machine"].read_text())
     center = bed_center(profile)
     sizes = th.parse_sizes(profile.get("thumbnails"))
 
     out = build / OUT_DIR
     out.mkdir(parents=True, exist_ok=True)
-    names = [n for n in SECTIONS if n in report["sections"]] or list(report["sections"])
     results: list[SectionResult] = []
     for i, name in enumerate(names):
-        emit("orient", i, len(names), f"{name}: upright")
+        plan = plans[name]
+        orientation = "flat" if name in FLAT_PARTS else "upright"
+        emit("orient", i, len(names), f"{name}: {orientation}")
         stl = out / f"{name}.stl"
-        oriented = orient_section(name, build / "model" / f"{name}.stl", center, stl)
+        oriented = orient_section(
+            name, build / "model" / f"{name}.stl", center, stl, orientation=orientation
+        )
         if oriented.shells < 2 and pause_height(report, name) is not None:
             warnings.append(
                 f"{name}: expected a sealed cavity (2 shells), mesh has {oriented.shells}"
@@ -215,6 +254,8 @@ def run(
             ok=False,
             orient=oriented.as_dict(),
             slice_log=f"{OUT_DIR}/{name}.slice.log",
+            material=part_material(cfg, name),
+            tool=plan.body.tool,
         )
         results.append(res)
 
@@ -238,7 +279,7 @@ def run(
 
         emit("post", i, len(names), f"{name}: pause and thumbnails")
         ceiling = pause_height(report, name)
-        if cfg.print.pause == "cavity_ceiling":
+        if cfg.print.pause == "cavity_ceiling" and name not in FLAT_PARTS:
             if ceiling is None:
                 warnings.append(f"{name}: no cavity ceiling in report.json; no pause inserted")
             else:
@@ -256,7 +297,9 @@ def run(
         res.ok = not res.issues
 
     emit("report", msg="print.json and print.md")
-    summary = _summary(cfg, machine, app, plan, results)
+    summary = _summary(cfg, machine, app, plans[names[0]], results)
+    if len({id(p) for p in plans.values()}) > 1:
+        summary["part_plans"] = {n: p.as_dict() for n, p in plans.items()}
     payload = {
         "variant": cfg.name,
         "build": build.name,
@@ -330,31 +373,45 @@ def render_md(p: dict[str, Any]) -> str:
     lines = [
         f"# Print: {p['variant']}",
         "",
-        f"{p['machine']}, {p['slicer']}, sections {p['orientation']} (z up, belly down).",
+        f"{p['machine']}, {p['slicer']}, sections {p['orientation']} (z up, belly down)"
+        + (
+            "; the fin flat on its side."
+            if any(s.get("orient", {}).get("orientation") == "flat" for s in p["sections"].values())
+            else "."
+        ),
         "",
         f"- Body: {body['tool']} {body['material']}",
         f"- Supports: {'yes' if plan['supports'] else 'no'} ({plan['supports_reason']})",
         f"- Interface: {iface['tool'] + ' ' + iface['material'] if iface else 'none'}; "
         f"prime tower {'on' if plan['prime_tower'] else 'off'}",
         "",
-        "| Section | Time | Total | Body | Interface | Tool changes | Layers | Pause |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Part | Material | Time | Total | Body | Interface | Tool changes | Layers | Pause |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for name, s in p["sections"].items():
         st = s["stats"]
         pause = s.get("pause")
         pause_txt = f"layer {pause['layer']} (Z {pause['layer_z_mm']:.2f})" if pause else "none"
+        mat = f"{s.get('tool') or ''} {s.get('material') or ''}".strip() or "?"
         lines.append(
-            f"| {name} | {fmt_time(st.get('time_s'))} | {_g(st.get('filament_g'))} | "
+            f"| {name} | {mat} | {fmt_time(st.get('time_s'))} | {_g(st.get('filament_g'))} | "
             f"{_g(st.get('body_g'))} | {_g(st.get('interface_g'))} | "
             f"{st.get('tool_changes', '?')} | {st.get('layers', '?')} | {pause_txt} |"
         )
     t = p["totals"]
     lines.append(
-        f"| **total** | {fmt_time(t['time_s'])} | {_g(t['filament_g'])} | {_g(t['body_g'])} | "
+        f"| **total** | | {fmt_time(t['time_s'])} | {_g(t['filament_g'])} | {_g(t['body_g'])} | "
         f"{_g(t['interface_g'])} | {t['tool_changes'] if t['tool_changes'] is not None else '?'}"
         " | | |"
     )
+    lines.append("")
+    for name, pp in (p.get("part_plans") or {}).items():
+        if pp["body"]["material"] != body["material"]:
+            lines.append(
+                f"- {name}: {pp['body']['tool']} {pp['body']['material']}, supports "
+                f"{'yes' if pp['supports'] else 'no'} ({pp['supports_reason']}); overrides "
+                + ", ".join(f"`{k}={v}`" for k, v in pp["overrides"].items())
+            )
     lines.append("")
     lines.append(
         "The pause (`{}`) stops before the layer that closes the cavity roof "
