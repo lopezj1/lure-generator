@@ -31,6 +31,12 @@
   flex-wrap: wrap;
   margin-bottom: 0.25rem;
 }
+/* Pico turns a <small> after a select into block helper text; keep it inline here. */
+.w9 .head > small {
+  display: inline;
+  width: auto;
+  margin: 0;
+}
 .w9 .head select {
   width: auto;
   margin: 0;

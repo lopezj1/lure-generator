@@ -225,6 +225,8 @@
   .cli {
     flex-basis: 100%;
     margin: 0;
+    padding: 0;
+    background: none;
   }
   .message {
     flex-basis: 100%;

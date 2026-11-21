@@ -202,6 +202,13 @@
     max-width: 100%;
     height: auto;
   }
+  .bar label:first-child {
+    flex: 0 1 32rem;
+  }
+  .bar label:first-child select {
+    flex: 1;
+    width: 100%;
+  }
   .presets {
     width: auto;
     margin: 0;
@@ -222,6 +229,7 @@
     position: relative;
     min-width: 0;
     min-height: 24rem;
+    overflow: hidden;
   }
   /* Clear of the viewer's own toolbar, tree and view menu: bottom centre. */
   .viewer :global(.fs-btn) {
@@ -230,6 +238,13 @@
     bottom: 0.5rem;
     left: 50%;
     transform: translateX(-50%);
+  }
+  @media (max-width: 767px) {
+    /* The report overlay takes the bottom right; keep the bottom left for this. */
+    .viewer :global(.fs-btn) {
+      left: 0.5rem;
+      transform: none;
+    }
   }
   .side {
     overflow: auto;

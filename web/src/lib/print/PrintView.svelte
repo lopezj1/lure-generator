@@ -35,6 +35,7 @@
   let showTravel = $state(false);
   let showPause = $state(true);
   let hidden: boolean[] = $state([]);
+  let statsOpen = $state(true);
 
   const header = $derived(tp?.header);
   const sourceLabel = $derived(sources.find((s) => s.url === loadedUrl)?.label ?? '');
@@ -140,6 +141,7 @@
 
   onMount(() => {
     scene = new PrintScene(host!);
+    statsOpen = host!.clientWidth > 700; // small screens: keep the canvas visible
     void listSources();
   });
   onDestroy(() => scene?.dispose());
@@ -349,7 +351,7 @@
           </button>
         </aside>
 
-        <details class="stats" open>
+        <details class="stats" bind:open={statsOpen}>
           <summary>
             <span class="title">{sourceLabel || header.source.name || 'Toolpath'}</span>
           </summary>
@@ -429,6 +431,12 @@
     align-items: center;
     padding: 0.4rem 0.5rem;
     font-size: 0.85rem;
+    --pico-form-element-spacing-vertical: 0.2rem;
+    --pico-form-element-spacing-horizontal: 0.5rem;
+  }
+  .toolbar input[type='file']::file-selector-button {
+    font-size: 0.85rem;
+    padding: 0.2rem 0.6rem;
   }
   .toolbar > * {
     margin: 0;
@@ -442,7 +450,7 @@
     height: auto;
   }
   .toolbar select {
-    max-width: 100%;
+    max-width: min(100%, 28rem);
   }
   .toolbar button {
     padding: 0.3rem 0.8rem;

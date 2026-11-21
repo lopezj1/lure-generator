@@ -160,3 +160,10 @@ main {
     padding: 0.5rem 0.6rem 1rem;
   }
 }
+
+@media (min-width: 1024px) {
+  /* The design page scrolls inside its own box: let the save bar cover its top padding. */
+  .page-design .savebar {
+    top: -0.6rem;
+  }
+}

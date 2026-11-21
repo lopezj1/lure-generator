@@ -486,6 +486,12 @@
     align-items: center;
     padding: 0.4rem 0.5rem;
     font-size: 0.85rem;
+    --pico-form-element-spacing-vertical: 0.2rem;
+    --pico-form-element-spacing-horizontal: 0.5rem;
+  }
+  .toolbar input[type='file']::file-selector-button {
+    font-size: 0.85rem;
+    padding: 0.2rem 0.6rem;
   }
   .toolbar > * {
     margin: 0;
@@ -499,7 +505,7 @@
     height: auto;
   }
   .toolbar select {
-    max-width: 100%;
+    max-width: min(100%, 28rem);
   }
   .views {
     display: flex;
