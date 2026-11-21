@@ -178,6 +178,9 @@ class ToolEntry(Strict):
     number_verified: bool = False
     flute_length: float | None = Field(None, gt=0, description="mm; 3D ops check reach.")
     shank_diameter: float | None = Field(None, gt=0, description="mm; default = diameter.")
+    taper_deg: float | None = Field(
+        None, gt=0, lt=45, description="Tapered ball nose: cone half-angle; diameter = tip."
+    )
 
     def to_tool(self, tool_id: str) -> Tool:
         return Tool(

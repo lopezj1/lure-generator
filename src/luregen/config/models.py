@@ -362,11 +362,11 @@ class Rough3dOp(CncOp):
 
 
 class Finish3dOp(CncOp):
-    """Setup-2 parallel raster finishing of the outer face (#42). Default: the owner's
-    1/32in flat at 0.076 mm stepover; a ball nose uses the scallop stepover √(8·R·h)."""
+    """Setup-2 parallel raster finishing of the outer face (#42). Default: the owner's R1.0
+    tapered ball at the scallop stepover √(8·R·h); a flat uses the preset's stepover."""
 
-    tool: str = "flat_0.794"
-    preset: str | None = "owner_finish_flat_0.794"
+    tool: str = "taperball_2"
+    preset: str | None = "owner_finish_taperball_2"
     enabled: bool = True
     stepover_mm: float | None = Field(
         None, gt=0, description="Override; default: the preset (flat) or the scallop (ball)."
@@ -415,7 +415,7 @@ class CncConfig(Strict):
     ballast_min_depth_mm: float = Field(0.8, gt=0, description="Shallowest pocket per half.")
     ramp_angle_deg: float = Field(3.0, gt=0, le=30, description="Pocket/profile ramp entry.")
     cutout_overcut_mm: float = Field(0.3, ge=0, description="Cut-out depth below the stock.")
-    climb: bool = True
+    climb: bool = Field(True, description="Climb milling; false = conventional.")
     air_pockets: list[AirPocket] = []
     stock: CncStock = CncStock()
     registration: CncRegistration = CncRegistration()

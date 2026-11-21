@@ -131,3 +131,14 @@ plunge_mm_min = 1016.0
 stepover_mm = 0.076      # ~10% of D
 doc_mm = 0.2             # finishing pass; not from the sample (surface follows the model)
 source = "owner Fusion 360 job, #27 comment 2026-11-18 (the calculator has no 1/32in rows)"
+
+[presets."owner_finish_taperball_2"]
+description = "R1.0 tapered ball 3D finishing raster (owner's 3D surfacing bit)"
+tool_diameter_in = 0.07874   # 2.0 mm tip
+shape = "ball"
+base_mode = "conservative"
+feed_mm_min = 4572.0     # 180 IPM (owner, #28)
+plunge_mm_min = 1016.0
+stepover_mm = 0.28       # nominal; a ball nose's finishing stepover comes from the scallop
+doc_mm = 0.2
+source = "owner's 3D surfacing bit and feed (#28)"

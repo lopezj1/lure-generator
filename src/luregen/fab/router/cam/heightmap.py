@@ -7,13 +7,15 @@
   upward-facing triangles are drawn, so a closed mesh gives its top surface.
 - `tip_surface`: the lowest tool-tip Z over every cell such that the tool doesn't cut below
   the target (a drop-cutter on the heightmap, i.e. a grey dilation): a flat kernel for flat
-  end mills, a ball kernel for ball noses, plus an optional shank above the flutes.
+  end mills, a ball kernel for ball noses (a ball tip plus cone for tapered ones), plus an
+  optional shank above the flutes.
 - `sweep_surface`: the inverse (a grey erosion) for simulating a set of tool-tip positions.
 """
 
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -155,16 +157,53 @@ def dilate_flat(z: np.ndarray, r: float, grid: Grid) -> np.ndarray:
 
 def dilate_ball(z: np.ndarray, r: float, grid: Grid) -> np.ndarray:
     """max of z(p + d) − (r − √(r² − |d|²)) over |d| ≤ r (ball end mill drop-cutter)."""
-    ky, kx = int(math.floor(r / grid.ry)), int(math.floor(r / grid.rx))
+    return dilate_radial(z, r, grid, lambda d: r - math.sqrt(r * r - d * d))
+
+
+def dilate_radial(
+    z: np.ndarray, reach: float, grid: Grid, height: Callable[[float], float]
+) -> np.ndarray:
+    """max of z(p + d) − height(|d|) over |d| ≤ reach (a round tool's drop-cutter)."""
+    ky, kx = int(math.floor(reach / grid.ry)), int(math.floor(reach / grid.rx))
     out = np.full_like(z, -np.inf)
     for dy in range(-ky, ky + 1):
         for dx in range(-kx, kx + 1):
-            d2 = (dx * grid.rx) ** 2 + (dy * grid.ry) ** 2
-            if d2 > r * r:
+            d = math.hypot(dx * grid.rx, dy * grid.ry)
+            if d > reach:
                 continue
-            drop = r - math.sqrt(r * r - d2)
-            _max_shifted(out, z, dy, dx, drop)
+            _max_shifted(out, z, dy, dx, height(d))
     return out
+
+
+def tapered_ball_height(r: float, taper_deg: float) -> Callable[[float], float]:
+    """Tool surface height above the tip at radius d: a ball of radius r, then the tangent
+    cone of half-angle `taper_deg`."""
+    t = math.radians(taper_deg)
+    d_t, h_t = r * math.cos(t), r * (1 - math.sin(t))
+
+    def height(d: float) -> float:
+        if d <= d_t:
+            return r - math.sqrt(r * r - d * d)
+        return h_t + (d - d_t) / math.tan(t)
+
+    return height
+
+
+def _relief(z: np.ndarray) -> float:
+    finite = z[np.isfinite(z)]
+    return float(finite.max() - finite.min()) if finite.size else 0.0
+
+
+def dilate_tapered(z: np.ndarray, cutter: Cutter, r: float, grid: Grid) -> np.ndarray:
+    """Drop-cutter for a tapered ball nose of tip radius `r`. The cone only matters up to the
+    height of the terrain's relief, so the kernel stops there (or at the flute top)."""
+    t = math.radians(cutter.taper_deg or 0.0)
+    height = tapered_ball_height(r, cutter.taper_deg or 0.0)
+    rise = _relief(z)
+    if cutter.flute_length:
+        rise = min(rise, cutter.flute_length)
+    reach = max(r, r * math.cos(t) + max(rise - r * (1 - math.sin(t)), 0.0) * math.tan(t))
+    return dilate_radial(z, reach, grid, height)
 
 
 @dataclass(frozen=True)
@@ -172,9 +211,10 @@ class Cutter:
     """Tool geometry for 3D: the cutting end plus an optional wider shank above the flutes."""
 
     shape: str  # "flat" | "ball"
-    diameter: float
+    diameter: float  # the tip diameter for a tapered ball nose
     flute_length: float | None = None
     shank_diameter: float | None = None
+    taper_deg: float | None = None  # ball nose only: cone half-angle above the tip
 
     @property
     def r(self) -> float:
@@ -185,8 +225,11 @@ def tip_surface(target: np.ndarray, cutter: Cutter, grid: Grid, allowance: float
     """Lowest tool-tip Z per cell keeping `allowance` (approximately normal) above `target`."""
     # A tool grown by the allowance, then its tip moved back up by the allowance.
     r = cutter.r + allowance
-    dilate = dilate_ball if cutter.shape == "ball" else dilate_flat
-    tip = dilate(target, r, grid) + allowance
+    if cutter.taper_deg:
+        tip = dilate_tapered(target, cutter, r, grid) + allowance
+    else:
+        dilate = dilate_ball if cutter.shape == "ball" else dilate_flat
+        tip = dilate(target, r, grid) + allowance
     if cutter.shank_diameter and cutter.flute_length and cutter.shank_diameter > cutter.diameter:
         shank = dilate_flat(target, cutter.shank_diameter / 2 + allowance, grid)
         tip = np.maximum(tip, shank + allowance - cutter.flute_length)
@@ -196,6 +239,8 @@ def tip_surface(target: np.ndarray, cutter: Cutter, grid: Grid, allowance: float
 def sweep_surface(tipmin: np.ndarray, cutter: Cutter, grid: Grid) -> np.ndarray:
     """Surface cut by a tool whose lowest tip Z per cell is `tipmin` (+inf where unvisited)."""
     neg = -tipmin
+    if cutter.taper_deg:
+        return -dilate_tapered(neg, cutter, cutter.r, grid)
     if cutter.shape == "ball":
         return -dilate_ball(neg, cutter.r, grid)
     return -dilate_flat(neg, cutter.r, grid)

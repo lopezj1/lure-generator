@@ -134,7 +134,7 @@ def surface_settings(cfg: LureConfig, lib: ToolLibrary) -> st.Surface3D | None:
 
     def cutter(tool_id: str) -> Cutter:
         e = lib.tools[tool_id]
-        return Cutter(e.shape, e.diameter, e.flute_length, e.shank_diameter)
+        return Cutter(e.shape, e.diameter, e.flute_length, e.shank_diameter, e.taper_deg)
 
     sf = st.Surface3D()
     if r.enabled:
