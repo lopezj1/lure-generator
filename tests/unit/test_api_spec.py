@@ -396,3 +396,30 @@ def test_spec_status_with_git(root, client, variant_file):
         "spec/designs/glide/variants/striper_175_petg.toml": " M",
         "spec/designs/glide/variants/new.toml": "??",
     }
+
+
+def test_every_field_has_a_concise_description():
+    """Every editor label has a hover tooltip: each field and object carries a one-line
+    description (#132). Fixed-key map rows and [min, max] items are labeled by their key."""
+    from luregen.api.formschema import postprocess_schema
+    from luregen.config.models import LureConfig
+
+    out, _ = postprocess_schema(LureConfig.model_json_schema(), {})
+    missing, long = [], []
+
+    def visit(node, path):
+        for k, c in node.get("properties", {}).items():
+            p = f"{path}.{k}" if path else k
+            if node.get("x-layout") != "table":  # R4 rows are self-describing keys
+                d = c.get("description", "")
+                if not d:
+                    missing.append(p)
+                elif len(d) > 110 or "\n" in d:
+                    long.append(p)
+            visit(c, p)
+        if isinstance(node.get("items"), dict):
+            visit(node["items"], f"{path}[]")
+
+    visit(out, "")
+    assert not missing, f"fields without a description: {missing}"
+    assert not long, f"descriptions over one short line: {long}"
