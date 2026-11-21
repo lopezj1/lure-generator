@@ -1,57 +1,169 @@
+/* App shell (#121). Breakpoints: < 600 px phone, < 1024 px tablet, wider: desktop. From
+   1024 px up the app fills the viewport and each page scrolls on its own; viewer pages fill
+   the height. Narrower, the document scrolls and the viewers get a fixed height. */
+:root {
+  /* Pico scales the root font up to 131% on wide screens; keep forms dense instead. */
+  --pico-font-size: 100%;
+}
 html,
 body,
 #app {
-  height: 100%;
+  min-height: 100%;
+}
+body {
+  overflow-x: hidden;
 }
 
-.layout {
+.app {
   display: grid;
-  grid-template-columns: minmax(16rem, 22rem) 1fr;
-  grid-template-rows: auto 1fr auto;
-  grid-template-areas:
-    'header header'
-    'panel viewport'
-    'drawer drawer';
-  height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr;
+  min-height: 100dvh;
 }
 
-.layout > header {
-  grid-area: header;
-  padding: 0.5rem 1rem;
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.9rem;
+  padding: 0.4rem 1rem;
   border-bottom: 1px solid var(--pico-muted-border-color);
+  min-width: 0;
+}
+.topbar .brand {
+  white-space: nowrap;
+}
+.topbar .spacer {
+  flex: 1;
+}
+.topbar .current-build {
+  margin: 0;
+  width: auto;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: 1rem;
+  white-space: nowrap;
 }
 
-.layout > aside {
-  grid-area: panel;
-  overflow: auto;
-  padding: 1rem;
-  border-right: 1px solid var(--pico-muted-border-color);
+.tabs {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0.1rem;
+  padding: 0 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+  background: var(--pico-background-color);
+}
+.tabs a {
+  flex: none;
+  padding: 0.5rem 0.9rem;
+  color: var(--pico-muted-color);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+.tabs a:hover {
+  color: var(--pico-color);
+}
+.tabs a.active {
+  color: var(--pico-primary);
+  border-bottom-color: var(--pico-primary);
+  font-weight: 600;
+}
+.tabs .dot {
+  color: var(--pico-primary);
+  font-size: 0.7rem;
+  vertical-align: super;
 }
 
-.layout > main {
-  grid-area: viewport;
+main {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}
+.page {
+  padding: 0.6rem 1rem 1rem;
+  min-width: 0;
+}
+.page[hidden] {
+  display: none !important;
+}
+
+/* Viewer pages: a toolbar/fab bar on top, the preview filling the rest. */
+.page-viewer {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 0.5rem 1rem;
 }
-
-.layout > footer {
-  grid-area: drawer;
-  border-top: 1px solid var(--pico-muted-border-color);
-  padding: 0 1rem;
-}
-
-.viewport {
+.preview-row {
   flex: 1;
+  min-height: 0;
   display: grid;
-  place-items: center;
+  /* #113 adds a resizable G-code listing column here (and a bottom drawer < 768 px). */
+  grid-template-columns: minmax(0, 1fr);
   background: var(--pico-card-background-color);
+  border-radius: var(--pico-border-radius);
+  overflow: hidden;
+}
+.preview-row > * {
+  min-width: 0;
+  min-height: 0;
 }
 
-.viewport > .pane {
-  align-self: stretch;
-  justify-self: stretch;
-  min-height: 0;
-  min-width: 0;
+@media (min-width: 1024px) {
+  .app {
+    height: 100dvh;
+  }
+  main {
+    overflow: hidden;
+    position: relative;
+  }
+  .page {
+    position: absolute;
+    inset: 0;
+    overflow: auto;
+  }
+  .page-viewer {
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* The document scrolls; previews keep a usable fixed height. */
+  .page-print .preview-row,
+  .page-cnc .preview-row {
+    flex: none;
+    height: max(22rem, calc(100dvh - 9rem));
+  }
+}
+
+@media (max-width: 599px) {
+  .topbar {
+    padding: 0.35rem 0.6rem;
+  }
+  .topbar .api {
+    display: none;
+  }
+  .tabs {
+    padding: 0 0.25rem;
+  }
+  .tabs a {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.9rem;
+  }
+  .page {
+    padding: 0.5rem 0.6rem 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* The design page scrolls inside its own box: let the save bar cover its top padding. */
+  .page-design .savebar {
+    top: -0.6rem;
+  }
 }

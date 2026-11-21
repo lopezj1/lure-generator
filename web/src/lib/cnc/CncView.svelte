@@ -10,6 +10,7 @@
   import { api } from '../client';
   import { currentBuild } from '../stores/build';
   import RangeSlider, { type Tick } from '../print/RangeSlider.svelte';
+  import FullscreenButton from '../ui/FullscreenButton.svelte';
   import { fetchToolpath, type CncToolpath } from '../toolpath/reader';
   import {
     KIND_PLUNGE,
@@ -39,6 +40,7 @@
   const VIEWS: ViewPreset[] = ['top', 'front', 'side', 'iso'];
 
   let host: HTMLDivElement | undefined = $state();
+  let stage: HTMLDivElement | undefined = $state();
   let scene = $state.raw<CncScene | null>(null);
   let builds: BuildListing[] = $state.raw([]);
   let buildSources: Source[] = $state([]);
@@ -329,8 +331,9 @@
     </div>
   </div>
 
-  <div class="stage">
+  <div class="stage" bind:this={stage}>
     <div class="canvas" bind:this={host}></div>
+    <FullscreenButton target={stage} />
 
     {#if status || error || !job}
       <div class="overlay center">
@@ -481,15 +484,28 @@
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
     align-items: center;
-    padding: 0.4rem 0;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.85rem;
+    --pico-form-element-spacing-vertical: 0.2rem;
+    --pico-form-element-spacing-horizontal: 0.5rem;
+  }
+  .toolbar input[type='file']::file-selector-button {
+    font-size: 0.85rem;
+    padding: 0.2rem 0.6rem;
   }
   .toolbar > * {
     margin: 0;
     width: auto;
   }
+  .toolbar select,
+  .toolbar input[type='file'] {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.85rem;
+    height: auto;
+  }
   .toolbar select {
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
+    max-width: min(100%, 28rem);
   }
   .views {
     display: flex;

@@ -10,3 +10,5 @@ export const jobsVersion = writable(0);
 export const buildsVersion = writable(0);
 
 export const bump = (store: typeof jobsVersion) => store.update((n) => n + 1);
+/** Jobs still queued or running (JobsPanel polls; the header shows it). */
+export const runningJobs = writable(0);

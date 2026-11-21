@@ -1,0 +1,133 @@
+/* Shared small UI pieces (W11, #121): badges, mini buttons, messages, job views and the
+   fullscreen control. Unscoped, so every page uses the same look. */
+.badge {
+  font-size: 0.7rem;
+  font-weight: normal;
+  padding: 0 0.4rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+  white-space: nowrap;
+}
+.badge[data-layer='variant'],
+.badge[data-layer='edited'],
+.badge[data-status='running'] {
+  color: var(--pico-primary);
+  border-color: var(--pico-primary);
+}
+.badge[data-status='failed'],
+.badge[data-status='error'],
+.badge[data-status='interrupted'],
+.badge[data-verdict='fail'],
+.badge.error {
+  color: var(--pico-del-color);
+  border-color: var(--pico-del-color);
+}
+.badge[data-status='succeeded'],
+.badge[data-status='built'],
+.badge[data-verdict='pass'] {
+  color: var(--pico-ins-color);
+  border-color: var(--pico-ins-color);
+}
+
+button.mini,
+label.mini,
+a.mini {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  padding: 0 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  border-radius: 0.6rem;
+  background: transparent;
+  border: 1px solid var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+  cursor: pointer;
+  text-decoration: none;
+}
+button.mini:hover,
+label.mini:hover,
+a.mini:hover {
+  color: var(--pico-primary);
+  border-color: var(--pico-primary);
+}
+button.mini:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.error-text {
+  display: block;
+  color: var(--pico-del-color);
+}
+.warn-text {
+  display: block;
+  color: var(--pico-muted-color);
+}
+.muted {
+  color: var(--pico-muted-color);
+}
+.cmd,
+.cli {
+  display: block;
+  font-size: 0.72rem;
+  margin: 0.25rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--pico-muted-color);
+}
+
+/* JobView */
+.job {
+  font-size: 0.85rem;
+}
+.job-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.job progress {
+  margin: 0.25rem 0;
+}
+.job-log {
+  font-size: 0.7rem;
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+}
+
+/* Fullscreen: the Fullscreen API where it exists, else a fixed full-viewport overlay. */
+.fs-host:fullscreen,
+.fs-host.pseudo-fullscreen {
+  background: var(--pico-background-color);
+}
+.fs-host.pseudo-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-height: none !important;
+}
+.fs-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 20;
+  width: auto;
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: #e8eaee;
+  background: rgb(0 0 0 / 0.5);
+  border: 1px solid rgb(255 255 255 / 0.3);
+  border-radius: 0.4rem;
+}
+.fs-btn:hover {
+  background: rgb(0 0 0 / 0.7);
+}

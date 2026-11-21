@@ -47,7 +47,7 @@ from luregen.config import (
     relativize_paths,
     resolve,
 )
-from luregen.config.resolve import load_materials
+from luregen.config.resolve import load_hardware_catalog, load_materials
 
 _CONFLICT = {"description": "The file changed since it was read (etag mismatch)"}
 _INVALID = {"description": "Config errors: `detail` is a list of {path, message}"}
@@ -224,7 +224,9 @@ def spec_router(root: Path) -> APIRouter:
     @router.get("/schema/lure-config")
     def lure_config_schema() -> FormSchema:
         """Draft-07 form schema for @sjsf/form (rules R1–R9; see luregen.api.formschema)."""
-        schema, ui = postprocess_schema(LureConfig.model_json_schema(), load_materials(spec))
+        schema, ui = postprocess_schema(
+            LureConfig.model_json_schema(), load_materials(spec), load_hardware_catalog(spec)
+        )
         return FormSchema(json_schema=schema, ui_schema=ui)
 
     @router.get("/variants/{family}/{name}")

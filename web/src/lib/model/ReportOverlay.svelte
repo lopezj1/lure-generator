@@ -105,7 +105,9 @@
     right: 0.5rem;
     bottom: 0.5rem;
     z-index: 5;
-    max-width: 20rem;
+    max-width: min(28rem, calc(100% - 7.5rem));
+    max-height: calc(100% - 4rem);
+    overflow: auto;
     pointer-events: auto;
     font-size: 0.75rem;
     background: color-mix(in srgb, var(--pico-background-color) 88%, transparent);

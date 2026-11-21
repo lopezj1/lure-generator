@@ -1,6 +1,7 @@
-// Editor state shared with the form widgets through Svelte context: the live form value
-// (bound to @sjsf/form), what was loaded, what the parent layers give, and where each value
-// came from. Badges and the reset actions read it; the panel builds the save payload from it.
+// Editor state shared with the parameter fields through Svelte context: the live value
+// (edited in place), the server's validation errors, what was loaded, what the parent layers
+// give, and where each value came from. Marks and resets read it; the page builds the save
+// payload from it.
 import { getContext, setContext } from 'svelte';
 import type { components } from '../api';
 import {
@@ -15,6 +16,7 @@ import {
 } from './paths';
 
 type VariantDetail = components['schemas']['VariantDetail'];
+type FieldError = components['schemas']['FieldError'];
 type Obj = Record<string, unknown>;
 
 const KEY = Symbol('lure-editor');
@@ -24,6 +26,8 @@ export type Origin = 'variant' | 'family' | 'common' | 'default' | 'catalog' | s
 
 export class EditorState {
   value: Obj = $state({});
+  /** Server validation errors (`/validate`, 422 on save), shown inline by path. */
+  errors: FieldError[] = $state([]);
   readonly initial: Obj;
   readonly inherited: Obj;
   readonly detail: VariantDetail;
@@ -36,6 +40,23 @@ export class EditorState {
     this.inherited = detail.inherited ?? {};
     this.value = clone(this.initial);
     this.derived = derivedFields(schema);
+    this.errors = detail.errors;
+  }
+
+  get(path: Path): unknown {
+    return getAt(this.value, path);
+  }
+
+  /** Set a value; `undefined` unsets it (the default / parent layers apply). */
+  set(path: Path, value: unknown): void {
+    setAt(this.value, path, value);
+  }
+
+  /** Where the value at `path` comes from, for tooltips. */
+  originText(path: Path, schema: Obj): string {
+    const origin = this.origin(path, schema);
+    const layer = this.detail.layers.find((l) => l.label === origin);
+    return layer ? `${origin} (${layer.path})` : origin;
   }
 
   get family(): string {

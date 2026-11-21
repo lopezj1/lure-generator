@@ -1,18 +1,26 @@
-<!-- textWidget for `x-widget: "path"`: a path relative to the data root, picked from the
-     family's profile presets or from uploads, or uploaded here (POST /api/uploads). -->
+<!-- A path relative to the data root (`x-widget: "path"`), picked from the family's profile
+     presets or from uploads, or uploaded here (POST /api/uploads). -->
 <script lang="ts">
-  import { getFormContext, inputAttributes, type ComponentProps } from '@sjsf/form';
   import { api } from '../../client';
   import { errorText } from '../../jobs';
   import { getEditor } from '../state.svelte';
 
-  let { value = $bindable(), config, handlers }: ComponentProps['textWidget'] = $props();
-  const ctx = getFormContext();
+  let {
+    id,
+    value,
+    kind,
+    invalid,
+    label,
+    onchange,
+  }: {
+    id: string;
+    value: string | undefined;
+    kind: 'csv' | 'photo';
+    invalid: boolean;
+    label: string;
+    onchange: (v: string | undefined) => void;
+  } = $props();
   const editor = getEditor();
-  const attributes = $derived(inputAttributes(ctx, config, 'text', handlers, {}));
-  // profile.preset is a station-table CSV; profile.image / top_image are photos.
-  const kind = $derived(String(config.path.at(-1)) === 'preset' ? 'csv' : 'photo');
-  const listId = $derived(`${attributes.id ?? config.title}-paths`);
 
   let options: { group: string; path: string }[] = $state([]);
   let busy = $state(false);
@@ -47,8 +55,7 @@
       const res = await fetch(`/api/uploads?kind=${kind}`, { method: 'POST', body });
       const json = await res.json();
       if (!res.ok) throw new Error(errorText(json, res));
-      value = json.path;
-      handlers.onchange?.();
+      onchange(json.path);
       await load();
     } catch (err) {
       message = (err as Error).message;
@@ -59,12 +66,15 @@
   }
 </script>
 
-<div class="path-picker">
+<div class="path-field">
   <input
-    {...attributes}
-    list={listId}
+    {id}
+    list="{id}-paths"
+    aria-label={label}
+    aria-invalid={invalid || undefined}
     placeholder={kind === 'csv' ? 'spec/designs/…/profiles/….csv' : 'uploads/….jpg'}
-    bind:value={() => value ?? '', (v) => (value = v || undefined)}
+    value={value ?? ''}
+    onchange={(e) => onchange(e.currentTarget.value || undefined)}
   />
   <label class="mini" aria-busy={busy} title="Upload a {kind === 'csv' ? 'station CSV' : 'photo'}">
     upload
@@ -75,10 +85,23 @@
       onchange={upload}
     />
   </label>
-  <datalist id={listId}>
+  <datalist id="{id}-paths">
     {#each options as o (o.path)}
       <option value={o.path}>{o.group}</option>
     {/each}
   </datalist>
 </div>
 {#if message}<small class="error-text">{message}</small>{/if}
+
+<style>
+  .path-field {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    min-width: 0;
+  }
+  .path-field input {
+    margin: 0;
+    min-width: 0;
+  }
+</style>

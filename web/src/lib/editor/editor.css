@@ -1,4 +1,4 @@
-/* Config editor (W4). Pico + @sjsf/basic-theme/css/pico.css underneath. */
+/* Design page (W4, reworked in #121). Pico underneath; params/params.css styles the fields. */
 .editor {
   font-size: 0.9rem;
   --pico-form-element-spacing-vertical: 0.35rem;
@@ -11,139 +11,85 @@
 }
 .editor .savebar {
   position: sticky;
-  top: -1rem;
-  z-index: 2;
-  margin: 0 -1rem 0.5rem;
-  padding: 0.5rem 1rem;
+  top: 0;
+  z-index: 5;
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0;
   background: var(--pico-background-color);
   border-bottom: 1px solid var(--pico-muted-border-color);
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+}
+.editor .savebar-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+  min-width: 0;
+  flex: 1 1 18rem;
+  font-size: 0.8rem;
+}
+.editor .savebar-info code {
+  overflow-wrap: anywhere;
 }
 .editor .savebar-actions {
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 auto;
 }
-.editor .savebar-actions button {
+.editor .savebar-actions > button {
   margin: 0;
-  padding: 0.25rem 0.75rem;
+  width: auto;
+  padding: 0.3rem 0.9rem;
 }
-.editor .layers {
+.editor .savebar-actions > button.mini {
+  padding: 0 0.45rem;
+}
+.editor .savebar .state {
   color: var(--pico-muted-color);
-  margin-left: 0.25rem;
+  margin-right: 0.25rem;
+}
+.editor .savebar .state .error-text {
+  display: inline;
+}
+.editor .savebar .message {
+  flex-basis: 100%;
+}
+.editor .build-btn {
+  background: var(--pico-ins-color);
+  border-color: var(--pico-ins-color);
+  color: #fff;
+}
+.editor .run-panel {
+  flex-basis: 100%;
+  border-top: 1px dashed var(--pico-muted-border-color);
+  padding-top: 0.35rem;
 }
 .editor .conflict {
+  flex-basis: 100%;
   margin: 0.25rem 0;
   padding: 0.5rem;
   border-left: 3px solid var(--pico-del-color);
 }
-.editor .error-text {
-  display: block;
-  color: var(--pico-del-color);
-}
-.editor .warn-text {
-  display: block;
-  color: var(--pico-mark-color, var(--pico-muted-color));
-}
-
-/* Badges and the reset actions next to labels and titles. */
-.editor .field-label {
-  display: inline-flex;
+.editor .conflict-actions {
+  display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
-.editor .badge {
-  font-size: 0.7rem;
-  font-weight: normal;
-  padding: 0 0.4rem;
-  border-radius: 0.6rem;
-  border: 1px solid var(--pico-muted-border-color);
-  color: var(--pico-muted-color);
-  white-space: nowrap;
-}
-.editor .badge[data-layer='variant'],
-.editor .badge[data-layer='edited'] {
-  color: var(--pico-primary);
-  border-color: var(--pico-primary);
-}
-.editor .badge[data-layer='catalog'] {
-  font-style: italic;
-}
-.editor .badge[data-status='failed'],
-.editor .badge[data-status='interrupted'] {
-  color: var(--pico-del-color);
-  border-color: var(--pico-del-color);
-}
-.editor .badge[data-status='succeeded'] {
-  color: var(--pico-ins-color);
-  border-color: var(--pico-ins-color);
-}
-.editor .mini {
-  display: inline-block;
+.editor .conflict-actions button {
   width: auto;
   margin: 0;
-  padding: 0 0.4rem;
-  font-size: 0.7rem;
-  line-height: 1.4;
-  border-radius: 0.6rem;
-  background: none;
-  border: 1px solid var(--pico-muted-border-color);
-  color: var(--pico-muted-color);
-  cursor: pointer;
-}
-.editor .mini:hover {
-  color: var(--pico-primary);
-  border-color: var(--pico-primary);
 }
 
-/* Widgets. */
-.editor .slider-number,
-.editor .range-pair,
-.editor .path-picker {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  width: 100%;
-}
-.editor .slider-number input[type='range'] {
-  flex: 3;
-  margin: 0;
-}
-.editor .slider-number input[type='number'] {
-  flex: 2;
-  margin: 0;
-}
-.editor .range-pair input,
-.editor .path-picker input {
-  margin: 0;
-}
-.editor .range-pair span {
-  color: var(--pico-muted-color);
-}
-.editor .path-picker label {
-  margin: 0;
-}
-
-/* Pico paints a green check on every valid input; only errors matter here. */
-.editor {
-  --pico-icon-valid: none;
-  --pico-form-element-valid-border-color: var(--pico-form-element-border-color);
-  --pico-form-element-valid-active-border-color: var(--pico-form-element-active-border-color);
-  --pico-form-element-valid-focus-color: var(--pico-form-element-focus-color);
-}
-.editor form button[type='submit'] {
-  display: none; /* Save lives in the sticky bar */
-}
-
-/* Build runner and jobs. */
-.editor details {
-  margin: 0.75rem 0;
-}
+/* Build overrides. */
 .editor .overrides {
   margin: 0.25rem 0 0.5rem;
+  max-width: 40rem;
 }
 .editor .override-row {
   display: grid;
@@ -154,23 +100,21 @@
 .editor .override-row input {
   margin: 0;
 }
-.editor .cli {
-  display: block;
-  overflow-wrap: anywhere;
-  color: var(--pico-muted-color);
+
+/* Profile from a photo (Shape & size tab). */
+.editor .photo {
+  margin: 0 0 0.75rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-card-background-color);
 }
-.editor .job-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+.editor .photo > summary {
+  font-weight: 600;
+  font-size: 0.9rem;
 }
-.editor .job-log {
-  font-size: 0.7rem;
-  max-height: 12rem;
-  overflow: auto;
-  white-space: pre-wrap;
-  margin: 0.25rem 0;
-  padding: 0.25rem;
+.editor .photo .photo-body {
+  max-width: 40rem;
 }
 .editor figure img {
   width: 100%;

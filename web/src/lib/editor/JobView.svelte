@@ -7,10 +7,13 @@
     id,
     onresult,
     ondone,
+    compact = false,
   }: {
     id: string;
     onresult?: (data: Record<string, unknown>) => void;
     ondone?: (status: JobStatus, error: string | null) => void;
+    /** Log behind a collapsed "log" toggle (fab bars). */
+    compact?: boolean;
   } = $props();
 
   let status: JobStatus = $state('queued');
@@ -68,5 +71,12 @@
     <progress></progress>
   {/if}
   {#if error}<small class="error-text">{error}</small>{/if}
-  <pre bind:this={pre} class="job-log">{lines.join('\n')}</pre>
+  {#if compact}
+    <details class="job-log-toggle">
+      <summary><small>log ({lines.length} lines)</small></summary>
+      <pre bind:this={pre} class="job-log">{lines.join('\n')}</pre>
+    </details>
+  {:else}
+    <pre bind:this={pre} class="job-log">{lines.join('\n')}</pre>
+  {/if}
 </div>

@@ -6,6 +6,7 @@
   import { fetchToolpath, type PrintToolpath } from '../toolpath/reader';
   import { drawRange, formatDuration, layerTicks, primeTowerFeature } from './model';
   import { PAUSE_COLOR, TRAVEL_COLOR, cssColor, featureColor, toolColor } from './palette';
+  import FullscreenButton from '../ui/FullscreenButton.svelte';
   import RangeSlider, { type Tick } from './RangeSlider.svelte';
   import { PrintScene, type ColorMode } from './scene';
 
@@ -17,6 +18,7 @@
   }
 
   let host: HTMLDivElement | undefined = $state();
+  let stage: HTMLDivElement | undefined = $state();
   let scene = $state.raw<PrintScene | null>(null);
   let sources: Source[] = $state([]);
   let selected = $state('');
@@ -33,6 +35,7 @@
   let showTravel = $state(false);
   let showPause = $state(true);
   let hidden: boolean[] = $state([]);
+  let statsOpen = $state(true);
 
   const header = $derived(tp?.header);
   const sourceLabel = $derived(sources.find((s) => s.url === loadedUrl)?.label ?? '');
@@ -138,6 +141,7 @@
 
   onMount(() => {
     scene = new PrintScene(host!);
+    statsOpen = host!.clientWidth > 700; // small screens: keep the canvas visible
     void listSources();
   });
   onDestroy(() => scene?.dispose());
@@ -300,8 +304,9 @@
     <button class="outline secondary" onclick={() => scene?.fit()} disabled={!tp}>Fit</button>
   </div>
 
-  <div class="stage">
+  <div class="stage" bind:this={stage}>
     <div class="canvas" bind:this={host}></div>
+    <FullscreenButton target={stage} />
 
     {#if status || error || !tp}
       <div class="overlay center">
@@ -346,7 +351,7 @@
           </button>
         </aside>
 
-        <details class="stats" open>
+        <details class="stats" bind:open={statsOpen}>
           <summary>
             <span class="title">{sourceLabel || header.source.name || 'Toolpath'}</span>
           </summary>
@@ -424,15 +429,28 @@
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
     align-items: center;
-    padding: 0.4rem 0;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.85rem;
+    --pico-form-element-spacing-vertical: 0.2rem;
+    --pico-form-element-spacing-horizontal: 0.5rem;
+  }
+  .toolbar input[type='file']::file-selector-button {
+    font-size: 0.85rem;
+    padding: 0.2rem 0.6rem;
   }
   .toolbar > * {
     margin: 0;
     width: auto;
   }
+  .toolbar select,
+  .toolbar input[type='file'] {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.85rem;
+    height: auto;
+  }
   .toolbar select {
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
+    max-width: min(100%, 28rem);
   }
   .toolbar button {
     padding: 0.3rem 0.8rem;
@@ -548,7 +566,7 @@
     margin: 0;
   }
   .layers {
-    top: 1rem;
+    top: 2.75rem;
     bottom: 3.5rem;
     right: 0.5rem;
   }
