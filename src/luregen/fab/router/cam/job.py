@@ -186,6 +186,12 @@ def glue_features(cfg: LureConfig, report: dict, halves: list[st.Half], warnings
     for section, name, p in pockets:
         region = rounded_rect(p["x"], p["z"], p["length"], p["height"], p["corner_r"])
         features.append(st.GlueFeature(section, "pocket", name, region, p["depth"]))
+    if fin := geo.get("fin"):  # the fin slot straddles the glue face: half its width per half
+        features.append(
+            st.GlueFeature(
+                "tail", "pocket", "fin_slot", fin_slot_region(fin), 0.5 * fin["slot"]["width_mm"]
+            )
+        )
     if cfg.process.rigging == "through_wire":
         w = cfg.cnc.wire
         z = w.z_mm if w.z_mm is not None else (cfg.joint.line_tie_z if cfg.joint else 0.0)
@@ -330,6 +336,7 @@ def run(build: Path, spec: Path, machine_name: str | None = None) -> CncResult:
     summary["sim"] = sims
     summary["post_glue_up"] = post_glue_up_steps(report)
     summary["glue_up"] = glue_up_items(cfg, report)
+    summary["printed_parts"] = fin_notes(report)[:1]
     used = {t for f in files for t in f.tools}
     summary["tools"] = {
         cut.tool.id: {
@@ -458,6 +465,35 @@ def surface_warnings(ctx: st.OpCtx, lib: ToolLibrary, cfg: LureConfig) -> list[s
     return out
 
 
+FIN_SLOT_RUNOUT_MM = 4.0  # the slot pocket runs this far past the tail cut, into the waste
+
+
+def fin_slot_region(fin: dict):
+    """Side-view region of the fin slot pocket, open past the tail's cut end."""
+    from luregen.geometry.cnc_halves import rounded_rect
+
+    slot = fin["slot"]
+    x0, x1 = slot["x_mm"][0], slot["x_mm"][1] + FIN_SLOT_RUNOUT_MM
+    z0, z1 = slot["z_mm"]
+    return rounded_rect(0.5 * (x0 + x1), 0.5 * (z0 + z1), x1 - x0, z1 - z0, slot["corner_r_mm"])
+
+
+def fin_notes(report: dict) -> list[str]:
+    """The separately printed TPU fin: what to print and how it goes on (#123)."""
+    fin = (report.get("geometry") or {}).get("fin")
+    if not fin:
+        return []
+    sc = fin["screw"]
+    return [
+        f"Tail fin: printed separately in {fin['material']} ({fin['mass_g']} g): run "
+        "`lure fab <this build> --format print` (it prints only the fin for a CNC build).",
+        f"Tail: drill the ⌀{sc['pilot_d_mm']:g} mm screw pilot sideways (along y) through the "
+        f"tail at x = {sc['x_mm']:g}, z = {sc['z_mm']:g} mm, through the fin slot.",
+        f"Fin: slide the tab into the slot, glue if wanted, and drive the {sc['name']} "
+        f"through the tail and the tab.",
+    ]
+
+
 def glue_up_items(cfg: LureConfig, report: dict) -> list[str]:
     """What goes between the halves before they're glued."""
     geo = report.get("geometry", {})
@@ -478,6 +514,8 @@ def glue_up_items(cfg: LureConfig, report: dict) -> list[str]:
             f"Through-wire: ⌀{w.diameter_mm} mm wire in the groove of both sections, with the "
             "line tie, hinge and hook loops formed before glue-up."
         )
+    if geo.get("fin"):
+        items.append("Fin slot: keep glue out of it (the TPU fin's tab goes in after glue-up).")
     items.append("Glue matching right and left halves on the flip-pin dowels, then clamp.")
     return items
 
@@ -508,6 +546,7 @@ def post_glue_up_steps(report: dict) -> list[str]:
             f"x = {tp['x_mm']} mm to z = {tp['z_top_mm']} mm, fill it with "
             f"{tp.get('fill_g', 0)} g of {tp.get('material', 'putty')}."
         )
+    steps += fin_notes(report)[1:]
     steps.append("Seal, fit the hinge pin, hooks and hardware, then check the float/sink trim.")
     return steps
 
@@ -685,6 +724,9 @@ def setup_sheet(summary: dict) -> str:
     lines += [f"   - {item}" for item in summary.get("glue_up", [])]
     lines += ["", "5. **After glue-up.**", ""]
     lines += [f"   - {item}" for item in summary.get("post_glue_up", [])]
+    if summary.get("printed_parts"):
+        lines += ["", "## Printed parts", ""]
+        lines += [f"- {item}" for item in summary["printed_parts"]]
     sims = summary.get("sim") or {}
     if sims:
         lines += [
