@@ -2937,6 +2937,7 @@
                 "type": "string",
                 "enum": [
                   "aruco",
+                  "paper",
                   "length",
                   "auto"
                 ]
@@ -2970,6 +2971,32 @@
               }
             ],
             "title": "Marker Mm"
+          },
+          "paper": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(letter|a4|\\d+(\\.\\d+)?x\\d+(\\.\\d+)?)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paper",
+            "description": "Sheet under the subject (paper scale): letter, a4 or <W>x<H> in mm."
+          },
+          "paper_inset_mm": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 30.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paper Inset Mm"
           },
           "top": {
             "anyOf": [

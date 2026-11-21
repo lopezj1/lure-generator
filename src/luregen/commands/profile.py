@@ -9,13 +9,20 @@ def register(app: typer.Typer) -> None:
     def profile(
         image: Path = typer.Argument(..., exists=True, dir_okay=False, help="Side-profile image."),
         out: Path = typer.Option(..., "-o", "--out", help="Station table CSV to write."),
-        scale: Literal["aruco", "length", "auto"] = typer.Option(
-            "auto", help="aruco, length, or auto (marker if found, else --length)."
+        scale: Literal["aruco", "paper", "length", "auto"] = typer.Option(
+            "auto",
+            help="aruco, paper, length, or auto (marker if found, else a sheet, else --length).",
         ),
         length: float | None = typer.Option(
             None, "--length", help="Known nose-to-tail length in mm (length scale)."
         ),
         marker_mm: float = typer.Option(30.0, help="Printed ArUco marker side in mm."),
+        paper: str = typer.Option(
+            "letter", help="Sheet under the subject: letter, a4, or <W>x<H> in mm."
+        ),
+        paper_inset_mm: float = typer.Option(
+            4.0, min=0, help="Border of the sheet ignored when segmenting (mm)."
+        ),
         top: Path | None = typer.Option(
             None, "--top", exists=True, dir_okay=False, help="Top-view image for widths."
         ),
@@ -38,11 +45,19 @@ def register(app: typer.Typer) -> None:
         from luregen.profile.debug import write_debug
         from luregen.profile.extract import ProfileError
         from luregen.profile.pipeline import ExtractOptions, extract_profile
+        from luregen.profile.sheet import parse_sheet
 
+        try:
+            sheet, sheet_mm = parse_sheet(paper)
+        except ProfileError as exc:
+            raise typer.BadParameter(str(exc), param_hint="--paper") from exc
         opts = ExtractOptions(
             scale=scale,
             length_mm=length,
             marker_mm=marker_mm,
+            sheet=sheet,
+            sheet_mm=sheet_mm,
+            sheet_inset_mm=paper_inset_mm,
             nose=nose,
             smoothing=smoothing,
             harmonics=harmonics,

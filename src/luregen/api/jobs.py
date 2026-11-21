@@ -53,9 +53,15 @@ class ProfileArgs(_Args):
 
     image: str
     out: str = Field(description="Station table CSV to write (inside the data root).")
-    scale: Literal["aruco", "length", "auto"] | None = None
+    scale: Literal["aruco", "paper", "length", "auto"] | None = None
     length: float | None = Field(None, gt=0)
     marker_mm: float | None = Field(None, gt=0)
+    paper: str | None = Field(
+        None,
+        pattern=r"^(letter|a4|\d+(\.\d+)?x\d+(\.\d+)?)$",
+        description="Sheet under the subject (paper scale): letter, a4 or <W>x<H> in mm.",
+    )
+    paper_inset_mm: float | None = Field(None, ge=0, le=30)
     top: str | None = None
     width_ratio: float | None = Field(None, gt=0)
     n_stations: int | None = Field(None, ge=2, le=500)
@@ -252,6 +258,8 @@ def cli_args(root: Path, req: Any) -> list[str]:
                 ("--scale", a.scale),
                 ("--length", a.length),
                 ("--marker-mm", a.marker_mm),
+                ("--paper", a.paper),
+                ("--paper-inset-mm", a.paper_inset_mm),
                 ("--width-ratio", a.width_ratio),
                 ("--n-stations", a.n_stations),
                 ("--nose", a.nose),
