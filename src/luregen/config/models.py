@@ -90,6 +90,7 @@ class ProfileConfig(Strict):
         description="Trace the outline from a photo (image) or load a station table (preset)."
     )
     image: Path | None = Field(None, description="Side-view photo of the bait.")
+    nose: Literal["left", "right"] = Field("left", description="Side of the photo the nose faces.")
     top_image: Path | None = Field(
         None, description="Optional top-view photo; sets the width instead of the width rule."
     )
