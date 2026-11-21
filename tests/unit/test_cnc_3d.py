@@ -23,6 +23,7 @@ from luregen.fab.router.cam.heightmap import (
     dilate_flat,
     raster_top,
     sweep_surface,
+    tapered_ball_height,
     tip_surface,
 )
 from luregen.fab.router.cam.job import setup_sheet, write_programs
@@ -91,6 +92,28 @@ def test_tip_surface_of_a_spike_and_its_sweep():
     assert np.all(sh[ring] == -1.0)
     # sweeping the tool over its tip surface never cuts below the target
     cut = sweep_surface(np.where(np.isfinite(flat), flat, np.inf), Cutter("flat", 2.0), g)
+    assert np.all(cut >= target - 1e-9)
+
+
+def test_tapered_ball_profile_and_spike():
+    h = tapered_ball_height(1.0, 3.92)
+    t = math.radians(3.92)
+    d_t = math.cos(t)
+    # the cone meets the ball tangentially, then rises 1/tan(taper) per mm of radius
+    assert h(d_t - 1e-6) == pytest.approx(h(d_t + 1e-6), abs=1e-4)
+    assert h(d_t + 0.1) - h(d_t) == pytest.approx(0.1 / math.tan(t))
+    assert h(0.5) == pytest.approx(1 - math.sqrt(0.75))
+    g = Grid(0, 0, 0.05, 0.05, 101, 101)
+    target = np.full(g.shape, -5.0)
+    target[50, 50] = 0.0  # a 5 mm spike at (2.525, 2.525)
+    tip = tip_surface(target, Cutter("ball", 2.0, taper_deg=3.92), g)
+    xs, ys = np.meshgrid(g.xs, g.ys)
+    d = np.hypot(xs - 2.525, ys - 2.525)
+    assert np.allclose(tip, np.maximum(-np.vectorize(h)(d), -5.0))
+    # 5 mm down the cone is ~0.34 mm wider than the ball: the tip stays off the floor there
+    assert tip[50, 50 + 25] == pytest.approx(-h(1.25)) and tip[50, 50 + 25] > -5.0
+    taper = Cutter("ball", 2.0, taper_deg=3.92)
+    cut = sweep_surface(np.where(np.isfinite(tip), tip, np.inf), taper, g)
     assert np.all(cut >= target - 1e-9)
 
 

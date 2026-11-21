@@ -43,3 +43,14 @@ number_verified = true
 # Reach for 3D finishing: the 1/8in shank can't go below the flutes into a deep wall.
 flute_length = 1.5875     # 0.0625in
 shank_diameter = 3.175
+
+[tools."taperball_2"]
+name = "R1.0 tapered ball end mill"
+number = 13
+shape = "ball"
+diameter = 2.0      # tip: 1.0 mm radius
+taper_deg = 3.92    # cone half-angle; flutes widen to the 1/4in shank at the top
+flutes = 2
+number_verified = true
+flute_length = 31.75      # 1-1/4in
+shank_diameter = 6.35

@@ -57,9 +57,9 @@ def test_fab_cnc_writes_verified_files_per_tool(cnc_build):
     # the tail's V-notch leans over its glue face: setup 1 cuts that overhang in 3D
     assert names == [
         "setup1_01_flat_3.175.nc",  # pockets, pin holes and the square wire groove
-        "setup1_02_flat_0.794.nc",
+        "setup1_02_taperball_2.nc",
         "setup2_01_flat_3.175.nc",
-        "setup2_02_flat_0.794.nc",
+        "setup2_02_taperball_2.nc",
     ]
     post, machine, _ = shapeoko()
     for name in names:
