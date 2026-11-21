@@ -3,7 +3,11 @@
     L = L₀ · (m / (ρ_t · V₀))^(1/3)
 
 with L₀ the reference length, V₀ the envelope volume at L₀ and ρ_t the middle of the
-target sink band. The body is rebuilt once at L, then the internals are solved.
+target sink band. A family can refine V₀ into terms that scale differently (#123): the
+displaced volume is V₀·s³ + A₀·s² + C with s = L/L₀, where A₀ holds features of fixed
+thickness (the joint gap, a constant-thickness fin) and C what doesn't scale (hardware), and
+ρ_t·(V₀·s³ + A₀·s² + C) = m is solved for s. The body is rebuilt once at L, then the
+internals are solved.
 
 Lengths that locate features on the body scale with it: hardware x/z, the joint's hinge eye
 and line tie heights, the ballast position, the trim pocket position and the keel tops.
@@ -28,11 +32,33 @@ class ScalingError(ValueError):
     pass
 
 
-def length_for_weight(l0_mm: float, v0_mm3: float, mass_g: float, rho_target: float) -> float:
-    """L = L₀·(m / (ρ_t·V₀))^(1/3); V₀ in mm³, ρ in g/cm³."""
+def length_for_weight(
+    l0_mm: float,
+    v0_mm3: float,
+    mass_g: float,
+    rho_target: float,
+    a0_mm3: float = 0.0,
+    c_mm3: float = 0.0,
+) -> float:
+    """L = L₀·s with ρ_t·(V₀·s³ + A₀·s² + C) = m; volumes in mm³ at L₀, ρ in g/cm³.
+
+    A₀ = C = 0 gives the closed form L = L₀·(m / (ρ_t·V₀))^(1/3)."""
     if l0_mm <= 0 or v0_mm3 <= 0 or mass_g <= 0 or rho_target <= 0:
         raise ScalingError("length_for_weight needs positive inputs")
-    return l0_mm * (mass_g / (rho_target * v0_mm3 / 1000.0)) ** (1.0 / 3.0)
+    target = 1000.0 * mass_g / rho_target - c_mm3  # mm³
+    if target <= 0:
+        raise ScalingError(f"target_weight is below the hardware alone ({mass_g:.1f} g)")
+    s = (target / max(v0_mm3 + a0_mm3, 0.1 * v0_mm3)) ** (1.0 / 3.0)
+    for _ in range(50):  # Newton on f(s) = V₀s³ + A₀s² − target
+        f = v0_mm3 * s**3 + a0_mm3 * s**2 - target
+        slope = 3 * v0_mm3 * s**2 + 2 * a0_mm3 * s
+        if slope <= 0:
+            raise ScalingError("length_for_weight: volume terms do not grow with length")
+        step = f / slope
+        s -= step
+        if abs(step) < 1e-12:
+            break
+    return l0_mm * s
 
 
 def target_mass_g(cfg: LureConfig) -> float:
@@ -65,6 +91,13 @@ def scale_config(cfg: LureConfig, l_ref: float, l_new: float) -> LureConfig:
     out.internals.trim_x_from_tail_mm = round(out.internals.trim_x_from_tail_mm * s, 3)
     for sec in (out.internals.head, out.internals.tail):
         sec.keel_top_z_mm = round(sec.keel_top_z_mm * s, 3)
+    if (f := out.fin) is not None:  # placement and outline scale; thickness, slot, screw don't
+        f.cut_from_tail_mm = round(f.cut_from_tail_mm * s, 3)
+        f.length_mm = round(f.length_mm * s, 3)
+        f.span_mm = round(f.span_mm * s, 3)
+        f.fork_depth_mm = round(f.fork_depth_mm * s, 3)
+        if f.root_height_mm is not None:
+            f.root_height_mm = round(f.root_height_mm * s, 3)
     return out
 
 

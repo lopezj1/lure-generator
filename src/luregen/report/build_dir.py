@@ -107,6 +107,14 @@ def render_report_md(cfg: LureConfig, report: dict) -> str:
             f"| {h.name} | {h.section} | {h.qty} | {lo:.2f}–{hi:.2f} | "
             f"{g_to_oz(lo):.3f}–{g_to_oz(hi):.3f} | {'yes' if h.measured else 'no'} |"
         )
+    if cfg.fin is not None and (sc := cfg.fin.screw).mass_g:
+        lo, hi = sc.mass_g
+        lines.append(
+            f"| {sc.name} (fin screw) | tail | 1 | {lo:.2f}–{hi:.2f} | "
+            f"{g_to_oz(lo):.3f}–{g_to_oz(hi):.3f} | {'yes' if sc.measured else 'no'} |"
+        )
+    if fin := (report.get("geometry") or {}).get("fin"):
+        lines += ["", "## Tail fin", "", *_fin_md(fin)]
     if env := report.get("envelope"):
         lines += ["", "## Envelope", "", *_envelope_md(env)]
     if report.get("lure"):
@@ -120,6 +128,27 @@ def render_report_md(cfg: LureConfig, report: dict) -> str:
     if report["warnings"]:
         lines += ["", "## Warnings", "", *(f"- {w}" for w in report["warnings"])]
     return "\n".join(lines) + "\n"
+
+
+def _fin_md(fin: dict) -> list[str]:
+    slot, tab, sc = fin["slot"], fin["tab"], fin["screw"]
+    walls = slot["walls_mm"]
+    return [
+        f"- Separate part, printed flat in {fin['material']} at 100 % infill: "
+        f"{fin['mass_g']:.2f} g ({fin['volume_cm3']:.2f} cm³ at {fin['density']} g/cm³); its "
+        "mass and displacement count in the tail section's balance.",
+        f"- Paddle {fin['length_mm']:.1f} mm long, root {fin['root_height_mm']:.1f} mm, span "
+        f"{fin['span_mm']:.1f} mm, {fin['thickness_mm']} mm thick; replaces the tail tip from "
+        f"x = {fin['x_cut_mm']:.1f} mm.",
+        f"- Slot in the tail end: {slot['depth_mm']:g} mm deep, {slot['width_mm']:.2f} × "
+        f"{slot['height_mm']:.1f} mm (fit clearance {slot['clearance_mm']} mm); walls "
+        f"{walls['side_mm']:.2f} mm beside, {walls['vertical_mm']:.2f} mm above/below. Tab "
+        f"{tab['height_mm']:.1f} mm tall.",
+        f"- Screw: {sc['name']}, sideways through the tail and the tab at x = {sc['x_mm']:g}, "
+        f"z = {sc['z_mm']:g} mm; pilot ⌀{sc['pilot_d_mm']:g} mm (tail), ⌀{sc['tab_hole_d_mm']:g}"
+        f" mm (tab); tail {sc['body_width_mm']:.1f} mm wide there, screw {sc['length_mm']:g} mm.",
+        "- Print it with `lure fab <build> --format print` (all parts) or `--parts fin`.",
+    ]
 
 
 def _envelope_md(env: dict) -> list[str]:

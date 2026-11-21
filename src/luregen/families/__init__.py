@@ -41,6 +41,9 @@ class FamilyBuild:
     report: dict[str, Any]  # family geometry block (joint, internals, pockets, warnings)
     diagram: dict[str, Any] = field(default_factory=dict)  # side-view data for the report
     warnings: list[str] = field(default_factory=list)
+    # Separately made parts that are not balance sections (e.g. the TPU tail fin, #123):
+    # name → build123d Solid, exported as model/<name>.*; their mass is in a section's parts.
+    parts: dict[str, Any] = field(default_factory=dict)
 
 
 class LureFamily(Protocol):

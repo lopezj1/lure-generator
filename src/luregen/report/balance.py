@@ -19,6 +19,7 @@ RATIO_TOL = 0.10  # head:tail mass ratio counts as on target within ±10 %
 EDGE_BANDS: tuple[Band, ...] = ("min", "max")
 DIAGRAM_PATH = "cg_cb.png"
 HEAD_COLOR, TAIL_COLOR = "#2a78d6", "#eb6834"  # categorical slots 1 and 2
+FIN_COLOR = "#1f9e74"  # categorical slot 3: the separate TPU tail fin (#123)
 INK, MUTED = "#2b2b29", "#8a8984"
 
 
@@ -333,7 +334,7 @@ def render_diagram(path: Path, diagram: dict, props: dict[Band, LureProps], titl
     from matplotlib.patches import PathPatch
     from matplotlib.path import Path as MPath
 
-    colors = {"head": HEAD_COLOR, "tail": TAIL_COLOR}
+    colors = {"head": HEAD_COLOR, "tail": TAIL_COLOR, "fin": FIN_COLOR}
     fig, ax = plt.subplots(figsize=(10, 4), dpi=150)
     for name, loops in diagram["slices"].items():
         verts, codes = [], []
@@ -366,7 +367,9 @@ def render_diagram(path: Path, diagram: dict, props: dict[Band, LureProps], titl
         plt.Line2D([], [], ls="", marker="o", color=INK, mfc="white", label="hardware"),
         plt.Line2D([], [], color=MUTED, lw=6, label="ballast"),
     ]
-    ax.legend(handles=handles, loc="upper right", fontsize=8, frameon=False, ncols=6)
+    if "fin" in diagram["slices"]:
+        handles.insert(2, plt.Line2D([], [], color=FIN_COLOR, lw=6, alpha=0.4, label="fin"))
+    ax.legend(handles=handles, loc="upper right", fontsize=8, frameon=False, ncols=len(handles))
     ax.set_aspect("equal")
     ax.autoscale_view()
     ax.set_xlabel("x from nose (mm)", color=INK)
