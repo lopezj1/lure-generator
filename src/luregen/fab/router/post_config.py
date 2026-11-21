@@ -154,6 +154,13 @@ class RouterSpindle(Strict):
     verified: bool = False
 
 
+class Workholding(Strict):
+    spoilboard_mm: float | None = Field(None, gt=0, description="Spoilboard thickness.")
+    work_area_mm: tuple[float, float] | None = Field(None, description="Largest blank, X × Y.")
+    clamps: str = Field("", description="How the blank is held (setup sheet text).")
+    min_margin_mm: float = Field(0.0, ge=0, description="Waste border the clamps need.")
+
+
 class MachineConfig(Strict):
     name: str
     controller: Controller
@@ -163,6 +170,7 @@ class MachineConfig(Strict):
     rapid_mm_min: tuple[float, float, float] = (5000.0, 5000.0, 2500.0)
     rapid_verified: bool = False
     accel_mm_s2: tuple[float, float, float] | None = None
+    workholding: Workholding = Workholding()
     tool_change_s: float = Field(60.0, ge=0, description="Runtime estimate per M6.")
     bitsetter: bool | None = Field(None, description="Tool-length probe present; None = unknown.")
     spindle: RouterSpindle = RouterSpindle()

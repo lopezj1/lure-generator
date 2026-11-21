@@ -26,6 +26,13 @@ y = 850.0
 z = 150.0
 verified = true
 
+[workholding]
+# Owner's setup (#28, 2026-11-21). The flip-pin holes and the cut-out go into the spoilboard.
+spoilboard_mm = 12.7          # 1/2in
+work_area_mm = [762.0, 762.0] # 30in × 30in usable envelope
+clamps = "small-footprint clamps on the blank's edges"
+min_margin_mm = 6.35          # at least 1/4in of waste all around
+
 [spindle]
 # Hand-set router: GRBL has $30=1000 and laser mode $32=1, so the G-code S word has no
 # effect on the machine. Speed comes only from the dial; the post prints the dial setting.

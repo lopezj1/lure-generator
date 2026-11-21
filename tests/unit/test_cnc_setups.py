@@ -8,7 +8,12 @@ from router_jobs import ROUTER, shapeoko
 from shapely.geometry import LineString, Point, Polygon
 
 from luregen.fab.router.cam import setups as st
-from luregen.fab.router.cam.job import split_by_tool, write_programs
+from luregen.fab.router.cam.job import (
+    CncJobError,
+    split_by_tool,
+    workholding_checks,
+    write_programs,
+)
 from luregen.fab.router.cam.ops2d import Cut
 from luregen.fab.router.feeds import calculate, load_feeds
 from luregen.geometry.cnc_halves import rounded_rect
@@ -209,3 +214,14 @@ def test_auto_stock_thickness_rounds_up_to_board_increment(need, step, want):
     from luregen.fab.router.cam.job import auto_thickness
 
     assert auto_thickness(need, step) == pytest.approx(want)
+
+
+def test_workholding_checks(layout):
+    machine = shapeoko()[1]
+    assert machine.workholding.spoilboard_mm == 12.7
+    assert workholding_checks(machine, layout, 20.0, 0.3) == []
+    warn = workholding_checks(machine, layout, 5.0, 7.0)
+    assert any("clamps need" in w for w in warn) and any("spoilboard" in w for w in warn)
+    big = st.Layout(layout.halves, 800.0, layout.width, layout.thickness)
+    with pytest.raises(CncJobError, match="work area"):
+        workholding_checks(machine, big, 20.0, 0.3)
