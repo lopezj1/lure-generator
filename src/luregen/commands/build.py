@@ -5,28 +5,69 @@ import typer
 
 if TYPE_CHECKING:
     from luregen.config import LureConfig
+    from luregen.profile.pipeline import ProfileResult
     from luregen.profile.table import StationTable
+
+# Trace length for a weight-driven photo build with `scale = "length"`: the build rescales
+# the table to the solved length, so only the shape matters.
+NOMINAL_TRACE_LENGTH_MM = 150.0
 
 
 class BuildError(RuntimeError):
     pass
 
 
-def station_table_for(cfg: "LureConfig") -> "StationTable":
-    """Load the config's station table and scale it to `size.length_mm`."""
+def trace_photo(cfg: "LureConfig") -> "ProfileResult | None":
+    """Trace `profile.image` (`profile.source = "image"`) into a station table (#134)."""
+    if cfg.profile.source != "image":
+        return None
+    from luregen.profile.extract import ProfileError
+    from luregen.profile.pipeline import extract_profile, options_from_config
+
+    p = cfg.profile
+    for name, path in (("profile.image", p.image), ("profile.top_image", p.top_image)):
+        if path is not None and not Path(path).is_file():
+            raise BuildError(f"{name} not found: {path}")
+    length = cfg.size.length_mm or cfg.size.solved_length_mm
+    if length is None and p.scale == "length":
+        length = NOMINAL_TRACE_LENGTH_MM
+    try:
+        return extract_profile(
+            Path(p.image),
+            options_from_config(p, length),
+            n_stations=p.n_stations,
+            top_image=Path(p.top_image) if p.top_image else None,
+            width_ratio=p.width_rule.value,
+        )
+    except ProfileError as exc:
+        raise BuildError(f"profile photo: {exc}") from exc
+
+
+def write_traced_profile(traced: "ProfileResult", build_dir: Path) -> None:
+    """The traced station table and its debug images, in `<build>/profile/`."""
+    from luregen.profile.debug import write_debug
+
+    out = build_dir / "profile"
+    out.mkdir(parents=True, exist_ok=True)
+    traced.table.to_csv(out / "stations.csv")
+    write_debug(traced, out)
+
+
+def station_table_for(cfg: "LureConfig", traced: "ProfileResult | None" = None) -> "StationTable":
+    """The config's station table (the preset CSV, or `traced` from the photo), scaled to
+    `size.length_mm`."""
     from luregen.profile.table import StationTable, StationTableError
 
     if cfg.profile.source == "image":
-        raise BuildError(
-            "profile.source = 'image' is not supported by `lure build` yet: run `lure profile` "
-            "to extract a station table, then point profile.preset at the CSV"
-        )
-    if cfg.profile.preset is None or not Path(cfg.profile.preset).is_file():
-        raise BuildError(f"profile.preset not found: {cfg.profile.preset}")
-    try:
-        table = StationTable.load_csv(Path(cfg.profile.preset))
-    except StationTableError as exc:
-        raise BuildError(str(exc)) from exc
+        table = (traced or trace_photo(cfg)).table
+    else:
+        preset = cfg.profile.preset
+        if preset is None or not Path(preset).is_file():
+            raise BuildError(f"profile.preset not found: {preset}")
+        try:
+            table = StationTable.load_csv(Path(preset))
+        except StationTableError as exc:
+            raise BuildError(str(exc)) from exc
     # weight-driven: the solved length, else the preset's own length (scaled in build_lure)
     length = cfg.size.length_mm or cfg.size.solved_length_mm
     if length is not None and abs(length - table.length) > 1e-9:
@@ -238,12 +279,15 @@ def register(app: typer.Typer) -> None:
         try:
             cfg = load_config(variant, set_)
             stage_emit("stations", 0.0, "station table")
-            table = station_table_for(cfg)
+            traced = trace_photo(cfg)
+            table = station_table_for(cfg, traced)
         except (ConfigError, BuildError) as exc:
             typer.echo(f"config error: {exc}", err=True)
             raise typer.Exit(code=1) from exc
         build_dir = create_build_dir(cfg, out_root)
         typer.echo(f"build: {build_dir}")
+        if traced is not None:
+            write_traced_profile(traced, build_dir)
         try:
             result = build_lure(cfg, table, build_dir)
         except (GeometryError, FamilyError, RuntimeError) as exc:
@@ -252,6 +296,8 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=1) from exc
         cfg = result.pop("_config")
         warnings = json_warnings(build_dir) + result.pop("family_warnings")
+        if traced is not None:
+            warnings += [f"profile photo: {n}" for n in traced.notes]
         status = "dfm_failed" if result["dfm"]["n_errors"] else "built"
         report = update_report(build_dir, cfg, status=status, warnings=warnings, **result)
         stage_emit("report", 1.0, "done")

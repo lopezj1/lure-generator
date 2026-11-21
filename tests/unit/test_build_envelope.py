@@ -1,12 +1,27 @@
 import json
 from pathlib import Path
 
+import cv2
+import numpy as np
 import pytest
+from _profile_synth import Scene, lure_outline
 from typer.testing import CliRunner
 
 from luregen.cli import make_app
-from luregen.commands.build import BuildError, station_table_for
+from luregen.commands.build import BuildError, station_table_for, trace_photo
 from luregen.config import load_config
+from luregen.profile.table import StationTable
+
+
+def write_lure_facing_right(path: Path) -> Path:
+    """Asymmetric body (deepest toward the nose), photographed nose-right."""
+    outline = lure_outline(175, 50)
+    outline[:, 0] = 197.5 - outline[:, 0]
+    s = Scene(220, 80)
+    s.polygon(outline + [0, 45])
+    cv2.imwrite(str(path), s.render())
+    return path
+
 
 SAMPLE = Path(__file__).resolve().parents[2] / "spec/designs/glide/variants/striper_175_petg.toml"
 
@@ -101,8 +116,8 @@ def test_station_table_scaled_to_length(sample_variant: Path):
 def test_station_table_errors(sample_variant: Path, tmp_path: Path):
     cfg = load_config(sample_variant)
     image = cfg.model_copy(deep=True)
-    image.profile.source = "image"
-    with pytest.raises(BuildError, match="lure profile"):
+    image.profile.source, image.profile.image = "image", tmp_path / "missing.png"
+    with pytest.raises(BuildError, match="profile.image not found"):
         station_table_for(image)
     weight = cfg.model_copy(deep=True)
     weight.size.length_mm, weight.size.target_weight_oz = None, 2.0
@@ -115,8 +130,37 @@ def test_station_table_errors(sample_variant: Path, tmp_path: Path):
         station_table_for(missing)
 
 
-def test_build_image_source_is_a_clean_error(sample_variant: Path, tmp_path: Path):
-    res = run_build(sample_variant, tmp_path, "profile.source=image", "profile.image=side.png")
-    assert res.exit_code == 1
-    assert "lure profile" in res.output
+def test_build_bad_photo_is_a_clean_error(sample_variant: Path, tmp_path: Path):
+    blank = tmp_path / "blank.png"
+    cv2.imwrite(str(blank), np.full((200, 300, 3), 235, np.uint8))
+    for photo, msg in ((tmp_path / "side.png", "not found"), (blank, "profile photo")):
+        res = run_build(sample_variant, tmp_path, "profile.source=image", f"profile.image={photo}")
+        assert res.exit_code == 1
+        assert msg in res.output
     assert not (tmp_path / "glide").exists()  # fails before creating a build folder
+
+
+def test_station_table_traced_from_photo(sample_variant: Path, tmp_path: Path):
+    """profile.source = "image" traces the photo in the build (#134), nose right here."""
+    photo = write_lure_facing_right(tmp_path / "side.png")
+    sets = ["profile.source=image", f"profile.image={photo}", "profile.nose=right"]
+    cfg = load_config(sample_variant, [*sets, "size.length_mm=160"])
+    traced = trace_photo(cfg)
+    table = station_table_for(cfg, traced)
+    assert traced.table.length == pytest.approx(160)  # length scale = size.length_mm
+    assert table.length == pytest.approx(160)
+    assert table.v_radius[2] > table.v_radius[-3]  # deep end (nose) at x = 0
+    weight = cfg.model_copy(deep=True)
+    weight.size.length_mm, weight.size.target_weight_oz = None, 2.0
+    assert station_table_for(weight).length == pytest.approx(150)  # nominal trace length
+
+
+@pytest.mark.slow
+def test_build_from_photo_writes_profile(sample_variant: Path, tmp_path: Path):
+    photo = write_lure_facing_right(tmp_path / "side.png")
+    sets = ["profile.source=image", f"profile.image={photo}", "profile.nose=right"]
+    res = run_build(sample_variant, tmp_path / "out", *sets, "solver.enabled=false")
+    assert res.exit_code == 0, res.output
+    build = next((tmp_path / "out").glob("*/*/latest")).resolve()
+    assert StationTable.load_csv(build / "profile/stations.csv").length == pytest.approx(175)
+    assert (build / "profile/profile_debug.png").is_file()

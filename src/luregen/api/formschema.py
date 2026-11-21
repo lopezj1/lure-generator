@@ -86,6 +86,7 @@ FIELD_GROUPS: dict[tuple[str, ...], tuple[str, str]] = {
     ("profile",): ("shape", A),
     ("profile", "source"): ("shape", B),
     ("profile", "image"): ("shape", B),
+    ("profile", "nose"): ("shape", A),
     ("profile", "preset"): ("shape", B),
     ("profile", "scale"): ("shape", B),
     ("profile", "paper", "size"): ("shape", B),

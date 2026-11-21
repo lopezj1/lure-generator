@@ -90,6 +90,7 @@ def options_from_config(profile: ProfileConfig, length_mm: float | None = None) 
         else "{:g}x{:g} mm".format(*profile.paper.dims_mm()),
         sheet_mm=profile.paper.dims_mm(),
         sheet_inset_mm=profile.paper.inset_mm,
+        nose=profile.nose,
         smoothing=profile.smoothing.method,
         harmonics=profile.smoothing.harmonics,
         spline_s=profile.smoothing.spline_s,
