@@ -1,0 +1,209 @@
+/* Grouped parameter editor (#121). */
+.param-editor {
+  --pico-form-element-spacing-vertical: 0.3rem;
+  --pico-form-element-spacing-horizontal: 0.5rem;
+  font-size: 0.9rem;
+  /* Pico paints a green check on every valid input; only errors matter here. */
+  --pico-icon-valid: none;
+  --pico-form-element-valid-border-color: var(--pico-form-element-border-color);
+  --pico-form-element-valid-active-border-color: var(--pico-form-element-active-border-color);
+  --pico-form-element-valid-focus-color: var(--pico-form-element-focus-color);
+}
+
+.group-tabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+  margin-bottom: 0.5rem;
+}
+.group-tabs button {
+  flex: none;
+  width: auto;
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.88rem;
+  background: transparent;
+  color: var(--pico-muted-color);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  white-space: nowrap;
+}
+.group-tabs button:hover {
+  color: inherit;
+}
+.group-tabs button.active {
+  color: var(--pico-primary);
+  border-bottom-color: var(--pico-primary);
+  font-weight: 600;
+}
+.group-desc {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+.card {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  min-width: 0;
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+}
+.card.wide {
+  grid-column: 1 / -1;
+}
+.card h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.35rem;
+}
+.card .more {
+  margin: 0.35rem 0 0;
+  border-top: 1px dashed var(--pico-muted-border-color);
+  padding-top: 0.25rem;
+}
+.card.only-advanced .more {
+  border-top: 0;
+  padding-top: 0;
+  margin: 0;
+}
+.card .more > summary {
+  font-size: 0.85rem;
+  color: var(--pico-muted-color);
+}
+.card.only-advanced .more > summary {
+  color: var(--pico-color);
+}
+.card .more > summary small {
+  margin-left: 0.35rem;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  column-gap: 1.5rem;
+}
+.fields > .wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+fieldset.sub {
+  margin: 0.4rem 0;
+  padding: 0.2rem 0 0.2rem 0.75rem;
+  border: 0;
+  border-left: 2px solid var(--pico-muted-border-color);
+}
+fieldset.sub > legend {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: 0.1rem;
+}
+
+/* Tables with editable cells. */
+.table-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  margin: 0.25rem 0;
+}
+.table-head .title {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.table-head .spacer {
+  flex: 1;
+}
+.table-head .toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+}
+.table-head .toggle input {
+  margin: 0;
+}
+.param-editor .scroll {
+  position: relative; /* keeps the absolutely positioned .sr labels inside the scroller */
+  overflow-x: auto;
+  max-width: 100%;
+}
+.param-editor table {
+  margin: 0 0 0.25rem;
+  font-size: 0.82rem;
+  width: auto;
+}
+.param-editor th,
+.param-editor td {
+  padding: 0.15rem 0.3rem;
+  vertical-align: top;
+}
+.param-editor thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--pico-muted-color);
+}
+.param-editor tbody th {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.param-editor td input,
+.param-editor td select {
+  margin: 0;
+  min-width: 4.5rem;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.82rem;
+  height: auto;
+}
+.param-editor td select {
+  padding-right: 1.8rem;
+  width: auto;
+  max-width: 14rem;
+}
+.param-editor td input[type='number'] {
+  width: 6.5rem;
+}
+.param-editor td input:not([type]),
+.param-editor td input[type='text'] {
+  width: 13rem;
+}
+.param-editor td .pair input[type='number'] {
+  width: 5rem;
+}
+.param-editor td .pair input {
+  min-width: 3.5rem;
+}
+.param-editor td.idx,
+.param-editor th.idx {
+  width: 1.5rem;
+  color: var(--pico-muted-color);
+  vertical-align: middle;
+}
+.param-editor td.ops {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.param-editor tr.row-errors td {
+  padding-top: 0;
+}
+.param-editor .add {
+  margin-top: 0.15rem;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

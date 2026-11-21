@@ -1,29 +1,28 @@
-<!-- Left panel: design/variant picker, the variant form (validate as you type, save with an
-     etag precondition), the build runner and the photo → profile flow.
-     API: /api/designs, /api/schema/lure-config, /api/variants/{family}/{name}[/validate],
-     /api/spec/status, /api/jobs, /api/uploads. -->
+<!-- Design page (#121): the selected variant's parameters in group tabs, with a sticky bar to
+     save (etag precondition), discard and build. Validates as you type (server-side).
+     API: /api/schema/lure-config, /api/variants/{family}/{name}[/validate], /api/spec/status,
+     /api/jobs, /api/uploads. The variant comes from the header picker (`selection`). -->
 <script lang="ts">
-  import '@sjsf/basic-theme/css/pico.css';
   import './editor.css';
-  import type { Schema, UiSchemaRoot } from '@sjsf/form';
+  import './params/params.css';
   import { api } from '../client';
   import type { components } from '../api';
   import { errorText } from '../jobs';
-  import ConfigForm from './ConfigForm.svelte';
+  import { route, setSub } from '../stores/route';
+  import { editorDirty, selection } from '../stores/selection';
+  import ParamEditor from './params/ParamEditor.svelte';
+  import type { Node } from './params/schema';
   import { deepEqual, pointer } from './paths';
   import ProfileFromPhoto from './ProfileFromPhoto.svelte';
   import RunPanel from './RunPanel.svelte';
+  import EditorScope from './EditorScope.svelte';
   import { EditorState } from './state.svelte';
 
   type S = components['schemas'];
   type FieldError = S['FieldError'];
 
-  let designs: S['DesignSummary'][] = $state([]);
-  let family = $state('');
-  let variant = $state('');
-  let schema = $state<{ schema: Schema; uiSchema: UiSchemaRoot } | null>(null);
+  let schema = $state.raw<Node | null>(null);
   let editor = $state<EditorState | null>(null);
-  let form: ConfigForm | undefined = $state();
   let loadError = $state('');
   let generalErrors: FieldError[] = $state([]);
   let validating = $state(false);
@@ -32,19 +31,19 @@
   let conflict = $state<{ etag: string; changed: string[] } | null>(null);
   let specStatus: S['SpecStatus'] | null = $state(null);
 
-  const variants = $derived(designs.find((d) => d.family === family)?.variants ?? []);
+  const family = $derived($selection.family);
+  const variant = $derived($selection.variant);
   const dirty = $derived(editor?.dirty ?? false);
+  const group = $derived($route.page === 'design' ? $route.sub : '');
+  $effect(() => editorDirty.set(dirty));
 
   async function init() {
-    const [d, s] = await Promise.all([api.GET('/api/designs'), api.GET('/api/schema/lure-config')]);
-    if (!d.data || !s.data) {
-      loadError = errorText(d.error ?? s.error, d.response);
+    const { data, error, response } = await api.GET('/api/schema/lure-config');
+    if (!data) {
+      loadError = errorText(error, response);
       return;
     }
-    designs = d.data;
-    schema = { schema: s.data.schema as Schema, uiSchema: s.data.uiSchema as UiSchemaRoot };
-    family = designs[0]?.family ?? '';
-    variant = designs[0]?.variants[0] ?? '';
+    schema = data.schema as Node;
     refreshStatus();
   }
   init();
@@ -60,7 +59,7 @@
 
   function open(detail: S['VariantDetail']) {
     if (!schema) return;
-    editor = new EditorState(detail, schema.schema);
+    editor = new EditorState(detail, schema);
     generalErrors = detail.errors.filter((e) => e.path.length === 0);
     conflict = null;
   }
@@ -81,23 +80,6 @@
   $effect(() => {
     if (schema) load(family, variant);
   });
-
-  function confirmLeave(): boolean {
-    return !dirty || confirm('Discard unsaved edits?');
-  }
-
-  function pickFamily(e: Event) {
-    const el = e.currentTarget as HTMLSelectElement;
-    if (!confirmLeave()) return void (el.value = family);
-    family = el.value;
-    variant = variants[0] ?? '';
-  }
-
-  function pickVariant(e: Event) {
-    const el = e.currentTarget as HTMLSelectElement;
-    if (!confirmLeave()) return void (el.value = variant);
-    variant = el.value;
-  }
 
   // Debounced server validation (pydantic model validators + resolve()) of what Save would send.
   $effect(() => {
@@ -131,7 +113,7 @@
 
   function showErrors(errors: FieldError[]) {
     generalErrors = errors.filter((e) => e.path.length === 0);
-    form?.showErrors(errors);
+    if (editor) editor.errors = errors.filter((e) => e.path.length > 0);
   }
 
   async function save(force = false) {
@@ -196,99 +178,106 @@
   async function reload() {
     await load(family, variant);
   }
+
+  function onkey(e: KeyboardEvent) {
+    if ($route.page !== 'design' || !(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 's')
+      return;
+    e.preventDefault();
+    if (dirty) void save();
+  }
+
+  const errorCount = $derived((editor?.errors.length ?? 0) + generalErrors.length);
 </script>
 
-<div class="editor">
-  <div class="picker grid-2">
-    <label>
-      Design
-      <select value={family} onchange={pickFamily}>
-        {#each designs as d (d.family)}
-          <option value={d.family}>{d.family}</option>
-        {/each}
-      </select>
-    </label>
-    <label>
-      Variant
-      <select value={variant} onchange={pickVariant}>
-        {#each variants as v (v)}
-          <option value={v}>{v}</option>
-        {/each}
-      </select>
-    </label>
-  </div>
+<svelte:window onkeydown={onkey} />
 
+<div class="editor">
   {#if loadError}
     <p class="error-text">{loadError}</p>
   {/if}
 
   {#if editor && schema}
-    <div class="savebar">
-      <small>
-        <code>{editor.detail.path}</code>
-        {#if specStatus?.dirty}
-          <span
-            class="badge"
-            data-layer="edited"
-            title={specStatus.files.map((f) => `${f.status} ${f.path}`).join('\n')}
-          >
-            spec: {specStatus.files.length} uncommitted
-          </span>
-        {/if}
-        <span class="layers">
-          extends {editor.detail.layers
-            .slice(1)
-            .map((l) => l.label)
-            .join(' ← ') || 'nothing'}
-        </span>
-      </small>
-      <div class="savebar-actions">
-        <button type="button" disabled={!dirty || saving} aria-busy={saving} onclick={() => save()}>
-          Save
-        </button>
-        <button
-          type="button"
-          class="secondary outline"
-          disabled={!dirty}
-          onclick={() => confirmLeave() && reload()}
-        >
-          Discard
-        </button>
-        <small aria-busy={validating}>{validating ? 'validating' : ''}</small>
-      </div>
-      {#if saveMessage}<small>{saveMessage}</small>{/if}
-      {#if conflict}
-        <article class="conflict">
-          <strong>The file changed on disk</strong> since it was loaded.
-          <br /><small>
-            {conflict.changed.length
-              ? `Changed there: ${conflict.changed.join(', ')}`
-              : 'Only comments or formatting changed there.'}
-          </small>
-          <div class="grid-2">
-            <button type="button" onclick={reload}>Reload (drop my edits)</button>
-            <button type="button" class="secondary" onclick={() => save(true)}>
-              Save mine over it
-            </button>
-          </div>
-        </article>
-      {/if}
-      {#each generalErrors as e (e.message)}
-        <small class="error-text">{e.message}</small>
-      {/each}
-    </div>
-
-    <RunPanel variantPath={editor.detail.path} {dirty} />
-    <ProfileFromPhoto {editor} />
-
     {#key editor}
-      <ConfigForm
-        bind:this={form}
-        {editor}
-        schema={schema.schema}
-        uiSchema={schema.uiSchema}
-        onsubmit={() => save()}
-      />
+      <EditorScope {editor}>
+        <div class="savebar">
+          <div class="savebar-info">
+            <code
+              title="extends {editor.detail.layers
+                .slice(1)
+                .map((l) => l.path)
+                .join(' ← ')}"
+            >
+              {editor.detail.path}
+            </code>
+            <small class="muted">
+              extends {editor.detail.layers
+                .slice(1)
+                .map((l) => l.label)
+                .join(' ← ') || 'nothing'}
+            </small>
+            {#if specStatus?.dirty}
+              <span
+                class="badge"
+                data-layer="edited"
+                title={specStatus.files.map((f) => `${f.status} ${f.path}`).join('\n')}
+              >
+                spec: {specStatus.files.length} uncommitted
+              </span>
+            {/if}
+          </div>
+          <div class="savebar-actions">
+            <small class="state" aria-live="polite" aria-busy={validating}>
+              {#if validating}validating{:else if errorCount}<span class="error-text">
+                  {errorCount} error(s)
+                </span>{:else if dirty}unsaved edits{:else}saved{/if}
+            </small>
+            <button
+              type="button"
+              class="secondary outline"
+              disabled={!dirty}
+              onclick={() => confirm('Discard unsaved edits?') && reload()}
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              disabled={!dirty || saving}
+              aria-busy={saving}
+              title="Save (Ctrl+S)"
+              onclick={() => save()}
+            >
+              Save
+            </button>
+            <RunPanel variantPath={editor.detail.path} {dirty} />
+          </div>
+          {#if saveMessage}<small class="message">{saveMessage}</small>{/if}
+          {#if conflict}
+            <article class="conflict">
+              <strong>The file changed on disk</strong> since it was loaded.
+              <br /><small>
+                {conflict.changed.length
+                  ? `Changed there: ${conflict.changed.join(', ')}`
+                  : 'Only comments or formatting changed there.'}
+              </small>
+              <div class="conflict-actions">
+                <button type="button" onclick={reload}>Reload (drop my edits)</button>
+                <button type="button" class="secondary" onclick={() => save(true)}>
+                  Save mine over it
+                </button>
+              </div>
+            </article>
+          {/if}
+          {#each generalErrors as e (e.message)}
+            <small class="error-text">{e.message}</small>
+          {/each}
+        </div>
+
+        <ParamEditor {schema} {group} onpick={(g) => setSub('design', g)}>
+          {#snippet extras(g)}
+            {#if g === 'shape'}<ProfileFromPhoto editor={editor!} />{/if}
+          {/snippet}
+        </ParamEditor>
+      </EditorScope>
     {/key}
   {:else if !loadError}
     <p aria-busy="true">Loading…</p>

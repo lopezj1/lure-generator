@@ -73,63 +73,65 @@
   }
 </script>
 
-<details>
+<details class="photo">
   <summary>Profile from a photo</summary>
-  <small>
-    Side view, nose {nose}; scale from an ArUco marker or the known length. Writes a station CSV
-    under <code>uploads/profiles/</code>.
-  </small>
-  <input
-    type="file"
-    accept="image/*"
-    aria-label="side-profile photo"
-    onchange={(e) => (file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)}
-  />
-  <div class="grid-2">
-    <label>
-      Scale
-      <select bind:value={scale}>
-        <option value="auto">auto</option>
-        <option value="aruco">aruco</option>
-        <option value="length">length</option>
-      </select>
-    </label>
-    <label>
-      Nose
-      <select bind:value={nose}>
-        <option value="left">left</option>
-        <option value="right">right</option>
-      </select>
-    </label>
-  </div>
-  {#if scale !== 'aruco'}
-    <label>
-      Length (mm)
-      <input type="number" min="1" step="any" bind:value={length} />
-    </label>
-  {/if}
-  <button type="button" disabled={!file || busy} aria-busy={busy} onclick={run}>
-    Extract profile
-  </button>
-  {#if message}<small class="error-text">{message}</small>{/if}
-  {#if jobId}
-    <JobView id={jobId} {ondone} />
-  {/if}
-  {#if overlay}
-    <figure>
-      <img src={overlay} alt="Extracted outline over the side view" />
-      <figcaption><small><code>{out}</code></small></figcaption>
-    </figure>
+  <div class="photo-body">
+    <small>
+      Side view, nose {nose}; scale from an ArUco marker or the known length. Writes a station CSV
+      under <code>uploads/profiles/</code>.
+    </small>
+    <input
+      type="file"
+      accept="image/*"
+      aria-label="side-profile photo"
+      onchange={(e) => (file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null)}
+    />
     <div class="grid-2">
-      <button type="button" disabled={applied} onclick={use}>Use this profile</button>
-      <button type="button" class="secondary outline" onclick={() => (overlay = null)}>
-        Discard
-      </button>
+      <label>
+        Scale
+        <select bind:value={scale}>
+          <option value="auto">auto</option>
+          <option value="aruco">aruco</option>
+          <option value="length">length</option>
+        </select>
+      </label>
+      <label>
+        Nose
+        <select bind:value={nose}>
+          <option value="left">left</option>
+          <option value="right">right</option>
+        </select>
+      </label>
     </div>
-    {#if applied}
-      <small>
-        Set <code>profile.source = preset</code> and <code>profile.preset</code>. Save to keep it.
-      </small>
+    {#if scale !== 'aruco'}
+      <label>
+        Length (mm)
+        <input type="number" min="1" step="any" bind:value={length} />
+      </label>
     {/if}
-  {/if}
+    <button type="button" disabled={!file || busy} aria-busy={busy} onclick={run}>
+      Extract profile
+    </button>
+    {#if message}<small class="error-text">{message}</small>{/if}
+    {#if jobId}
+      <JobView id={jobId} {ondone} />
+    {/if}
+    {#if overlay}
+      <figure>
+        <img src={overlay} alt="Extracted outline over the side view" />
+        <figcaption><small><code>{out}</code></small></figcaption>
+      </figure>
+      <div class="grid-2">
+        <button type="button" disabled={applied} onclick={use}>Use this profile</button>
+        <button type="button" class="secondary outline" onclick={() => (overlay = null)}>
+          Discard
+        </button>
+      </div>
+      {#if applied}
+        <small>
+          Set <code>profile.source = preset</code> and <code>profile.preset</code>. Save to keep it.
+        </small>
+      {/if}
+    {/if}
+  </div>
 </details>
