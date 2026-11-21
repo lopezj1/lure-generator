@@ -4,6 +4,7 @@
   // back when the user picks another build here.
   import { api } from '../client';
   import { currentBuild, setCurrentBuild } from '../stores/build';
+  import FullscreenButton from '../ui/FullscreenButton.svelte';
   import CadView from './CadView.svelte';
   import ReportOverlay from './ReportOverlay.svelte';
   import SectionPanel from './SectionPanel.svelte';
@@ -19,6 +20,7 @@
   let loading = $state(false);
   let cad: CadView | null = $state(null);
   let rendered = $state(0); // bumps on every viewer render
+  let viewerEl: HTMLDivElement | undefined = $state();
 
   let axis: Axis = $state('x');
   let offset = $state(0);
@@ -151,7 +153,8 @@
     </p>
   {:else}
     <div class="body">
-      <div class="viewer">
+      <div class="viewer" bind:this={viewerEl}>
+        <FullscreenButton target={viewerEl} />
         {#if shapes}
           <CadView bind:this={cad} data={shapes} {onclip} {onrendered} />
         {/if}
@@ -167,23 +170,18 @@
 </div>
 
 <style>
-  /* Fill the viewport slot without letting the panel's content grow it. */
-  :global(.viewport:has(> .model-tab)) {
-    position: relative;
-    min-height: 0;
-  }
   .model-tab {
-    position: absolute;
-    inset: 0;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    min-height: 0;
   }
   .bar {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem 0.75rem;
     align-items: center;
-    padding: 0.25rem 0.5rem;
+    padding: 0 0 0.4rem;
     font-size: 0.8rem;
   }
   .bar label {
@@ -216,21 +214,37 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1fr minmax(16rem, 22rem);
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
   }
   .viewer {
     position: relative;
     min-width: 0;
     min-height: 24rem;
   }
+  /* Clear of the viewer's own toolbar, tree and view menu: bottom centre. */
+  .viewer :global(.fs-btn) {
+    top: auto;
+    right: auto;
+    bottom: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+  }
   .side {
     overflow: auto;
     border-left: 1px solid var(--pico-muted-border-color);
   }
-  @media (max-width: 900px) {
+  @media (max-width: 1023px) {
     .body {
-      grid-template-columns: 1fr;
-      grid-template-rows: minmax(24rem, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .viewer {
+      height: max(22rem, calc(100dvh - 10rem));
+    }
+    .side {
+      border-left: 0;
+      border-top: 1px solid var(--pico-muted-border-color);
     }
   }
 </style>

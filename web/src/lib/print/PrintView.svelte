@@ -6,6 +6,7 @@
   import { fetchToolpath, type PrintToolpath } from '../toolpath/reader';
   import { drawRange, formatDuration, layerTicks, primeTowerFeature } from './model';
   import { PAUSE_COLOR, TRAVEL_COLOR, cssColor, featureColor, toolColor } from './palette';
+  import FullscreenButton from '../ui/FullscreenButton.svelte';
   import RangeSlider, { type Tick } from './RangeSlider.svelte';
   import { PrintScene, type ColorMode } from './scene';
 
@@ -17,6 +18,7 @@
   }
 
   let host: HTMLDivElement | undefined = $state();
+  let stage: HTMLDivElement | undefined = $state();
   let scene = $state.raw<PrintScene | null>(null);
   let sources: Source[] = $state([]);
   let selected = $state('');
@@ -300,8 +302,9 @@
     <button class="outline secondary" onclick={() => scene?.fit()} disabled={!tp}>Fit</button>
   </div>
 
-  <div class="stage">
+  <div class="stage" bind:this={stage}>
     <div class="canvas" bind:this={host}></div>
+    <FullscreenButton target={stage} />
 
     {#if status || error || !tp}
       <div class="overlay center">
@@ -424,15 +427,22 @@
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
     align-items: center;
-    padding: 0.4rem 0;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.85rem;
   }
   .toolbar > * {
     margin: 0;
     width: auto;
   }
+  .toolbar select,
+  .toolbar input[type='file'] {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.85rem;
+    height: auto;
+  }
   .toolbar select {
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
+    max-width: 100%;
   }
   .toolbar button {
     padding: 0.3rem 0.8rem;
@@ -548,7 +558,7 @@
     margin: 0;
   }
   .layers {
-    top: 1rem;
+    top: 2.75rem;
     bottom: 3.5rem;
     right: 0.5rem;
   }

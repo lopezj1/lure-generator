@@ -1,28 +1,27 @@
-/* Builds/jobs drawer (W9). */
+/* Builds & jobs page (W9; a page since #121). */
 .w9 {
   font-size: 0.85rem;
-  margin: 0.25rem 0;
 }
-.w9 > summary {
-  margin: 0.25rem 0;
-}
-.w9 .drawer-grid {
+.builds-page {
   display: grid;
-  grid-template-columns: minmax(18rem, 2fr) 3fr;
-  gap: 1rem;
-  max-height: 45vh;
-  overflow: hidden;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 0.75rem;
+  align-items: start;
 }
-.w9 .drawer-grid > section {
+.builds-page > .card {
   margin: 0;
   min-width: 0;
-  overflow: auto;
-  max-height: 45vh;
+  padding: 0.6rem 0.9rem;
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
 }
-@media (max-width: 900px) {
-  .w9 .drawer-grid {
+.builds-page .scroll {
+  overflow-x: auto;
+}
+@media (max-width: 1023px) {
+  .builds-page {
     grid-template-columns: 1fr;
-    overflow: auto;
   }
 }
 .w9 .head {
@@ -90,76 +89,12 @@
 .w9 input[type='checkbox'] {
   margin: 0;
 }
-.w9 .badge {
-  font-size: 0.7rem;
-  padding: 0 0.4rem;
-  border-radius: 0.6rem;
-  border: 1px solid var(--pico-muted-border-color);
-  color: var(--pico-muted-color);
-  white-space: nowrap;
-}
-.w9 .badge[data-status='failed'],
-.w9 .badge[data-status='error'],
-.w9 .badge[data-status='interrupted'],
-.w9 .badge[data-verdict='fail'] {
-  color: var(--pico-del-color);
-  border-color: var(--pico-del-color);
-}
-.w9 .badge[data-status='succeeded'],
-.w9 .badge[data-status='built'],
-.w9 .badge[data-verdict='pass'] {
-  color: var(--pico-ins-color);
-  border-color: var(--pico-ins-color);
-}
-.w9 .badge[data-status='running'] {
-  color: var(--pico-primary);
-  border-color: var(--pico-primary);
-}
-.w9 .mini {
-  display: inline-block;
-  width: auto;
-  margin: 0;
-  padding: 0 0.4rem;
-  font-size: 0.7rem;
-  line-height: 1.4;
-  background: transparent;
-  color: var(--pico-muted-color);
-  border: 1px solid var(--pico-muted-border-color);
-}
-.w9 .mini:hover {
-  color: var(--pico-primary);
-  border-color: var(--pico-primary);
-}
-.w9 .error-text {
-  display: block;
-  color: var(--pico-del-color);
-}
-.w9 .warn-text {
-  display: block;
-  color: var(--pico-muted-color);
-}
 .w9 .cmd {
   display: block;
   font-size: 0.72rem;
   margin: 0.25rem 0;
   white-space: pre-wrap;
   word-break: break-all;
-}
-.w9 .job-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.w9 .job-log {
-  font-size: 0.7rem;
-  max-height: 12rem;
-  overflow: auto;
-  white-space: pre-wrap;
-  margin: 0.25rem 0;
-  padding: 0.25rem;
-}
-.w9 progress {
-  margin: 0.25rem 0;
 }
 .w9 .detail,
 .w9 .compare {
@@ -189,15 +124,4 @@
 }
 .w9 details {
   margin: 0.25rem 0;
-}
-
-/* The open drawer squeezes the viewport: clip the viewport's panels instead of letting them
-   spill over the drawer. */
-.layout:has(> footer > .w9[open]) > main {
-  overflow: hidden;
-}
-.layout > footer:has(> .w9) {
-  position: relative;
-  z-index: 10;
-  background: var(--pico-background-color);
 }
