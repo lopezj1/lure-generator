@@ -11,12 +11,33 @@
   let { editor }: { editor: EditorState } = $props();
 
   let file: File | null = $state(null);
-  let scale: 'auto' | 'aruco' | 'length' = $state('auto');
+  // A sheet of paper under the lure is the easiest scale reference (#122): the default.
+  let scale = $state<'paper' | 'aruco' | 'length' | 'auto'>('paper');
+  let paper = $state<'letter' | 'a4' | 'custom'>('letter');
+  let paperW: number | null = $state(null);
+  let paperH: number | null = $state(null);
+  let inset = $state(4);
   // svelte-ignore state_referenced_locally
   let length: number | null = $state(
     (getAt(editor.value, ['size', 'length_mm']) as number) ?? null,
   );
   let nose: 'left' | 'right' = $state('left');
+  const usesPaper = $derived(scale === 'paper' || scale === 'auto');
+  const paperArg = $derived(
+    paper === 'custom' ? (paperW && paperH ? `${paperW}x${paperH}` : null) : paper,
+  );
+  const command = $derived(
+    [
+      'lure profile <photo> --out uploads/profiles/<id>/profile.csv',
+      `--scale ${scale}`,
+      usesPaper && paperArg ? `--paper ${paperArg} --paper-inset-mm ${inset}` : '',
+      (scale === 'length' || scale === 'auto') && length ? `--length ${length}` : '',
+      `--nose ${nose}`,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
+  const ready = $derived(!!file && (!usesPaper || paperArg !== null));
   let busy = $state(false);
   let message = $state('');
   let jobId: string | null = $state(null);
@@ -45,7 +66,9 @@
           image: upload.path,
           out,
           scale,
-          length: scale !== 'aruco' && length ? length : null,
+          length: scale === 'length' || scale === 'auto' ? length || null : null,
+          paper: usesPaper ? paperArg : null,
+          paper_inset_mm: usesPaper ? inset : null,
           nose,
           rembg: false,
         },
@@ -77,8 +100,8 @@
   <summary>Profile from a photo</summary>
   <div class="photo-body">
     <small>
-      Side view, nose {nose}; scale from an ArUco marker or the known length. Writes a station CSV
-      under <code>uploads/profiles/</code>.
+      Side view, nose {nose}, on a sheet of paper (or with an ArUco marker, or at a known length).
+      Writes a station CSV under <code>uploads/profiles/</code>.
     </small>
     <input
       type="file"
@@ -90,9 +113,10 @@
       <label>
         Scale
         <select bind:value={scale}>
-          <option value="auto">auto</option>
-          <option value="aruco">aruco</option>
-          <option value="length">length</option>
+          <option value="paper">paper sheet</option>
+          <option value="aruco">ArUco marker</option>
+          <option value="length">known length</option>
+          <option value="auto">auto (marker, sheet, length)</option>
         </select>
       </label>
       <label>
@@ -103,15 +127,44 @@
         </select>
       </label>
     </div>
-    {#if scale !== 'aruco'}
+    {#if usesPaper}
+      <div class="grid-2">
+        <label>
+          Paper size
+          <select bind:value={paper}>
+            <option value="letter">Letter (8.5 × 11 in)</option>
+            <option value="a4">A4</option>
+            <option value="custom">custom W × H</option>
+          </select>
+        </label>
+        <label>
+          Inset (mm)
+          <input type="number" min="0" max="30" step="any" bind:value={inset} />
+        </label>
+      </div>
+      {#if paper === 'custom'}
+        <div class="grid-2">
+          <label>
+            Width (mm)
+            <input type="number" min="1" step="any" bind:value={paperW} />
+          </label>
+          <label>
+            Height (mm)
+            <input type="number" min="1" step="any" bind:value={paperH} />
+          </label>
+        </div>
+      {/if}
+    {/if}
+    {#if scale === 'length' || scale === 'auto'}
       <label>
         Length (mm)
         <input type="number" min="1" step="any" bind:value={length} />
       </label>
     {/if}
-    <button type="button" disabled={!file || busy} aria-busy={busy} onclick={run}>
+    <button type="button" disabled={!ready || busy} aria-busy={busy} onclick={run}>
       Extract profile
     </button>
+    <small class="cli" title="The equivalent CLI command"><code>{command}</code></small>
     {#if message}<small class="error-text">{message}</small>{/if}
     {#if jobId}
       <JobView id={jobId} {ondone} />

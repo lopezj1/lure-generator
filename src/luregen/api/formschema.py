@@ -81,6 +81,7 @@ FIELD_GROUPS: dict[tuple[str, ...], tuple[str, str]] = {
     ("profile", "image"): ("shape", B),
     ("profile", "preset"): ("shape", B),
     ("profile", "scale"): ("shape", B),
+    ("profile", "paper", "size"): ("shape", B),
     ("profile", "section_shape"): ("shape", B),
     ("profile", "width_rule", "value"): ("shape", B),
     ("joint",): ("shape", A),
@@ -133,6 +134,8 @@ FIELD_GROUPS: dict[tuple[str, ...], tuple[str, str]] = {
 LABELS: dict[tuple[str, ...], str] = {
     ("size", "target_weight_oz"): "Target weight",
     ("profile", "scale"): "Photo scale",
+    ("profile", "paper"): "Paper sheet (photo scale)",
+    ("profile", "paper", "size"): "Paper size",
     ("profile", "width_rule", "value"): "Width ÷ depth",
     ("joint", "joint_frac"): "Joint position (of length)",
     ("ballast", "mass_g"): "Ballast mass (pin)",
