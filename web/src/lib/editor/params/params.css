@@ -1,5 +1,10 @@
 /* Grouped parameter editor (#121). */
 .param-editor {
+  /* One grid on every tab (#132): the column count follows the editor's width only, and
+     rows and columns share one gap. */
+  --card-gap: 0.75rem;
+  --card-cols: 1;
+  container-type: inline-size;
   --pico-form-element-spacing-vertical: 0.3rem;
   --pico-form-element-spacing-horizontal: 0.5rem;
   font-size: 0.9rem;
@@ -46,9 +51,24 @@
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
-  gap: 0.75rem;
-  align-items: start;
+  grid-template-columns: repeat(var(--card-cols), minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  gap: var(--card-gap);
+  align-items: stretch;
+}
+@container (min-width: 44rem) {
+  .cards {
+    --card-cols: 2;
+  }
+}
+@container (min-width: 72rem) {
+  .cards {
+    --card-cols: 3;
+  }
+}
+/* Panels above the grid (e.g. "Profile from a photo") keep the same spacing. */
+.param-editor > :not(.cards, .group-tabs, .group-desc) {
+  margin-bottom: var(--card-gap);
 }
 .card {
   margin: 0;
@@ -86,10 +106,15 @@
   margin-left: 0.35rem;
 }
 
+/* One column of label/control rows per card; full-width cards (tables with extra fields)
+   put the rows in card-sized columns so labels line up with the cards above. */
 .fields {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
-  column-gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: calc(var(--card-gap) + 1.8rem);
+}
+.card.wide .fields {
+  grid-template-columns: repeat(var(--card-cols), minmax(0, 1fr));
 }
 .fields > .wide {
   grid-column: 1 / -1;
@@ -206,4 +231,32 @@ fieldset.sub > legend {
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+
+/* Label tooltips (tip.ts): one bubble in the viewport, so scrollers never clip it. */
+.param-editor label,
+.param-editor .card h3,
+.param-editor legend,
+.param-editor th,
+.param-editor .table-head .title {
+  cursor: help;
+}
+.param-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(22rem, calc(100vw - 16px));
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-contrast-background, #1f2430);
+  color: var(--pico-contrast-inverse, #fff);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+  pointer-events: none;
+}
+.param-tip small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  opacity: 0.75;
 }
