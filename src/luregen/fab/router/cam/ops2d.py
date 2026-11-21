@@ -10,7 +10,7 @@ profiles clockwise; `climb=False` reverses both.
   the innermost ring; the core gets extra rings so no island is left when the stepover is
   wider than the tool radius.
 - `profile`: an outside (or inside) contour with ramped depth passes and holding tabs.
-- `groove`: an open path at constant depth (ball nose for the wire half-groove).
+- `groove`: an open path at constant depth (the wire half-groove).
 - `hole`: a peck drill when the hole is the tool's size, else a helical bore.
 - `face`: a zigzag raster over a rectangle.
 """

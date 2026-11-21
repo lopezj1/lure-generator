@@ -11,7 +11,7 @@ its outer surface points down, so for side s (+1 right, −1 left):
 
 (a proper rotation: right halves keep the dorsal side at +Y, left halves are mirrored in Y).
 Ops: optional facing, glue-face pockets, flip-pin holes through the stock into the
-spoilboard, the ball-nose wire groove, then 3D roughing/finishing of any **overhang**: a
+spoilboard, the wire groove, then 3D roughing/finishing of any **overhang**: a
 part of the side view the glue face doesn't cover (the tail's V-notch faces lean over its
 glue face, so setup 2 can't reach them from above).
 
@@ -386,7 +386,7 @@ def wire_paths(silhouette: Polygon, z: float, exit_mm: float) -> list[LineString
 
 
 def groove_depth(wire_d: float, clearance: float) -> float:
-    """Ball-tip depth per half for a round wire channel of `wire_d` plus clearance."""
+    """Depth per half of the wire channel: half of `wire_d` plus clearance."""
     return wire_d / 2 + clearance
 
 

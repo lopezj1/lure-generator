@@ -173,7 +173,7 @@ def test_single_program_per_setup(tmp_path, layout, ctx):
     assert [f.path for f in files] == ["setup1.nc", "setup2.nc"]
     assert all(f.ok for f in files)
     text = (tmp_path / "setup1.nc").read_text()
-    assert re.findall(r"^M6T(\d+)$", text, re.M) == ["102", "101"]
+    assert re.findall(r"^M6T(\d+)$", text, re.M) == ["1", "3"]
 
 
 def test_split_by_tool_groups_consecutive_ops(layout, ctx):

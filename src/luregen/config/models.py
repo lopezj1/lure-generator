@@ -297,7 +297,7 @@ class CncRegistration(Strict):
 
 
 class CncWire(Strict):
-    """Through-wire half-groove (process.rigging = "through_wire"), cut with a ball nose."""
+    """Through-wire half-groove (process.rigging = "through_wire"): a square channel."""
 
     diameter_mm: float = Field(1.04, gt=0, description="Wire diameter (0.041in = 1.04 mm).")
     clearance_mm: float = Field(0.15, ge=0, description="Extra depth per half.")
@@ -327,7 +327,8 @@ class PocketOp(CncOp):
 
 
 class GrooveOp(CncOp):
-    tool: str = "ball_3.175"
+    # The pocket's 1/8in flat cuts a square channel in the same tool run (no tool change).
+    tool: str = "flat_3.175"
 
 
 class DrillOp(CncOp):
