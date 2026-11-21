@@ -47,13 +47,46 @@ class Smoothing(Strict):
     spline_s: float | None = None
 
 
+PAPER_SIZES_MM = {"letter": (215.9, 279.4), "a4": (210.0, 297.0)}  # short × long side
+
+
+class PaperSheet(Strict):
+    """Sheet of paper under the subject for `profile.scale = "paper"` (or `auto`)."""
+
+    size: Literal["letter", "a4", "custom"] = Field(
+        "letter", description="Paper size: US Letter (8.5 × 11 in), A4, or custom."
+    )
+    width_mm: float | None = Field(None, gt=0, description="Custom sheet width (mm).")
+    height_mm: float | None = Field(None, gt=0, description="Custom sheet height (mm).")
+    inset_mm: float = Field(
+        4.0, ge=0, le=30, description="Border of the sheet ignored when segmenting."
+    )
+
+    @model_validator(mode="after")
+    def custom_size(self) -> "PaperSheet":
+        if self.size == "custom" and (self.width_mm is None or self.height_mm is None):
+            raise ValueError("profile.paper.size = 'custom' requires width_mm and height_mm")
+        return self
+
+    def dims_mm(self) -> tuple[float, float]:
+        """(short, long) side in mm."""
+        if self.size == "custom":
+            return (min(self.width_mm, self.height_mm), max(self.width_mm, self.height_mm))
+        return PAPER_SIZES_MM[self.size]
+
+
 class ProfileConfig(Strict):
     source: Literal["image", "preset"]
     image: Path | None = None
     top_image: Path | None = None
     preset: Path | None = None
-    scale: Literal["aruco", "length"] = "length"
+    scale: Literal["aruco", "paper", "length", "auto"] = Field(
+        "length",
+        description="Image scale: ArUco marker, paper sheet under the subject, known length "
+        "(size.length_mm), or auto (marker, then sheet, then length).",
+    )
     aruco_marker_mm: float = Field(30.0, gt=0)
+    paper: PaperSheet = PaperSheet()
     n_stations: int = Field(23, ge=8, le=30)
     section_shape: Literal["ellipse", "egg", "teardrop"] = "ellipse"
     width_rule: WidthRule = WidthRule()

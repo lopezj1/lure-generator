@@ -4,7 +4,7 @@ from pathlib import Path
 
 import cv2
 import pytest
-from _profile_synth import Scene, lure_outline, tilt
+from _profile_synth import Scene, lure_outline, paper_photo, tilt
 from typer.testing import CliRunner
 
 from luregen.cli import make_app
@@ -89,3 +89,25 @@ def test_profile_command_rejects_bad_choice(tmp_path: Path):
     side = write_scene(tmp_path / "side.png", marker=False)
     args = ["profile", str(side), "-o", str(tmp_path / "s.csv"), "--scale", "ruler"]
     assert CliRunner().invoke(make_app(), args).exit_code == 2
+
+
+def test_profile_command_paper_scale(tmp_path: Path):
+    img, _ = paper_photo(tilt=(10.0, -6.0), landscape=False)
+    side = tmp_path / "side.jpg"
+    cv2.imwrite(str(side), img, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    out = tmp_path / "stations.csv"
+    args = ["profile", str(side), "-o", str(out), "--scale", "paper", "--paper", "letter"]
+    result = CliRunner().invoke(make_app(), args)
+    assert result.exit_code == 0, result.output
+    assert "letter sheet 215.9x279.4 mm" in result.output
+    table = StationTable.load_csv(out)
+    assert table.length == pytest.approx(175, rel=0.01)
+    assert table.max_depth == pytest.approx(50, rel=0.01)
+    keep_artifact(out.parent / "profile_debug.png", "profile_debug_paper.png")
+
+
+def test_profile_command_rejects_bad_paper(tmp_path: Path):
+    side = write_scene(tmp_path / "side.png", marker=False)
+    args = ["profile", str(side), "-o", str(tmp_path / "s.csv"), "--paper", "legal"]
+    result = CliRunner().invoke(make_app(), args)
+    assert result.exit_code == 2

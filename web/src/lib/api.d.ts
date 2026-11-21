@@ -981,11 +981,18 @@ export interface components {
              */
             out: string;
             /** Scale */
-            scale?: ("aruco" | "length" | "auto") | null;
+            scale?: ("aruco" | "paper" | "length" | "auto") | null;
             /** Length */
             length?: number | null;
             /** Marker Mm */
             marker_mm?: number | null;
+            /**
+             * Paper
+             * @description Sheet under the subject (paper scale): letter, a4 or <W>x<H> in mm.
+             */
+            paper?: string | null;
+            /** Paper Inset Mm */
+            paper_inset_mm?: number | null;
             /** Top */
             top?: string | null;
             /** Width Ratio */

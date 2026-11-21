@@ -12,6 +12,7 @@ DORSAL = (40, 40, 230)
 VENTRAL = (230, 120, 30)
 STATION = (40, 180, 40)
 MARKER = (200, 0, 200)
+SHEET = (0, 160, 230)
 TEXT = (20, 20, 20)
 
 
@@ -56,6 +57,10 @@ def draw_view(
         cv2.circle(img, (int(c[0]), int(c[1])), 3 * lw, STATION, -1, cv2.LINE_AA)
     if view.scale.marker_px is not None:
         _poly(img, view.scale.marker_px, MARKER, lw + 1, closed=True)
+    if view.scale.sheet_px is not None:
+        _poly(img, view.scale.sheet_px, SHEET, lw + 1, closed=True)
+    if view.sheet_inner_px is not None:
+        _poly(img, view.sheet_inner_px, SHEET, lw, closed=True)
 
     lines = [
         title,

@@ -1,7 +1,9 @@
-"""Image scale: ArUco marker homography (corrects tilt, gives mm/px) or a known total length.
+"""Image scale: ArUco marker or paper-sheet homography (corrects tilt, gives mm/px), or a
+known total length.
 
-The marker must lie in the same plane as the lure's profile (flat on the table next to it
-for a side view shot from above). Its printed size is the side of the black square.
+The marker or sheet must lie in the same plane as the lure's profile (flat on the table next
+to or under it for a side view shot from above). A marker's printed size is the side of the
+black square; a sheet's is its nominal paper size (see `luregen.profile.sheet`).
 """
 
 from dataclasses import dataclass
@@ -15,20 +17,29 @@ from luregen.profile.extract import ProfileError
 ARUCO_DICT = cv2.aruco.DICT_4X4_50
 MAX_CANVAS_FACTOR = 3.0  # rectified image may be at most this many times the input's size
 
-ScaleMode = Literal["aruco", "length", "auto"]
+ScaleMode = Literal["aruco", "paper", "length", "auto"]
 
 
 @dataclass(frozen=True)
 class Scale:
-    method: Literal["aruco", "length"]
+    method: Literal["aruco", "paper", "length"]
     mm_per_px: float
     homography: np.ndarray | None = None  # input px → rectified px
     marker_px: np.ndarray | None = None  # (4, 2) marker corners in the rectified image
     marker_mm: float | None = None
+    sheet_px: np.ndarray | None = None  # (4, 2) sheet corners in the rectified image
+    sheet_mm: tuple[float, float] | None = None  # sheet size along image (x, y), mm
+    sheet_name: str | None = None
+    aspect_error: float | None = None  # sheet: estimated / nominal aspect − 1 (None: n/a)
 
     def describe(self) -> str:
         if self.method == "aruco":
             return f"ArUco {self.marker_mm:g} mm marker, {self.mm_per_px:.4f} mm/px"
+        if self.method == "paper":
+            w, h = self.sheet_mm
+            err = self.aspect_error
+            check = "aspect not observable" if err is None else f"aspect error {100 * err:+.1f}%"
+            return f"{self.sheet_name} sheet {w:g}x{h:g} mm, {self.mm_per_px:.4f} mm/px, {check}"
         return f"known total length, {self.mm_per_px:.4f} mm/px"
 
 
@@ -114,6 +125,22 @@ def _upright_square(corners: np.ndarray) -> np.ndarray:
     return unit @ rot.T + corners.mean(axis=0)
 
 
+def warp_plane(
+    image: np.ndarray, h_mat: np.ndarray, lo: np.ndarray, hi: np.ndarray, what: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Warp `image` by `h_mat` into the target-px box [lo, hi]; returns it and the shifted H."""
+    size = np.ceil(hi) - np.floor(lo)
+    h, w = image.shape[:2]
+    if size[0] * size[1] > MAX_CANVAS_FACTOR**2 * w * h:
+        raise ProfileError(f"{what} tilt is too extreme to rectify (output would be too large)")
+    shift = np.array([[1, 0, -np.floor(lo[0])], [0, 1, -np.floor(lo[1])], [0, 0, 1]])
+    h_mat = shift @ h_mat
+    out = cv2.warpPerspective(
+        image, h_mat, (int(size[0]), int(size[1])), borderMode=cv2.BORDER_REPLICATE
+    )
+    return out, h_mat
+
+
 def rectify(image: np.ndarray, corners: np.ndarray, marker_mm: float) -> tuple[np.ndarray, Scale]:
     """Warp `image` so the marker plane is fronto-parallel; returns the image and its scale."""
     target = _upright_square(corners)
@@ -126,18 +153,39 @@ def rectify(image: np.ndarray, corners: np.ndarray, marker_mm: float) -> tuple[n
         raise ProfileError("marker tilt is too extreme to rectify (horizon inside the image)")
     warped = cv2.perspectiveTransform(frame, h_mat).reshape(-1, 2)
     lo, hi = np.floor(warped.min(axis=0)), np.ceil(warped.max(axis=0))
-    size = hi - lo
-    if size[0] * size[1] > MAX_CANVAS_FACTOR**2 * w * h:
-        raise ProfileError("marker tilt is too extreme to rectify (output would be too large)")
-
-    shift = np.array([[1, 0, -lo[0]], [0, 1, -lo[1]], [0, 0, 1]], dtype=np.float64)
-    h_mat = shift @ h_mat
-    out = cv2.warpPerspective(
-        image, h_mat, (int(size[0]), int(size[1])), borderMode=cv2.BORDER_REPLICATE
-    )
+    out, h_mat = warp_plane(image, h_mat, lo, hi, "marker")
     marker_px = target - lo
     side = float(np.hypot(*(np.roll(marker_px, -1, axis=0) - marker_px).T).mean())
     return out, Scale("aruco", marker_mm / side, h_mat, marker_px, marker_mm)
+
+
+def rectify_sheet(
+    image: np.ndarray, corners: np.ndarray, sheet_mm: tuple[float, float], name: str
+) -> tuple[np.ndarray, Scale]:
+    """Warp `image` so the sheet is fronto-parallel, cropped to the sheet plus a margin.
+
+    `corners` are TL, TR, BR, BL in image px and `sheet_mm` the (short, long) paper size.
+    Raises `ProfileError` when the corners' aspect ratio is far from the sheet's.
+    """
+    from luregen.profile.sheet import MARGIN_FRAC, check_sheet, sheet_target
+
+    target, size, k, error = sheet_target(corners, sheet_mm, image.shape)
+    check_sheet(error, name)
+    h_mat = cv2.getPerspectiveTransform(corners.astype(np.float32), target.astype(np.float32))
+    margin = MARGIN_FRAC * max(size) * k
+    lo = np.floor(target.min(axis=0) - margin)
+    hi = np.ceil(target.max(axis=0) + margin)
+    out, h_mat = warp_plane(image, h_mat, lo, hi, "sheet")
+    sheet_px = target - lo
+    return out, Scale(
+        "paper",
+        1.0 / k,
+        h_mat,
+        sheet_px=sheet_px,
+        sheet_mm=size,
+        sheet_name=name,
+        aspect_error=error,
+    )
 
 
 def length_scale(length_px: float, length_mm: float) -> Scale:

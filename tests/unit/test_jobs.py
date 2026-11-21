@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("fastapi", reason="needs the `web` dependency group")
 
 from fastapi.testclient import TestClient  # noqa: E402
+from pydantic import ValidationError  # noqa: E402
 
 from luregen.api.app import create_app  # noqa: E402
 from luregen.api.jobs import (  # noqa: E402
@@ -338,6 +339,18 @@ def test_cli_args(root: Path):
         "175.0",
         "--rembg",
     ]
+    req = ProfileJob(
+        op="profile",
+        args={
+            "image": "uploads/side.jpg",
+            "out": "uploads/side.csv",
+            "scale": "paper",
+            "paper": "210x297",
+        },
+    )
+    assert cli_args(root, req)[4:] == ["--scale", "paper", "--paper", "210x297"]
+    with pytest.raises(ValidationError):
+        ProfileJob(op="profile", args={"image": "a.jpg", "out": "a.csv", "paper": "a4; rm"})
     with pytest.raises(JobArgsError, match="not a .csv"):
         cli_args(root, ProfileJob(op="profile", args={"image": "uploads/side.jpg", "out": "a.txt"}))
 
