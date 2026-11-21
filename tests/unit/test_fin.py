@@ -176,9 +176,10 @@ def test_fin_mass_inputs_use_tpu_density(cfg, table):
     assert fin.density == pytest.approx(1.21)
     assert fin.volume_mm3 == pytest.approx(built.parts["fin"].volume)
     assert any("M2" in h.name for h in tail.hardware)
-    assert (
-        built.report["internals"]["tail"]["cavity_x_mm"][1] < built.report["fin"]["slot"]["x_mm"][0]
-    )
+    # the cavity may wrap above and below the slot, but stays inside the cut end
+    cavity = built.report["internals"]["tail"]
+    assert cavity["cavity_x_mm"][1] < built.report["fin"]["x_cut_mm"]
+    assert cavity["min_skin_mm"] >= cfg.dfm.print.min_skin_to_cavity_mm
 
 
 @pytest.mark.slow
