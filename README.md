@@ -12,7 +12,7 @@ Hobby project. The plan and progress live in the GitHub issues: epic #1 (pipelin
 
 | Step | Command | Output |
 |---|---|---|
-| Profile | `lure profile <photo>` | Station table (CSV) from a side-profile photo, with a debug overlay. ArUco marker or known length for scale. |
+| Profile | `lure profile <photo>` | Station table (CSV) from a side-profile photo, with a debug overlay. A sheet of paper, an ArUco marker or a known length for scale. |
 | Build | `lure build <variant.toml>` | Head and tail sections with joint, cavity, ballast and trim pockets and screw-eye bosses. A balance solver tunes walls, keel and ballast to the sink target and level hang across the hardware weight range. DFM rules check the result. STEP/STL, `report.json`/`report.md`, `resolved.toml`. |
 | Check | `lure check <build>` | Re-runs the DFM rules on an existing build. |
 | Print | `lure fab <build> --format print` | Upright sections sliced with OrcaSlicer for the U1: tree supports with a PLA/PETG interface under the belly, thumbnails, optional pause. |
@@ -60,6 +60,23 @@ uv run lure fab builds/glide/striper_175_petg/latest --format cnc
 ```
 
 A build takes a couple of minutes because the balance solver rebuilds the internals a few times; rebuilding from a `resolved.toml` reuses the solved values.
+
+### Profile photos
+
+`lure profile` traces a dark silhouette on a light background. The easiest scale reference is a plain sheet of printer paper (US Letter by default):
+
+```
+uv run lure profile side.jpg -o profile.csv --scale paper [--paper letter|a4|<W>x<H>] [--nose right]
+```
+
+- Lay the lure on its side (or a traced or printed profile) on the sheet, at least a few mm from every edge, and put the sheet on a **darker, plain surface**. Keep the whole sheet in frame with some of the surface visible around it.
+- Line the lure up with the photo's horizontal: the body axis is the image's x axis after rectification (the sheet's in-photo rotation is kept).
+- Shoot from **directly above**, as far away as framing allows (≥ 1 m with the phone's 2–3× lens if it has one). The sheet's corners correct tilt in the paper plane, but anything above the paper is magnified by about its height over the camera distance: the outline of a lure lying on its side sits at about half its thickness, so a 25 mm thick lure shot from 60 cm reads ~2 % long, and from 1.2 m ~1 %. A traced or printed profile has no such error.
+- Even, diffuse light; avoid hard shadows across the sheet's edges and glare on the paper.
+
+The debug overlay draws the detected sheet and reports mm/px and the **aspect error**: the sheet's aspect ratio estimated from its corners against the nominal one. Above ±2 % a note is printed (the sheet is curled or the wrong size, the lens distorts, or the shot is very oblique); above ±15 % the quadrilateral is rejected. When one side of the sheet is parallel to the image plane the ratio can't be estimated and it reads "not observable", which is harmless.
+
+Other scales: `--scale aruco` (a printed DICT_4X4_50 marker in the lure's plane, `--marker-mm`), `--scale length --length <mm>` (no tilt correction), or `auto` (marker, then sheet, then length). In a config the same choice is `profile.scale` and `[profile.paper] size = "letter" | "a4" | "custom"` (`width_mm`, `height_mm`, `inset_mm`).
 
 ## Web app
 
