@@ -24,6 +24,7 @@ draft-07 schema that @sjsf/form renders well. The client reads only the `x-*` hi
   without its own entry takes its nearest mapped ancestor's group and is `advanced`, so new
   config fields show up (in an expert section) without touching this table. An object is
   `basic` when any of its children is.
+- R12 `hardware[].id` gets `x-suggest` ([{value, label}] from spec/hardware) for a datalist.
 - R11 layout hints: `x-layout: "table"` for arrays of objects and R4 fixed-key maps (rows ×
   columns), `"keyvalue"` for free-key maps, `"list"` for arrays of strings; `x-rows` on an
   object whose child objects render as the rows of one table (`ROW_TABLES`).
@@ -291,6 +292,11 @@ def _walk(node: dict[str, Any], path: tuple[str, ...], ctx: dict[str, Any]) -> d
                 n for n, m in ctx["materials"].items() if m.get("category") in categories
             ]
 
+    if path == ("hardware", "*", "id") and ctx.get("hardware"):  # R12
+        node["x-suggest"] = [
+            {"value": k, "label": str(v.get("name", k))} for k, v in ctx["hardware"].items()
+        ]
+
     derived = _match(DERIVED, path)
     if derived:  # R8
         node["x-derived"] = derived
@@ -311,12 +317,15 @@ def _walk(node: dict[str, Any], path: tuple[str, ...], ctx: dict[str, Any]) -> d
 
 
 def postprocess_schema(
-    schema: dict[str, Any], materials: dict[str, dict[str, Any]]
+    schema: dict[str, Any],
+    materials: dict[str, dict[str, Any]],
+    hardware: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return `(form schema, ui schema)`; widget choice lives in the schema's `x-*` hints."""
     defs = schema.get("$defs", {})
     root = _deref({k: v for k, v in schema.items() if k != "$defs"}, defs)  # R1
-    out = _walk(root, (), {"materials": materials, "def_names": set(defs)})
+    ctx = {"materials": materials, "def_names": set(defs), "hardware": hardware or {}}
+    out = _walk(root, (), ctx)
     out["$schema"] = "http://json-schema.org/draft-07/schema#"
     out["x-groups"] = copy.deepcopy(GROUPS)
     return out, copy.deepcopy(UI_SCHEMA)

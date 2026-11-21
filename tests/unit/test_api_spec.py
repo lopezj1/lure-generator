@@ -188,6 +188,7 @@ def test_form_schema_groups(client):
     assert hardware["x-layout"] == "table" and hardware["x-group"] == "hardware"
     cols = hardware["items"]["properties"]
     assert cols["x_mm"]["x-level"] == "basic" and cols["density"]["x-level"] == "advanced"
+    assert {"value": "treble_2", "label": "Treble hook #2"} in cols["id"]["x-suggest"]
     assert props["buoyancy"]["properties"]["sink_bands"]["x-layout"] == "table"
     assert props["print"]["properties"]["overrides"]["x-layout"] == "keyvalue"
     assert props["dfm"]["properties"]["cnc"]["properties"]["tools"]["x-layout"] == "list"
