@@ -13,10 +13,10 @@ services:
         WITH_SNAPMAKER: ${WITH_SNAPMAKER:-0}
     image: luregen:latest
     user: "1000:1000"
-    # LAN only: the app has no auth. Never forward this port to the internet. To listen on one
-    # interface only, use "<lan-ip>:8000:8000".
+    # LAN only: the app has no auth. Never forward this port to the internet. Host port:
+    # LUREGEN_PORT (default 8000). To listen on one interface only, use "<lan-ip>:8000:8000".
     ports:
-      - "8000:8000"
+      - "${LUREGEN_PORT:-8000}:8000"
     volumes:
       - ../spec:/data/spec
       - ../builds:/data/builds
