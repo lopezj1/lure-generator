@@ -197,7 +197,11 @@ def test_print_fab_slices_the_fin_in_tpu_flat(fin_build: Path, tmp_path: Path, m
     assert fin.orient["height_mm"] == pytest.approx(2.0, abs=0.05)  # lying on its side
     log = (fin_build / "fab" / "print" / "fin.slice.log").read_text()
     assert "--load-filament-ids 4" in log and "--enable-support=0" in log
-    assert "filament-TPU.json" in log and "--outer-wall-speed=25" in log
+    assert "filament-TPU.json" in log
+    tpu = json.loads(
+        (REPO / "spec/printers/snapmaker_u1/profiles/orca/filament-TPU.json").read_text()
+    )
+    assert tpu["name"] == "Generic TPU @U1 0.4 nozzle" and tpu["filament_type"] == ["TPU"]
     with pytest.raises(job.PrintJobError, match="cannot print"):
         job.run(fin_build, REPO / "spec", parts=["gill"])
 

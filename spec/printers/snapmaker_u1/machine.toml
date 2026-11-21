@@ -35,7 +35,7 @@ filament = "Generic PETG @U1 0.4 nozzle"
 # Extra filament profiles by material, flattened to profiles/<app>/filament-<material>.json.
 [apps.orca.profiles.filaments]
 PLA = "Generic PLA @U1 0.4 nozzle"
-TPU = "Generic TPU @U1 0.4 nozzle"  # the separate tail fin (#123)
+TPU = "Generic TPU @U1 0.4 nozzle"  # generic TPU 95A (any brand), the tail fin (#123)
 
 # Snapmaker's Orca fork (fallback). Never mix its profiles with the upstream binary.
 [apps.snapmaker]
@@ -58,7 +58,7 @@ filament = "Generic PETG"
 
 [apps.snapmaker.profiles.filaments]
 PLA = "Generic PLA"
-TPU = "Generic TPU"
+TPU = "Generic TPU"  # the fork's generic TPU for the U1 (0.4 nozzle)
 
 # What is loaded in each tool (T0–T3). Every slot's filament profile is passed to the slicer,
 # in slot order, so tool numbers in the G-code match the machine. The variant picks the body
@@ -106,20 +106,10 @@ bridge-no-support = true
 support-top-z-distance = 0
 support-interface-top-layers = 3
 
-# Per-material overrides, added when a part prints in that material (after [overrides],
-# before the variant's print.overrides). TPU (#123): the fin prints flat on its side with no
-# supports; the filament profile's 3.2 mm³/s volumetric cap already slows every move.
-# Values marked "owner" are first guesses to confirm on the machine.
-[material_overrides.TPU]
-enable-support = false
-wall-loops = 2                  # 2.4 mm fin: the 100 % infill does the rest
-top-shell-layers = 3
-bottom-shell-layers = 3
-outer-wall-speed = 25           # owner
-inner-wall-speed = 30           # owner
-initial-layer-speed = 15        # owner
-travel-speed = 150              # owner: fewer stringing-prone fast travels
-seam-position = "aligned"
+# Per-material overrides (`[material_overrides.<material>]`), added when a part prints in
+# that material (after [overrides], before the variant's print.overrides). None are needed
+# for TPU (#123): its flattened system profile carries the temperatures, retraction and the
+# 3.2 mm³/s volumetric cap that slows every move, and the fin job turns supports off.
 
 # Lure overrides on top of the stock profiles, passed as `--<key>=<value>`.
 # Booleans become 1/0. The stock U1 process enables the prime tower (4 tools); it stays off
