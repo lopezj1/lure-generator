@@ -491,6 +491,80 @@ class PrintConfig(Strict):
     )
 
 
+class FinSlot(Strict):
+    """Vertical slot in the tail's cut end (centred on y = 0, in the fin's plane) that takes
+    the fin's root tab. The tab is the fin's thickness; the slot adds the fit clearance."""
+
+    depth_mm: float = Field(10.0, gt=0, le=40, description="Slot depth into the tail (x).")
+    height_mm: float | None = Field(
+        None, gt=0, description="Slot height (z); default: 50 % of the fin root height."
+    )
+    clearance_mm: float = Field(
+        0.3, ge=0, le=1.5, description="Fit clearance on the tab thickness and height."
+    )
+    end_gap_mm: float = Field(
+        0.5, ge=0, le=3, description="Tab stops this short of the slot bottom (glue room)."
+    )
+    corner_r_mm: float = Field(
+        1.0,
+        ge=0,
+        description="Slot corner radius in the side view (CNC: at least the pocket tool's).",
+    )
+
+
+class FinScrew(Strict):
+    """Lateral screw (along y) through the tail and the fin tab. `id` refers to
+    spec/hardware; mass, material and density are filled from the catalog."""
+
+    id: str = "screw_m2x6_pan"
+    x_from_cut_mm: float | None = Field(
+        None, gt=0, description="Screw axis ahead of the tail cut; default: mid-slot."
+    )
+    z_offset_mm: float = Field(0.0, description="Screw axis above the fin centre line.")
+    pilot_d_mm: float = Field(
+        1.6, gt=0, le=5, description="Hole through the tail (self-tapping pilot)."
+    )
+    tab_hole_d_mm: float = Field(1.6, gt=0, le=5, description="Hole through the fin tab.")
+    length_mm: float = Field(6.0, gt=0, le=30, description="Screw length under the head.")
+    name: str | None = None
+    mass_g: Range | None = None
+    material: str | None = None
+    density: float | None = None
+    measured: bool | None = None
+
+
+class FinConfig(Strict):
+    """Separate tail fin (#123): a flat paddle that replaces the pointed tail tip, printed on
+    its own in a flexible material. Its root tab slides into a slot in the tail's cut end and
+    a lateral screw through the tail and the tab holds it.
+
+    Side view (x, z): a trapezoid from the root (`root_height_mm` tall at the tail cut) to
+    the trailing edge (`span_mm` tall), with an optional V fork in the trailing edge and
+    rounded trailing corners; `thickness_mm` thick in y. Lengths that place or size it on
+    the body scale with a weight-driven length; thicknesses, clearances and the screw don't.
+    """
+
+    material: str = Field("TPU", description="Fin material (spec/materials.toml).")
+    density: float | None = Field(None, gt=0, description="Override, e.g. a weighed fin.")
+    cut_from_tail_mm: float = Field(
+        20.0, gt=0, description="Tail tip length replaced by the fin (the tail is cut here)."
+    )
+    length_mm: float = Field(30.0, gt=0, description="Fin length along x, root to trailing edge.")
+    root_height_mm: float | None = Field(
+        None, gt=0, description="Root height (z); default: 80 % of the tail depth at the cut."
+    )
+    span_mm: float = Field(36.0, gt=0, description="Trailing-edge height (z).")
+    thickness_mm: float = Field(
+        2.4, gt=0, description="Fin and tab thickness (y); the fin prints flat on its side."
+    )
+    fork_depth_mm: float = Field(
+        0.0, ge=0, description="V notch depth into the trailing edge (0 = straight paddle)."
+    )
+    corner_r_mm: float = Field(2.0, ge=0, description="Trailing-corner rounding radius.")
+    slot: FinSlot = FinSlot()
+    screw: FinScrew = FinScrew()
+
+
 class ReportConfig(Strict):
     show_oz: bool = True
 
@@ -501,6 +575,7 @@ class LureConfig(Strict):
     size: SizeConfig
     profile: ProfileConfig
     joint: JointConfig | None = None
+    fin: FinConfig | None = None
     buoyancy: BuoyancyConfig
     ballast: BallastConfig = BallastConfig()
     hardware: list[HardwareItem] = []
@@ -519,4 +594,8 @@ class LureConfig(Strict):
             and self.ballast.density is not None
             and self.process.material_density is not None
             and all(h.mass_g is not None and h.density is not None for h in self.hardware)
+            and (
+                self.fin is None
+                or (self.fin.density is not None and self.fin.screw.density is not None)
+            )
         )
