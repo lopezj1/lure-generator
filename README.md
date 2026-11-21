@@ -17,7 +17,7 @@ Hobby project. The plan and progress live in the GitHub issues: epic #1 (pipelin
 | Check | `lure check <build>` | Re-runs the DFM rules on an existing build. |
 | Print | `lure fab <build> --format print` | Upright sections sliced with OrcaSlicer for the U1: tree supports with a PLA/PETG interface under the belly, thumbnails, optional pause. |
 | CNC | `lure fab <build> --format cnc` | Two glued halves: glue-face pockets, wire groove and flip pins (setup 1), then 3D roughing, 1/32" finishing and cut-out with tabs (setup 2). One `.nc` per tool by default (BitSetter tool changes), a setup sheet and a cut simulation. |
-| Web app | `lure serve` | Config editor, 3D model with section planes, print and CNC toolpath previews, build history and compare, downloads, live jobs. |
+| Web app | `lure serve` | Parameter editor in tabs, 3D model with section planes, print and CNC generation with toolpath previews, build history and compare, downloads, live jobs. |
 
 Sample variant (`striper_175_petg`, PETG print): 74 g (2.6 oz), slow sink at 1.04 g/cm³, CG within 0.5 mm of CB fore/aft, about 2 h 45 min to print both sections.
 
@@ -89,21 +89,27 @@ cd web && npm ci && npm run dev                # Vite on :5173, proxies /api
 
 Deployment is one Docker image with compose; see [docs/deploy.md](docs/deploy.md). The app has no authentication, so keep it on the LAN.
 
-**Model:** config editor on the left, the built lure with a live section plane, and the balance report.
+The app has five pages: **Design**, **Model**, **Print**, **CNC** and **Builds & jobs**. The header picks the design and variant and shows the current build. The layout works from a phone to a large monitor, and each preview has a fullscreen button.
 
-![Model tab: config editor, 3D model with an X section through the joint, section stats and balance report](docs/images/model.png)
+**Design:** the variant's parameters in tabs (Shape & size, Weight & balance, Hardware, Print, CNC, Advanced). Each tab shows the few values you tune per lure; expert settings sit in collapsed "More …" sections. Lists like hardware, air pockets, sink bands and CAM operations are editable tables. Errors show inline as you type; Save writes the variant TOML (comments kept) and Build runs `lure build`.
 
-**Print preview:** sliced G-code by feature, with layer and move scrubbing, the prime tower and the pause plane.
+![Design page: Shape & size tab with size, profile, joint and material cards, and the Save / Build bar](docs/images/design.png)
 
-![Print tab: head section sliced upright with belly supports, colored by feature](docs/images/print.png)
+**Model:** the built lure with a live section plane, and the balance report.
 
-**CNC preview:** all per-tool files of a build as one job, colored by tool, with stock, bounds, work zero and a time scrubber.
+![Model page: 3D model with an X section through the joint, section stats and balance report](docs/images/model.png)
 
-![CNC tab: four halves on one blank with roughing, groove and finishing toolpaths](docs/images/cnc.png)
+**Print:** generate print G-code for the current build (`lure fab --format print`), download it, and preview it by feature with layer and move scrubbing, the prime tower and the pause plane.
 
-**Jobs and builds:** build history with balance numbers and verdicts, compare, and downloads (STEP, STL, 3MF, GLB, G-code, NC, zip).
+![Print page: fab bar with downloads above the head section sliced upright with belly supports, colored by feature](docs/images/print.png)
 
-![Jobs and builds drawer: two builds with their mass, density, CG/CB offsets and verdicts, and the download list](docs/images/drawer.png)
+**CNC:** generate the CNC job (`lure fab --format cnc`), download the per-tool files, and preview them as one job, colored by tool, with stock, bounds, work zero and a time scrubber.
+
+![CNC page: fab bar with downloads above four halves on one blank with roughing and finishing toolpaths](docs/images/cnc.png)
+
+**Builds & jobs:** build history with balance numbers and verdicts, compare, downloads (STEP, STL, 3MF, GLB, G-code, NC, zip), and the jobs with live logs.
+
+![Builds and jobs page: two builds with their mass, density, CG/CB offsets and verdicts, the download list and the job list](docs/images/builds.png)
 
 ## Status
 
