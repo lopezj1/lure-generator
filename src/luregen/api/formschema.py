@@ -141,6 +141,22 @@ LABELS: dict[tuple[str, ...], str] = {
     ("internals", "head"): "Head",
     ("internals", "tail"): "Tail",
     ("report", "show_oz"): "Show ounces",
+    ("process",): "Material & process",
+    ("buoyancy", "sink_bands"): "Sink bands (density, g/cm³)",
+    ("buoyancy", "tail_density"): "Tail density (g/cm³)",
+    ("dfm", "print"): "Print checks (DFM)",
+    ("dfm", "cnc"): "CNC checks (DFM)",
+    ("cnc",): "CNC",
+    ("cnc", "rpm"): "Spindle rpm",
+    ("cnc", "ops"): "CAM operations",
+    ("cnc", "ops", "rough3d"): "Rough 3D",
+    ("cnc", "ops", "finish3d"): "Finish 3D",
+    ("cnc", "registration"): "Flip-pin registration",
+    ("cnc", "wire"): "Through-wire groove",
+    ("cnc", "tabs"): "Holding tabs",
+    ("dfm", "cnc", "tools"): "Tools (ids)",
+    ("print", "overrides"): "Slicer overrides",
+    ("solver", "weights"): "Target weights",
 }
 # R11: objects whose child objects are the rows of one table (None: all of them).
 ROW_TABLES: dict[tuple[str, ...], list[str] | None] = {
