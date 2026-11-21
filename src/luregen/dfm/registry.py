@@ -85,7 +85,7 @@ def rule(
 
 def load_rules() -> dict[str, Rule]:
     """Import the rule modules (they register on import) and return the registry."""
-    from luregen.dfm import cnc_rules, print_rules  # noqa: F401
+    from luregen.dfm import cnc_rules, fin_rules, print_rules  # noqa: F401
 
     return REGISTRY
 

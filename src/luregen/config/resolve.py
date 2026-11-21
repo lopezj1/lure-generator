@@ -55,18 +55,28 @@ def resolve(cfg: LureConfig, spec_root: Path) -> LureConfig:
     if cfg.process.material_density is None:
         cfg.process.material_density = _density(materials, cfg.process.material, "body")
 
+    if cfg.fin is not None:
+        if cfg.fin.density is None:
+            cfg.fin.density = _density(materials, cfg.fin.material, "fin")
+        _fill_hardware(cfg.fin.screw, catalog, materials)
+
     for item in cfg.hardware:
-        entry = catalog.get(item.id)
-        if entry is None and (item.mass_g is None or item.material is None):
-            raise ConfigError(f"hardware id {item.id!r} not in spec/hardware and not fully given")
-        entry = entry or {}
-        item.name = item.name or entry.get("name", item.id)
-        item.mass_g = item.mass_g or tuple(entry["mass_g"])
-        item.material = item.material or entry["material"]
-        item.density = item.density or _density(materials, item.material, "hardware")
-        if item.measured is None:
-            item.measured = bool(entry.get("measured", False))
+        _fill_hardware(item, catalog, materials)
     return cfg
+
+
+def _fill_hardware(item, catalog: dict, materials: dict) -> None:
+    """Fill a hardware item's unset name, mass band, material and density from the catalog."""
+    entry = catalog.get(item.id)
+    if entry is None and (item.mass_g is None or item.material is None):
+        raise ConfigError(f"hardware id {item.id!r} not in spec/hardware and not fully given")
+    entry = entry or {}
+    item.name = item.name or entry.get("name", item.id)
+    item.mass_g = item.mass_g or tuple(entry["mass_g"])
+    item.material = item.material or entry["material"]
+    item.density = item.density or _density(materials, item.material, "hardware")
+    if item.measured is None:
+        item.measured = bool(entry.get("measured", False))
 
 
 def load_config(path: Path, overrides: list[str] | None = None) -> LureConfig:

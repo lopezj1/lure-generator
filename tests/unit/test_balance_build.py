@@ -97,8 +97,16 @@ def test_weight_target_scales_the_body(tmp_path):
     assert table.length == pytest.approx(175.0)  # the preset's own length until solved
     out = build_lure(cfg, table, create_build_dir(cfg, tmp_path))
     sc = out["balance"]["scaling"]
+    terms = {k: 1000 * v for k, v in sc["volume_terms_cm3"].items()}
+    assert terms["cubic"] == pytest.approx(1000 * sc["reference_volume_cm3"])  # no fin
+    assert terms["area"] < 0 < terms["const"]  # joint gap (fixed width), hardware
     expect = length_for_weight(
-        175.0, 1000 * sc["reference_volume_cm3"], sc["target_mass_g"], sc["target_density"]
+        175.0,
+        terms["cubic"],
+        sc["target_mass_g"],
+        sc["target_density"],
+        terms["area"],
+        terms["const"],
     )
     assert sc["length_mm"] == pytest.approx(expect, rel=1e-4)
     assert out["envelope"]["length_mm"] == pytest.approx(sc["length_mm"], abs=1e-3)

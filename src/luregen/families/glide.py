@@ -8,6 +8,11 @@ asserted after each):
 3. print only: one sealed cavity per section (explicit inset loft, roof, solid keel),
    kept clear of every other feature, and solid bosses around the screw eyes.
 
+With `[fin]` (#123) the pointed tail tip is cut off before the split, the fin slot and the
+lateral screw hole are cut into the new tail end (`geometry.fin`), and the fin is built as
+a separate part (`FamilyBuild.parts`). Its mass and displacement count in the tail section
+(it moves with the tail), and its screw is a tail point mass.
+
 CNC (wood) sections get no cavity (F10: no void for wood). Their ballast sits in a closed
 glue-face pocket (and optional air pockets) cut into the two halves (`geometry.cnc_halves`),
 so a CNC section is 1 solid with 1 shell plus one per sealed pocket.
@@ -64,6 +69,78 @@ def point_masses(cfg: LureConfig, section: str) -> list[PointMass]:
     ]
 
 
+def fin_slot_corner_r(cfg: LureConfig) -> float:
+    """Slot corner radius: the configured one, at least the CNC pocket tool's on wood."""
+    r = cfg.fin.slot.corner_r_mm
+    if cfg.process.method == "cnc":
+        from luregen.geometry.cnc_halves import pocket_corner_r
+
+        r = max(r, pocket_corner_r(cfg))
+    return r
+
+
+def fin_report(cfg: LureConfig, fs, fin_solid, table, shape: str) -> dict[str, Any]:
+    """The `geometry.fin` report block: fin, slot, screw and their checks."""
+    from luregen.geometry import fin as fn
+
+    f = cfg.fin
+    sc = f.screw
+    rho = float(f.density)
+    return {
+        "material": f.material,
+        "density": rho,
+        "volume_cm3": _r(fin_solid.volume / 1000.0, 4),
+        "mass_g": _r(rho * fin_solid.volume / 1000.0),
+        "centroid_mm": [_r(v) for v in _centroid(fin_solid)],
+        "x_cut_mm": _r(fs.x_cut),
+        "z_axis_mm": _r(fs.z_axis),
+        "length_mm": fs.length,
+        "root_height_mm": _r(fs.root_height),
+        "span_mm": fs.span,
+        "thickness_mm": fs.thickness,
+        "fork_depth_mm": fs.fork_depth,
+        "tail_end_mm": {"depth": _r(fs.tail_depth_at_cut), "width": _r(fs.tail_width_at_cut)},
+        "slot": {
+            "x_mm": [_r(fs.slot_x0), _r(fs.x_cut)],
+            "z_mm": [_r(fs.z_axis - fs.slot_height / 2), _r(fs.z_axis + fs.slot_height / 2)],
+            "width_mm": _r(fs.slot_width),
+            "height_mm": _r(fs.slot_height),
+            "depth_mm": fs.slot_depth,
+            "corner_r_mm": _r(fs.slot_corner_r),
+            "clearance_mm": fs.slot_clearance,
+            "walls_mm": fn.slot_walls(fs, table, shape),
+        },
+        "tab": {
+            "x_mm": [_r(fs.tab_x0), _r(fs.x_cut)],
+            "height_mm": _r(fs.tab_height),
+            "thickness_mm": fs.thickness,
+        },
+        "screw": {
+            "id": sc.id,
+            "name": sc.name,
+            "x_mm": _r(fs.screw_x),
+            "z_mm": _r(fs.screw_z),
+            "pilot_d_mm": fs.pilot_d,
+            "tab_hole_d_mm": fs.tab_hole_d,
+            "length_mm": fs.screw_length,
+            "body_width_mm": _r(fn.local_width(fs, table, shape)),
+            "mass_g": list(sc.mass_g) if sc.mass_g else None,
+            "measured": sc.measured,
+        },
+        "print": {"orientation": "flat", "note": "printed lying on its side, no supports"},
+    }
+
+
+def fin_point_mass(cfg: LureConfig, fs) -> PointMass:
+    sc = cfg.fin.screw
+    return PointMass(
+        name=sc.name or sc.id,
+        mass_g=(sc.mass_g[0], sc.mass_g[1]),
+        position=(fs.screw_x, 0.0, fs.screw_z),
+        density=float(sc.density),
+    )
+
+
 def _r(v: float, n: int = 3) -> float:
     return round(float(v), n)
 
@@ -105,6 +182,31 @@ def side_slice(solid) -> list[list[list[float]]]:
 
 class GlideFamily:
     name = "glide"
+
+    def scaling_volumes(self, cfg: LureConfig, table: StationTable, envelope: Envelope) -> dict:
+        """Displaced volume at the reference length as {cubic, area, const} mm³ for the
+        weight → length step (`physics.scaling`): the envelope (minus the tail tip a fin
+        replaces) scales with L³; the joint gap and the fin (fixed widths) with L²; the
+        hardware (band mid) not at all."""
+        from luregen.geometry import joint as jt
+
+        env = envelope.solid
+        cubic, area = float(env.volume), 0.0
+        if cfg.joint is not None:
+            area -= float(jt.gap_wedge(env, joint_spec(cfg, table)).volume)
+        if cfg.fin is not None:
+            from luregen.geometry import fin as fn
+
+            tip, fin_v = fn.volumes(fn.fin_spec(cfg, table), env)
+            cubic -= tip
+            area += fin_v
+        const = 0.0
+        for h in cfg.hardware:
+            if h.mass_g and h.density:
+                const += h.qty * 1000.0 * 0.5 * (h.mass_g[0] + h.mass_g[1]) / h.density
+        if cfg.fin is not None and cfg.fin.screw.mass_g and cfg.fin.screw.density:
+            const += 1000.0 * 0.5 * sum(cfg.fin.screw.mass_g) / cfg.fin.screw.density
+        return {"cubic": cubic, "area": area, "const": const}
 
     def build(
         self, cfg: LureConfig, table: StationTable, envelope: Envelope, emit: Emit
@@ -195,6 +297,17 @@ class GlideFamily:
                 "corrections",
             }
 
+        # tail fin: cut the tail tip, the fin slot and the screw hole on the full body
+        fin_spec = fin = None
+        if cfg.fin is not None:
+            from luregen.geometry import fin as fn
+
+            emit("joint", 0.3, "tail fin slot")
+            fin_spec = fn.fin_spec(cfg, table, fin_slot_corner_r(cfg))
+            fn.check_spec(fin_spec, spec.tail_apex_x)
+            body = fn.cut_tail_end(body, fin_spec)
+            fin = fn.fin_solid(fin_spec)
+
         # 2. joint: pin bore, split, eye slots --------------------------------------------
         emit("joint", 0.5, "V-joint split")
         split = jt.split_body(body, spec)
@@ -244,6 +357,8 @@ class GlideFamily:
                     keepouts = [jt.pin_bore(spec, bbox, grow), *jt.eye_slots(spec, grow)]
                     if trim is not None:
                         keepouts.append(trim.solid(grow))
+                    if fin_spec is not None:
+                        keepouts += fn.keepouts(fin_spec, bbox, grow)
                 r_boss = cfg.internals.boss_r_mm
                 keepouts += [pk.boss(x, z, r_boss + clearance) for x, z in bosses[name]]
                 loft = cav.inset_loft(table, t, shape, roof)
@@ -292,7 +407,11 @@ class GlideFamily:
                 from luregen.physics.buoyancy import TrimSpec
 
                 parts.append(TrimSpec.from_report(trim_report).part(trim_report["fill_g"]))
-            mass_inputs.append(SectionInput(name, parts, point_masses(cfg, name)))
+            hardware = point_masses(cfg, name)
+            if name == "tail" and fin is not None:
+                parts.append(Part("fin", fin.volume, _centroid(fin), float(cfg.fin.density)))
+                hardware.append(fin_point_mass(cfg, fin_spec))
+            mass_inputs.append(SectionInput(name, parts, hardware))
 
         report = {
             "joint": {
@@ -333,12 +452,16 @@ class GlideFamily:
                 }
             ),
             "trim_pocket": trim_report,
+            "fin": None if fin is None else fin_report(cfg, fin_spec, fin, table, shape),
             "internals": internals or None,
             "hardware_band_g": _r(hardware_band_g(cfg)),
         }
         diagram = {
             "x_joint": spec.x_joint,
-            "slices": {name: side_slice(solid) for name, solid in sections.items()},
+            "slices": {
+                name: side_slice(solid)
+                for name, solid in {**sections, **({"fin": fin} if fin is not None else {})}.items()
+            },
             "fills": {"ballast": side_slice(ballast_fill)},
             "keel_top_z": {n: getattr(cfg.internals, n).keel_top_z_mm for n in SECTIONS}
             if is_print
@@ -348,7 +471,8 @@ class GlideFamily:
                 for h in cfg.hardware
             ],
         }
-        return FamilyBuild(sections, mass_inputs, report, diagram, warnings)
+        parts_out = {"fin": fin} if fin is not None else {}
+        return FamilyBuild(sections, mass_inputs, report, diagram, warnings, parts_out)
 
 
 FAMILY = GlideFamily()

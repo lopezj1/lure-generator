@@ -15,11 +15,11 @@ Hobby project. The plan and progress live in the GitHub issues: epic #1 (pipelin
 | Profile | `lure profile <photo>` | Station table (CSV) from a side-profile photo, with a debug overlay. A sheet of paper, an ArUco marker or a known length for scale. |
 | Build | `lure build <variant.toml>` | Head and tail sections with joint, cavity, ballast and trim pockets and screw-eye bosses. A balance solver tunes walls, keel and ballast to the sink target and level hang across the hardware weight range. DFM rules check the result. STEP/STL, `report.json`/`report.md`, `resolved.toml`. |
 | Check | `lure check <build>` | Re-runs the DFM rules on an existing build. |
-| Print | `lure fab <build> --format print` | Upright sections sliced with OrcaSlicer for the U1: tree supports with a PLA/PETG interface under the belly, thumbnails, optional pause. |
-| CNC | `lure fab <build> --format cnc` | Two glued halves: glue-face pockets, wire groove and flip pins (setup 1), then 3D roughing, 1/32" finishing and cut-out with tabs (setup 2). One `.nc` per tool by default (BitSetter tool changes), a setup sheet and a cut simulation. |
+| Print | `lure fab <build> --format print [--parts fin]` | Upright sections sliced with OrcaSlicer for the U1: tree supports with a PLA/PETG interface under the belly, thumbnails, optional pause. A separate TPU tail fin is sliced on its own, flat, on the TPU tool (also for CNC builds, which print only the fin). |
+| CNC | `lure fab <build> --format cnc` | Two glued halves: glue-face pockets (ballast, air, the fin slot), wire groove and flip pins (setup 1), then 3D roughing, 1/32" finishing and cut-out with tabs (setup 2). One `.nc` per tool by default (BitSetter tool changes), a setup sheet and a cut simulation. |
 | Web app | `lure serve` | Parameter editor in tabs, 3D model with section planes, print and CNC generation with toolpath previews, build history and compare, downloads, live jobs. |
 
-Sample variant (`striper_175_petg`, PETG print): 74 g (2.6 oz), slow sink at 1.04 g/cm³, CG within 0.5 mm of CB fore/aft, about 2 h 45 min to print both sections.
+Default variant (`glide_2oz_tpu_fin`): PETG head and tail with a separate flexible TPU tail fin held in a slot by an M2 screw, sized from a 2 oz target: 159 mm, 56.1 g (1.98 oz), slow sink at 1.04 g/cm³, CG within 0.5 mm of CB fore/aft, about 2 h 20 min to print all three parts. `striper_175_petg` (175 mm PETG, no fin): 74 g (2.6 oz), about 2 h 45 min.
 
 ## Layout
 
@@ -51,12 +51,15 @@ Slicing needs OrcaSlicer 2.5.1. Its AppImage requires glibc 2.38 (Ubuntu 24.04+)
 ## Usage
 
 ```
-uv run lure build spec/designs/glide/variants/striper_175_petg.toml [--set buoyancy.target_sink=suspend]
-uv run lure check builds/glide/striper_175_petg/latest
-uv run lure fab builds/glide/striper_175_petg/latest --format print
-uv run lure build spec/designs/glide/variants/striper_175_petg.toml \
-  --set process.method=cnc --set process.material=basswood --set process.rigging=through_wire
-uv run lure fab builds/glide/striper_175_petg/latest --format cnc
+uv run lure build spec/designs/glide/variants/glide_2oz_tpu_fin.toml [--set buoyancy.target_sink=suspend]
+uv run lure check builds/glide/glide_2oz_tpu_fin/latest
+uv run lure fab builds/glide/glide_2oz_tpu_fin/latest --format print        # head, tail, fin
+uv run lure build spec/designs/glide/variants/glide_2oz_tpu_fin.toml \
+  --set process.method=cnc --set process.material=basswood
+uv run lure fab builds/glide/glide_2oz_tpu_fin/latest --format cnc          # wood head + tail
+uv run lure fab builds/glide/glide_2oz_tpu_fin/latest --format print        # the TPU fin only
+uv run lure build spec/designs/glide/variants/striper_175_petg.toml --set process.method=cnc \
+  --set process.material=basswood --set process.rigging=through_wire        # no fin
 ```
 
 A build takes a couple of minutes because the balance solver rebuilds the internals a few times; rebuilding from a `resolved.toml` reuses the solved values.

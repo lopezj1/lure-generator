@@ -44,6 +44,7 @@ MATERIAL_FIELDS: dict[tuple[str, ...], list[str]] = {
     ("ballast", "material"): ["ballast"],
     ("process", "material"): ["plastic", "resin", "wood", "foam_board"],
     ("hardware", "*", "material"): ["metal"],
+    ("fin", "material"): ["plastic_flexible", "plastic"],
 }
 # R8: fields `resolve()` fills. "computed" is never user-set; "catalog" may be overridden.
 DERIVED: dict[tuple[str, ...], str] = {
@@ -55,6 +56,12 @@ DERIVED: dict[tuple[str, ...], str] = {
     ("hardware", "*", "material"): "catalog",
     ("hardware", "*", "density"): "catalog",
     ("hardware", "*", "measured"): "catalog",
+    ("fin", "density"): "catalog",
+    ("fin", "screw", "name"): "catalog",
+    ("fin", "screw", "mass_g"): "catalog",
+    ("fin", "screw", "material"): "catalog",
+    ("fin", "screw", "density"): "catalog",
+    ("fin", "screw", "measured"): "catalog",
 }
 UNITS = {"mm": "mm", "deg": "°", "oz": "oz", "g": "g", "frac": "fraction", "mm2": "mm²"}
 

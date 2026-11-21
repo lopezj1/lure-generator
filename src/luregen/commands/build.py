@@ -137,7 +137,7 @@ def build_lure(cfg: "LureConfig", table: "StationTable", build_dir: Path) -> dic
 
     model_dir = build_dir / "model"
     files = {}
-    parts = [*built.sections.items(), ("body", env.solid)]
+    parts = [*built.sections.items(), *built.parts.items(), ("body", env.solid)]
     for i, (name, solid) in enumerate(parts):
         stage_emit("export", i / len(parts), f"model/{name}.*")
         files[name] = export_model(solid, model_dir, name)
@@ -150,6 +150,9 @@ def build_lure(cfg: "LureConfig", table: "StationTable", build_dir: Path) -> dic
     sections = blocks["sections"]
     for name in built.sections:
         sections[name]["files"] = files[name]
+    for name in built.parts:
+        if isinstance(built.report.get(name), dict):
+            built.report[name]["files"] = files[name]
     balance = outcome.report
     if scaling is not None:
         balance["scaling"] = scaling
@@ -178,6 +181,7 @@ def run_dfm(cfg: "LureConfig", model_dir: Path, geometry: dict, envelope: dict) 
 
 def scale_to_weight(cfg: "LureConfig", table: "StationTable", env):
     """Weight → length (F4): rescale the config and station table once."""
+    from luregen.families import get_family
     from luregen.geometry.envelope import mass_properties
     from luregen.physics.scaling import (
         ScalingError,
@@ -191,12 +195,20 @@ def scale_to_weight(cfg: "LureConfig", table: "StationTable", env):
     l_ref = table.length
     v0 = 1000.0 * mass_properties(env.solid)["volume_cm3"]
     mass, rho = target_mass_g(cfg), target_density(cfg)
-    length = length_for_weight(l_ref, v0, mass, rho)
+    # The family's displaced volume vs the envelope: terms that scale with L³, L² and not
+    # at all (e.g. the joint gap, a constant-thickness fin, hardware); envelope only if absent.
+    terms = {"cubic": v0, "area": 0.0, "const": 0.0}
+    family = get_family(cfg.family)
+    if hasattr(family, "scaling_volumes"):
+        terms = family.scaling_volumes(cfg, table, env)
+    length = length_for_weight(l_ref, terms["cubic"], mass, rho, terms["area"], terms["const"])
     try:
         cfg = scale_config(cfg, l_ref, length)
     except ScalingError as exc:
         raise BuildError(str(exc)) from exc
-    return cfg, station_table_for(cfg), scaling_report(l_ref, v0, mass, rho, length)
+    report = scaling_report(l_ref, v0, mass, rho, length)
+    report["volume_terms_cm3"] = {k: round(v / 1000.0, 4) for k, v in terms.items()}
+    return cfg, station_table_for(cfg), report
 
 
 def register(app: typer.Typer) -> None:
@@ -288,5 +300,6 @@ def echo_summary(report: dict) -> None:
         from luregen.dfm.report import echo_dfm
 
         echo_dfm(dfm, typer.echo)
-    parts = ", ".join([*report["sections"], "body"])
+    extra = [k for k in ("fin",) if (report.get("geometry") or {}).get(k)]
+    parts = ", ".join([*report["sections"], *extra, "body"])
     typer.echo(f"  model: {parts}; diagram: {report['diagram']}")

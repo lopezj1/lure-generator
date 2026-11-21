@@ -31,6 +31,12 @@
             "Snapmaker/filament/Generic PLA @U1 base.json",
             "Snapmaker/filament/fdm_filament_pla_category.json",
             "Snapmaker/filament/fdm_filament_common.json"
+        ],
+        "filament-TPU": [
+            "Snapmaker/filament/Generic TPU.json",
+            "Snapmaker/filament/Generic TPU @U1 base.json",
+            "Snapmaker/filament/fdm_filament_tpu_unspecified_category.json",
+            "Snapmaker/filament/fdm_filament_common.json"
         ]
     }
 }

@@ -1,0 +1,9 @@
+# Small screws. `measured = false` entries are placeholders until weighed (issue #23).
+
+# Holds the TPU tail fin's root tab in the tail slot (#123): driven sideways (along y)
+# through the tail and the tab. Length ≈ the tail width at the screw.
+[screw_m2x6_pan]
+name = "Stainless self-tapping pan-head screw M2 × 6 mm"
+mass_g = [0.15, 0.25]
+material = "stainless"
+measured = false

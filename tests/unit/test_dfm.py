@@ -193,7 +193,46 @@ def fail_through_wire(_, cfg):
     return cnc_model(), cfg
 
 
+def fin_block(side=2.0, vertical=4.0, screw_x=135.0, screw_z=0.5, length=6.0, width=7.0):
+    """A `geometry.fin` report block (#123): slot walls, screw position and length."""
+    return {
+        "slot": {
+            "walls_mm": {"side_mm": side, "vertical_mm": vertical},
+            "x_mm": [130.0, 140.0],
+            "z_mm": [-3.0, 4.0],
+            "width_mm": 2.3,
+        },
+        "screw": {
+            "x_mm": screw_x,
+            "z_mm": screw_z,
+            "pilot_d_mm": 1.6,
+            "length_mm": length,
+            "body_width_mm": width,
+        },
+    }
+
+
+def fail_fin_slot_walls(cfg, _):
+    return print_model(
+        NARROW, geometry={"internals": {"head": internals()}, "fin": fin_block(1.0)}
+    ), cfg
+
+
+def fail_fin_screw_clearance(cfg, _):
+    trim = {"x_mm": 133.0, "r_mm": 3.0, "z_top_mm": 2.0}
+    geo = {"internals": {"head": internals()}, "fin": fin_block(), "trim_pocket": trim}
+    return print_model(NARROW, geometry=geo), cfg
+
+
+def fail_fin_screw_length(cfg, _):
+    geo = {"internals": {"head": internals()}, "fin": fin_block(length=10.0)}
+    return print_model(NARROW, geometry=geo), cfg
+
+
 FAILING: dict[str, Callable] = {
+    "fin.slot_walls": fail_fin_slot_walls,
+    "fin.screw_clearance": fail_fin_screw_clearance,
+    "fin.screw_length": fail_fin_screw_length,
     "print.single_void": fail_single_void,
     "print.min_wall": fail_print_min_wall,
     "print.cavity_overhang": fail_overhang,
@@ -235,7 +274,8 @@ def test_print_rules_pass_on_a_good_section(print_cfg):
     cfg = with_eye(print_cfg, 20, -15)  # floor at z −3: 12 mm of solid above the belly eye
     result = evaluate(print_model(NARROW), cfg)
     assert result.status == "pass", result.violations
-    assert set(result.checked) == {r for r in REGISTRY if r.startswith("print.")}
+    # fin rules run for every process and find nothing without a fin (#123)
+    assert set(result.checked) == {r for r in REGISTRY if r.startswith(("print.", "fin."))}
 
 
 def test_cnc_rules_pass_on_a_good_section(cnc_cfg):

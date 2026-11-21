@@ -1,0 +1,118 @@
+# Default glide (#123): PETG head and tail with a separate flexible TPU tail fin, 2 oz.
+# The length follows the weight; positions below are given at the preset's own length
+# (175 mm) and scale with it. Head and tail keep the family's balance targets; the fin is
+# solid TPU and counts in the tail section's mass and displacement.
+extends = "../family.toml"
+name = "glide_2oz_tpu_fin"
+
+[size]
+target_weight_oz = 2.0
+
+[process]
+method = "print"
+body_style = "loft3d"
+material = "PETG"
+rigging = "screw_eye"
+
+[internals]
+trim_x_from_tail_mm = 60    # ahead of the tail hook eye and the fin slot
+# Smaller than the default (hardware band + 1 g): half of it is the nominal putty fill, and
+# the fin already loads the tail; 1.6 g still covers the band-end corrections.
+trim_capacity_g = 1.6
+
+# Flat TPU paddle replacing the last 20 mm of the tail; root tab in a slot in the tail end,
+# held by a lateral M2 screw (spec/hardware/screws.toml). Printed on its own, lying flat.
+[fin]
+material = "TPU"
+cut_from_tail_mm = 20
+length_mm = 30
+span_mm = 36
+thickness_mm = 2.0
+fork_depth_mm = 0
+corner_r_mm = 2.0
+
+[fin.slot]
+depth_mm = 10
+clearance_mm = 0.3
+
+[fin.screw]
+id = "screw_m2x6_pan"
+pilot_d_mm = 1.6
+tab_hole_d_mm = 1.6
+length_mm = 6
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Line tie"
+section = "head"
+x_mm = 1
+z_mm = -4
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Belly hanger eye"
+section = "head"
+x_mm = 55
+z_mm = -22
+
+[[hardware]]
+id = "treble_2"
+name = "Belly treble"
+section = "head"
+x_mm = 55
+z_mm = -30
+
+[[hardware]]
+id = "split_ring_4"
+name = "Belly split ring"
+section = "head"
+x_mm = 55
+z_mm = -25
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Hinge eye (head, lower)"
+section = "head"
+x_mm = 89
+z_mm = -12
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Hinge eye (head, upper)"
+section = "head"
+x_mm = 89
+z_mm = 6
+
+[[hardware]]
+id = "hinge_pin_1p6x30"
+name = "Hinge pin"
+section = "tail"
+x_mm = 92
+z_mm = -3
+
+[[hardware]]
+id = "screw_eye_210"
+name = "Tail hanger eye"
+section = "tail"
+x_mm = 130
+z_mm = -14
+
+[[hardware]]
+id = "treble_2"
+name = "Tail treble"
+section = "tail"
+x_mm = 132
+z_mm = -22
+
+[[hardware]]
+id = "split_ring_4"
+name = "Tail split ring"
+section = "tail"
+x_mm = 131
+z_mm = -17
+
+# Print fab: PETG head and tail on T1 with a PLA support interface on T0; the fin prints
+# on the machine's TPU slot (machine.toml [[filaments]]).
+[print]
+body_slot = 1
+interface_slot = 0
