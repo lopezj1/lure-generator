@@ -305,6 +305,7 @@ def run(build: Path, spec: Path, machine_name: str | None = None) -> CncResult:
         reg.pin_d_mm if reg.enabled else 0.0,
         reg.into_spoilboard_mm,
     )
+    warnings += workholding_checks(machine, layout, c.stock.margin_mm, c.cutout_overcut_mm)
     safe_z = 5.0
     rpm = c.rpm or table.default_rpm(cfg.process.material, machine.spindle.dial_rpm)
     cuts = {k: make_cut(k, cfg, lib, table, safe_z, rpm) for k in OP_KINDS}
@@ -324,6 +325,7 @@ def run(build: Path, spec: Path, machine_name: str | None = None) -> CncResult:
     progress.emit("cnc", 0.85, "simulate")
     sims = simulate_setups(layout, ctx, features, files, build, out)
     summary = summarize(cfg, machine_name, layout, cuts, features, files, post, warnings)
+    summary["clamps"] = machine.workholding.clamps
     summary["surface3d"] = ctx.report.get("surface3d")
     summary["sim"] = sims
     summary["post_glue_up"] = post_glue_up_steps(report)
@@ -510,6 +512,28 @@ def post_glue_up_steps(report: dict) -> list[str]:
     return steps
 
 
+def workholding_checks(
+    machine: MachineConfig, layout: st.Layout, margin: float, overcut: float
+) -> list[str]:
+    """Blank vs the machine's work area (error), clamp margin and spoilboard depth (warnings)."""
+    wh = machine.workholding
+    area = wh.work_area_mm
+    if area and (layout.length > area[0] or layout.width > area[1]):
+        raise CncJobError(
+            f"blank {layout.length:.1f} × {layout.width:.1f} mm exceeds the work area "
+            f"{area[0]:g} × {area[1]:g} mm"
+        )
+    out = []
+    if margin < wh.min_margin_mm:
+        out.append(f"cnc.stock.margin_mm {margin:g} mm < {wh.min_margin_mm:g} mm the clamps need")
+    deepest = max(overcut, layout.pin_depth)
+    if wh.spoilboard_mm and deepest >= wh.spoilboard_mm / 2:
+        out.append(
+            f"cuts go {deepest:g} mm into a {wh.spoilboard_mm:g} mm spoilboard (over half of it)"
+        )
+    return out
+
+
 def dfm_warnings(cfg: LureConfig, lib: ToolLibrary, layout: st.Layout, cuts: dict) -> list[str]:
     out = []
     profile = cfg.cnc.ops.profile.tool
@@ -563,6 +587,7 @@ def summarize(cfg, machine_name, layout, cuts, features, files, post, warnings) 
             "face": layout.face,
         },
         "zero": "front-left corner of the stock top (both setups)",
+        "margin_mm": cfg.cnc.stock.margin_mm,
         "flip": "turn over about X onto the pins: (X, Y, Z) -> (X, W - Y, -T - Z)",
         "pins": {
             "diameter_mm": layout.pin_d,
@@ -633,9 +658,11 @@ def setup_sheet(summary: dict) -> str:
         "",
         "## Steps",
         "",
-        "1. **Setup 1, glue face up.** Clamp the blank, zero XY on the front-left corner and Z "
-        "on the top. Run the setup1 files in order: glue-face pockets, the flip-pin holes "
-        "(through, into the spoilboard), the wire groove"
+        "1. **Setup 1, glue face up.** Clamp the blank"
+        + (f" ({summary['clamps']})" if summary.get("clamps") else "")
+        + f" inside its {summary.get('margin_mm', 0):g} mm waste border, zero XY on the "
+        "front-left corner and Z on the top. Run the setup1 files in order: glue-face "
+        "pockets, the flip-pin holes (through, into the spoilboard), the wire groove"
         + (
             ", and the 3D overhang (faces that lean over the glue face)."
             if (summary.get("surface3d") or {}).get("setup1")
