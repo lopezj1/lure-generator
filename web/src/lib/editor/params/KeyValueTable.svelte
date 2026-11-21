@@ -5,6 +5,7 @@
   import type { Path } from '../paths';
   import { getEditor } from '../state.svelte';
   import FieldMeta from './FieldMeta.svelte';
+  import { tip } from './tip';
   import { errorsUnder, labelOf, parseLoose, type Node } from './schema';
 
   let { path, node }: { path: Path; node: Node } = $props();
@@ -41,7 +42,9 @@
 
 <div class="kv-table">
   <div class="table-head">
-    <span class="title" title={node.description ?? ''}>{labelOf(node, String(path.at(-1)))}</span>
+    <span class="title" use:tip={{ text: node.description }}>
+      {labelOf(node, String(path.at(-1)))}
+    </span>
     <FieldMeta {path} {node} />
   </div>
   {#if node.description}<small class="muted">{node.description}</small>{/if}

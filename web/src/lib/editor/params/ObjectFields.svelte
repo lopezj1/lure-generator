@@ -7,6 +7,7 @@
   import KeyValueTable from './KeyValueTable.svelte';
   import ObjectFields from './ObjectFields.svelte';
   import RowTable from './RowTable.svelte';
+  import { tip } from './tip';
   import { children, isContainer, labelOf, sharedKeys, type Level, type Node } from './schema';
 
   let {
@@ -36,7 +37,7 @@
     {#each rows as [k, r] (k)}
       {#if Object.keys(r.properties ?? {}).some((c) => !shared.includes(c))}
         <fieldset class="sub wide">
-          <legend>{labelOf(r, k)}</legend>
+          <legend use:tip={{ text: r.description }}>{labelOf(r, k)}</legend>
           <ObjectFields path={[...path, k]} node={r} {group} {level} exclude={shared} />
         </fieldset>
       {/if}
@@ -45,7 +46,7 @@
   {#each others as [k, c] (k)}
     {#if isContainer(c)}
       <fieldset class="sub wide">
-        <legend title={c.description ?? ''}>{labelOf(c, k)}</legend>
+        <legend use:tip={{ text: c.description }}>{labelOf(c, k)}</legend>
         <ObjectFields path={[...path, k]} node={c} {group} {level} />
       </fieldset>
     {:else if c['x-layout'] === 'table' && c.type === 'array'}

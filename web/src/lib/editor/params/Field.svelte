@@ -8,6 +8,7 @@
   import { getEditor } from '../state.svelte';
   import FieldMeta from './FieldMeta.svelte';
   import PathField from './PathField.svelte';
+  import { tip } from './tip';
   import { errorsAt, labelOf, unitOf, type Node } from './schema';
 
   let {
@@ -226,7 +227,14 @@
   </div>
 {:else}
   <div class="field" class:edited class:invalid>
-    <label for={id} title={tooltip}>
+    <label
+      for={id}
+      use:tip={{
+        text: node.description,
+        sub: `from: ${editor.originText(path, node)}`,
+        focusWithin: '.field',
+      }}
+    >
       <span class="name">{label}</span>
       <FieldMeta {path} {node} />
     </label>

@@ -5,6 +5,7 @@
   import type { Path } from '../paths';
   import { getEditor } from '../state.svelte';
   import Field from './Field.svelte';
+  import { tip } from './tip';
   import { errorsAt, labelOf, sharedKeys, type Node } from './schema';
 
   let {
@@ -17,7 +18,7 @@
 
   // Rows that are tuples ([min, max]) use the tuple slots as columns.
   const tuple = $derived(rows.every(([, r]) => Array.isArray(r.items)));
-  const cols = $derived.by((): [string | number, string, (r: Node) => Node][] => {
+  const cols = $derived.by((): [string | number, string, (r: Node) => Node, string?][] => {
     if (tuple) {
       const items = rows[0]?.[1].items as Node[];
       return (items ?? []).map((c, i) => [i, labelOf(c, i), (r) => (r.items as Node[])[i]]);
@@ -25,7 +26,7 @@
     return sharedKeys(rows.map(([, r]) => r)).map((k) => {
       const c = rows[0][1].properties![k];
       const unit = typeof c['x-unit'] === 'string' ? ` (${c['x-unit']})` : '';
-      return [k, labelOf(c, k) + unit, (r) => r.properties![k]];
+      return [k, labelOf(c, k) + unit, (r) => r.properties![k], c.description];
     });
   });
   const unit = $derived(tuple ? ((rows[0]?.[1]['x-unit'] as string) ?? '') : '');
@@ -34,7 +35,7 @@
 <div class="row-table">
   {#if title}
     <div class="table-head">
-      <span class="title" title={description}>{title}</span>
+      <span class="title" use:tip={{ text: description }}>{title}</span>
       {#if unit}<small class="muted">{unit}</small>{/if}
     </div>
   {/if}
@@ -44,14 +45,14 @@
       <thead>
         <tr>
           <th></th>
-          {#each cols as [k, label] (k)}<th>{label}</th>{/each}
+          {#each cols as [k, label, , help] (k)}<th use:tip={{ text: help }}>{label}</th>{/each}
         </tr>
       </thead>
       <tbody>
         {#each rows as [rk, r] (rk)}
           {@const rowErrors = errorsAt(editor.errors, [...path, rk])}
           <tr>
-            <th scope="row" title={r.description ?? ''}>{labelOf(r, rk)}</th>
+            <th scope="row" use:tip={{ text: r.description }}>{labelOf(r, rk)}</th>
             {#each cols as [k, label, cell] (k)}
               <td>
                 <Field

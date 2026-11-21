@@ -6,6 +6,7 @@
   import { getEditor } from '../state.svelte';
   import Field from './Field.svelte';
   import FieldMeta from './FieldMeta.svelte';
+  import { tip } from './tip';
   import { errorsAt, labelOf, newRow, type Node } from './schema';
 
   let { path, node }: { path: Path; node: Node } = $props();
@@ -55,7 +56,9 @@
 
 <div class="array-table">
   <div class="table-head">
-    <span class="title">{labelOf(node, String(path.at(-1)))}</span>
+    <span class="title" use:tip={{ text: node.description }}>
+      {labelOf(node, String(path.at(-1)))}
+    </span>
     <FieldMeta {path} {node} />
     <small class="muted">{rows.length} {rows.length === 1 ? 'row' : 'rows'}</small>
     <span class="spacer"></span>
@@ -73,7 +76,7 @@
         <tr>
           <th class="idx">#</th>
           {#each cols as [k, c] (k)}
-            <th title={c.description ?? ''}>{header(c, k)}</th>
+            <th use:tip={{ text: c.description }}>{header(c, k)}</th>
           {/each}
           <th class="ops"><span class="sr">Row actions</span></th>
         </tr>
