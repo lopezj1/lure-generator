@@ -47,7 +47,8 @@ docker compose -f docker/compose.yml ps        # STATUS shows (healthy) after ~2
 curl http://localhost:8000/api/health
 ```
 
-Open `http://<server-lan-ip>:8000/`.
+Open `http://<server-lan-ip>:8000/`. If port 8000 is taken on the host, set `LUREGEN_PORT`
+(e.g. `LUREGEN_PORT=8010 docker compose …`); the container still listens on 8000 inside.
 
 The host user should be UID 1000. Otherwise, change `user:` in `docker/compose.yml` to
 `"$(id -u):$(id -g)"`. Orca then has no home directory to write its config to, so also add
