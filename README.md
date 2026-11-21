@@ -15,8 +15,8 @@ Hobby project. The plan and progress live in the GitHub issues: epic #1 (pipelin
 | Profile | `lure profile <photo>` | Station table (CSV) from a side-profile photo, with a debug overlay. A sheet of paper, an ArUco marker or a known length for scale. |
 | Build | `lure build <variant.toml>` | Head and tail sections with joint, cavity, ballast and trim pockets and screw-eye bosses. A balance solver tunes walls, keel and ballast to the sink target and level hang across the hardware weight range. DFM rules check the result. STEP/STL, `report.json`/`report.md`, `resolved.toml`. |
 | Check | `lure check <build>` | Re-runs the DFM rules on an existing build. |
-| Print | `lure fab <build> --format print` | Upright sections sliced with OrcaSlicer for the U1: tree supports with a PLA/PETG interface under the belly, thumbnails, optional pause. |
-| CNC | `lure fab <build> --format cnc` | Two glued halves: glue-face pockets, wire groove and flip pins (setup 1), then 3D roughing, 1/32" finishing and cut-out with tabs (setup 2). One `.nc` per tool by default (BitSetter tool changes), a setup sheet and a cut simulation. |
+| Print | `lure fab <build> --format print [--parts fin]` | Upright sections sliced with OrcaSlicer for the U1: tree supports with a PLA/PETG interface under the belly, thumbnails, optional pause. A separate TPU tail fin is sliced on its own, flat, on the TPU tool (also for CNC builds, which print only the fin). |
+| CNC | `lure fab <build> --format cnc` | Two glued halves: glue-face pockets (ballast, air, the fin slot), wire groove and flip pins (setup 1), then 3D roughing, 1/32" finishing and cut-out with tabs (setup 2). One `.nc` per tool by default (BitSetter tool changes), a setup sheet and a cut simulation. |
 | Web app | `lure serve` | Parameter editor in tabs, 3D model with section planes, print and CNC generation with toolpath previews, build history and compare, downloads, live jobs. |
 
 Sample variant (`striper_175_petg`, PETG print): 74 g (2.6 oz), slow sink at 1.04 g/cm³, CG within 0.5 mm of CB fore/aft, about 2 h 45 min to print both sections.

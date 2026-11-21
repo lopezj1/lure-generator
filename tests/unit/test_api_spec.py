@@ -53,17 +53,23 @@ def test_designs_and_variants(client):
         {
             "family": "glide",
             "path": "spec/designs/glide/family.toml",
-            "variants": ["striper_175_petg"],
+            "variants": ["glide_2oz_tpu_fin", "striper_175_petg"],
         }
     ]
     variants = client.get("/api/designs/glide/variants").json()
     assert variants == [
         {
+            "name": "glide_2oz_tpu_fin",
+            "path": "spec/designs/glide/variants/glide_2oz_tpu_fin.toml",
+            "method": "print",
+            "material": "PETG",
+        },
+        {
             "name": "striper_175_petg",
             "path": "spec/designs/glide/variants/striper_175_petg.toml",
             "method": "print",
             "material": "PETG",
-        }
+        },
     ]
     assert client.get("/api/designs/nope/variants").status_code == 404
 
