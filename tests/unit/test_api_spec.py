@@ -155,6 +155,75 @@ def test_form_schema(client):
     assert ui["hardware"]["ui:options"]["orderable"] is True
 
 
+def test_form_schema_groups(client):
+    """#121: every node carries an editor group and level; tables get layout hints."""
+    schema = client.get("/api/schema/lure-config").json()["schema"]
+    ids = [g["id"] for g in schema["x-groups"]]
+    assert ids == ["shape", "weight", "hardware", "print", "cnc", "advanced"]
+    props = schema["properties"]
+
+    def leaves(node, path=()):
+        if node.get("type") == "object" and node.get("properties"):
+            for k, v in node["properties"].items():
+                yield from leaves(v, (*path, k))
+        else:
+            yield path, node
+
+    for path, node in leaves(schema):
+        assert node["x-group"] in ids, path
+        assert node["x-level"] in ("basic", "advanced"), path
+
+    length = props["size"]["properties"]["length_mm"]
+    assert (length["x-group"], length["x-level"]) == ("shape", "basic")
+    assert (length["x-label"], length["x-unit"]) == ("Length", "mm")
+    assert props["size"]["x-level"] == "basic"  # a child is basic
+    smoothing = props["profile"]["properties"]["smoothing"]
+    assert (smoothing["x-group"], smoothing["x-level"]) == ("shape", "advanced")
+    assert props["solver"]["x-group"] == "advanced"
+    # dfm spans two tabs: its children go to Print and CNC.
+    assert props["dfm"]["x-groups-in"] == ["cnc", "print"]
+    assert props["dfm"]["properties"]["print"]["x-group"] == "print"
+
+    hardware = props["hardware"]
+    assert hardware["x-layout"] == "table" and hardware["x-group"] == "hardware"
+    cols = hardware["items"]["properties"]
+    assert cols["x_mm"]["x-level"] == "basic" and cols["density"]["x-level"] == "advanced"
+    assert props["buoyancy"]["properties"]["sink_bands"]["x-layout"] == "table"
+    assert props["print"]["properties"]["overrides"]["x-layout"] == "keyvalue"
+    assert props["dfm"]["properties"]["cnc"]["properties"]["tools"]["x-layout"] == "list"
+    assert props["internals"]["x-rows"] == ["head", "tail"]
+    assert "finish3d" in props["cnc"]["properties"]["ops"]["x-rows"]
+
+
+def test_form_schema_unmapped_fields_default_to_advanced():
+    """A field missing from FIELD_GROUPS takes its parent's group as advanced (#121)."""
+    from luregen.api.formschema import postprocess_schema
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "size": {
+                "type": "object",
+                "properties": {
+                    "length_mm": {"type": "number"},
+                    "new_knob_mm": {"type": "number"},
+                },
+            },
+            "brand_new": {"type": "object", "properties": {"x": {"type": "number"}}},
+        },
+    }
+    out, _ = postprocess_schema(schema, {})
+    size = out["properties"]["size"]["properties"]
+    assert (size["length_mm"]["x-group"], size["length_mm"]["x-level"]) == ("shape", "basic")
+    assert (size["new_knob_mm"]["x-group"], size["new_knob_mm"]["x-level"]) == (
+        "shape",
+        "advanced",
+    )
+    new = out["properties"]["brand_new"]
+    assert (new["x-group"], new["x-level"]) == ("advanced", "advanced")
+    assert new["properties"]["x"]["x-group"] == "advanced"
+
+
 def test_validate(client):
     config = _load(client)["resolved"]
     url = f"{VARIANT_URL}/validate"
