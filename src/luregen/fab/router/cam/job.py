@@ -450,7 +450,7 @@ def surface_warnings(ctx: st.OpCtx, lib: ToolLibrary, cfg: LureConfig) -> list[s
         if entry.flute_length and -deepest > entry.flute_length:
             out.append(
                 f"finish3d: {tool} reaches {-deepest:.1f} mm below the stock top with "
-                f"{entry.flute_length:g} mm flutes (assumed, #28): the shank limits deep "
+                f"{entry.flute_length:g} mm flutes: the shank limits deep "
                 "walls (see sim leftover)"
             )
     return out
@@ -512,14 +512,24 @@ def post_glue_up_steps(report: dict) -> list[str]:
 
 def dfm_warnings(cfg: LureConfig, lib: ToolLibrary, layout: st.Layout, cuts: dict) -> list[str]:
     out = []
-    limit = cfg.dfm.cnc.max_pocket_depth_x_dia
-    cut_depth = layout.thickness + cfg.cnc.cutout_overcut_mm
+    profile = cfg.cnc.ops.profile.tool
+    flutes = lib.tools[profile].flute_length
     d = cuts["profile"].tool.diameter
-    if cut_depth > limit * d:
-        out.append(
-            f"cut-out depth {cut_depth:.1f} mm > {limit:g} × {d:g} mm tool "
-            "(dfm.cnc.max_pocket_depth_x_dia): check the flute length"
-        )
+    if flutes is not None:
+        # The overcut into the spoilboard may run on the shank; the board itself needs flutes.
+        if layout.thickness > flutes:
+            out.append(
+                f"cut-out through {layout.thickness:.1f} mm stock > {profile} flute length "
+                f"{flutes:g} mm"
+            )
+    else:
+        limit = cfg.dfm.cnc.max_pocket_depth_x_dia
+        cut_depth = layout.thickness + cfg.cnc.cutout_overcut_mm
+        if cut_depth > limit * d:
+            out.append(
+                f"cut-out depth {cut_depth:.1f} mm > {limit:g} × {d:g} mm tool "
+                "(dfm.cnc.max_pocket_depth_x_dia): set flute_length in tools.toml"
+            )
     for kind, cut in cuts.items():
         if kind == "face" and layout.face <= 0:
             continue

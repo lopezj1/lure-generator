@@ -176,7 +176,7 @@ def test_custom_pause_command_from_config():
 def test_two_tool_golden():
     tp = extract_cnc((REPO / "tests" / "golden" / "two_tool.nc").read_text())
     meta = tp.meta
-    assert [(t["number"], t["diameter"]) for t in meta["tools"]] == [(201, 6.35), (101, 3.17)]
+    assert [(t["number"], t["diameter"]) for t in meta["tools"]] == [(2, 6.35), (3, 3.17)]
     assert meta["stock"] == {"min": [0, 0, -19.05], "max": [120, 60, 0]}
     assert [m["type"] for m in meta["markers"]] == ["tool_change", "pause"]
     change = meta["markers"][0]

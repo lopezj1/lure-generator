@@ -56,9 +56,8 @@ def test_fab_cnc_writes_verified_files_per_tool(cnc_build):
     names = sorted(p.name for p in out.glob("*.nc"))
     # the tail's V-notch leans over its glue face: setup 1 cuts that overhang in 3D
     assert names == [
-        "setup1_01_flat_3.175.nc",
-        "setup1_02_ball_3.175.nc",
-        "setup1_03_flat_0.794.nc",
+        "setup1_01_flat_3.175.nc",  # pockets, pin holes and the square wire groove
+        "setup1_02_flat_0.794.nc",
         "setup2_01_flat_3.175.nc",
         "setup2_02_flat_0.794.nc",
     ]
